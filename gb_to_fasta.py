@@ -156,9 +156,9 @@ def build_header(record, feature, qualifier_list):
 		location = str(int(str(feature.location.nofuzzy_start))+1) + ":" + \
 		str(feature.location.nofuzzy_end) 
 		if feature.strand == 1:
-			location = location + ' Forward'
+			location = location + ' Forward ' + record.name
 		elif feature.strand == -1:
-			location = location + ' Reverse'
+			location = location + ' Reverse ' + record.name
 		else:
 			location = location + ' Could not determine strand'
 	if 'location_long' in qualifier_list:
@@ -181,6 +181,7 @@ def build_header(record, feature, qualifier_list):
 			#Finished with the special cases, now just getting plain old qualifiers
 			if feature.qualifiers.has_key(item):
 				header_part = feature.qualifiers[item][0]
+#				print header_part," ",item
 				#Catch improper newline character in the middle of features.
 				header_part = header_part.replace("\n"," ")
 				#Catch inproper spaces in middle of feature and replace with single space.
@@ -190,9 +191,9 @@ def build_header(record, feature, qualifier_list):
 					header.append('None')
 				else:
 					header.append(header_part)
-			else:
-				header_part = record.definition
-				header.append(header_part)
+#			else:
+#				header_part = record.name
+#				header.append(header_part)
 	return delimiter.join(header)
 
 
