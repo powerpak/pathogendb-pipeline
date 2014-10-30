@@ -48,11 +48,8 @@ end
 desc "Checks environment variables and requirements before running tasks"
 task :check => ["#{REPO_DIR}/scripts/env.sh", :env] do
   env_error = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
-  unless `python --version 2>&1` == "Python 2.7.6\n"
-    #abort "python on PATH should be Python 2.7.6\n#{env_error}"
-  end
-  if `python -c "import Bio" 2>&1` =~ /ImportError/
-    abort "BioPython is required\n#{env_error}"
+  unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
+    abort "You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
   unless ENV['SMRTPIPE'] && File.exists?("#{ENV['SMRTPIPE']}/example_params.xml")
     abort "SMRTPIPE must be set to the directory containing example_params.xml for smrtpipe.py.\n#{env_error}"
@@ -110,8 +107,7 @@ desc "Uses smrtpipe.py to assemble raw reads from PacBio within OUT directory"
 task :assemble_raw_reads => [:check, "data/polished_assembly.fasta.gz"]
 file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
   system <<-SH
-    module unload gcc/4.8.2
-    module load smrtanalysis/2.0.1
+    module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/current/etc/setup.sh
     fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
     cp #{ENV['SMRTPIPE']}/example_params.xml \.

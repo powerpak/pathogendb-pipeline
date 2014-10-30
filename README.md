@@ -2,28 +2,32 @@
 
 ## Requirements
 
-Linux and Mac computers are supported.  You'll need Ruby ≥1.9.2, RubyGems, and some basic gems, which will be installed with Bundler.
-
-On most Macs, you'll only need to run `sudo gem install bundler` because you already have Ruby 2.0.0 and RubyGems, as of Mavericks (10.9).
-
-On Linux, I defer either to your package manager or your raging desire to build from source.
-
-In both cases, [rbenv](https://github.com/sstephenson/rbenv) might help if your system Ruby is out of date.
+As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modules and software found on that cluster.  In due time, it might be made portable to other systems...
 
 ## Usage
 
-First, clone this repository to a directory and `cd` into it.  Then:
+First, clone this repository to a directory and `cd` into it.  You'll want to configure and setup your env first using an included script:
 
-    $ bundle install
+    $ cp scripts/env.example.sh scripts/env.sh
+    $ $EDITOR scripts/env.sh
+    $ source scripts/env.sh
 
-to install the required gems.  Bundler may prompt you for your password if it needs to write to a system directory.
+At the moment, there's not much to edit there in the second step, as the defaults should work for any Minerva user.  Then:
 
-Then, since we're just testing out bare functionality right now, use
+    $ bundle install --deployment
 
-    $ rake test
+to install the required gems locally into the `vendor/bundle` directory.  Then run `rake -T` to see the available tasks, and you can run them with `rake $TASK_NAME`.
 
-to create some test files in the `inputs` directory, and then
+## Environment variables
 
-    $ rake
+Certain tasks within the pipeline require you to specify some extra information as an environment variable.  You can do this by either editing them into `scripts/env.sh` and re-running `source scripts/env.sh`, or you can prepend them to the `rake` invocation, e.g.:
 
-will run a fake pipeline on those inputs to produce a host of outputs.
+    $ SMRT_JOB_ID=019194 rake pull_down_raw_reads
+
+If a required environment variable isn't present when a task is run, rake will abort with an error message.
+
+Variable      | Required by           | Default | Purpose
+--------------|-----------------------|---------|-----------------------------------
+`OUT`         | all tasks             | ./out   | This is where your interim files are saved.
+`SMRT_JOB_ID` | `pull_down_raw_reads` | (none)  | The ID of the job on the SMRT Portal with your reads.
+`STRAIN_NAME` | `resequence_assembly` | (none)  | The strain name for your sample.
