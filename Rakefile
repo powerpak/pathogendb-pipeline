@@ -37,7 +37,7 @@ file "#{REPO_DIR}/scripts/env.sh" => "#{REPO_DIR}/scripts/env.example.sh" do
 end
 
 desc "Checks environment variables and requirements before running tasks"
-task :check => ["#{REPO_DIR}/scripts/env.sh", :env] do
+task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas] do
   env_error = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "You must have the smrtpipe/2.2.0 module in your MODULEPATH."
@@ -164,7 +164,7 @@ desc "Submits the circularized assembly to RAST for annotations"
 task :rast_annotate => [:check, "data/#{STRAIN_NAME}_consensus_rast.fna", 
     "data/#{STRAIN_NAME}_consensus_rast.gbk", "data/#{STRAIN_NAME}_consensus_rast_aa.fa"]
 
-file "data/#{STRAIN_NAME}_consensus_rast.gbk" => [:sas, "data/#{STRAIN_NAME}_consensus.fasta"] do |t|
+file "data/#{STRAIN_NAME}_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_consensus.fasta"] do |t|
   abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task rast_annotate requires specifying SPECIES" unless SPECIES 
   
@@ -175,21 +175,32 @@ file "data/#{STRAIN_NAME}_consensus_rast.gbk" => [:sas, "data/#{STRAIN_NAME}_con
   ]
   system "perl #{REPO_DIR}/scripts/test_server.pl oattie sessiz_ev genbank #{rast_job}"
   sleep 120
-  system "svr_retrieve_RAST_job oattie sessiz_ev #{rast_job} genbank > data/#{STRAIN_NAME}_consensus_rast.gbk"
+  loop do
+    success = system <<-SH
+      svr_retrieve_RAST_job oattie sessiz_ev #{rast_job} genbank > data/#{STRAIN_NAME}_consensus_rast.gbk
+    SH
+    break if success
+    puts "RAST output not available yet, retrying..."
+    sleep 60
+  end
 end
 
 file "data/#{STRAIN_NAME}_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
   abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
   system <<-SH
+    module load python/2.7.6
+    module load py_packages/2.7
     python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_consensus_rast.gbk -s aa \
-        -o data/#{STRAIN_NAME}_consensus_rast_aa.fa
+        -o #{OUT}/data/#{STRAIN_NAME}_consensus_rast_aa.fa
   SH
 end
 
 file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
   abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
   system <<-SH
+    module load python/2.7.6
+    module load py_packages/2.7
     python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_consensus_rast.gbk -s nt \
-        -o data/#{STRAIN_NAME}_consensus_rast.fna
+        -o #{OUT}/data/#{STRAIN_NAME}_consensus_rast.fna
   SH
 end
