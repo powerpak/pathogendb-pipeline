@@ -140,22 +140,22 @@ file "data/consensus.fasta" => "data/polished_assembly_circularized.fasta" do |t
   abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless strain_name 
   
   mkdir_p "circularized_sequence"
-  system <<-SH
+  system <<-SH or abort
     module load smrtpipe/2.2.0
-    source #{ENV['SMRTANALYSIS']}/etc/setup.sh
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     referenceUploader -c -p circularized_sequence -n #{strain_name} -f data/polished_assembly_circularized.fasta
   SH
-  system "cp #{ENV['SMRTPIPE']}/resequence_example_params.xml \."
+  cp "#{ENV['SMRTPIPE']}/resequence_example_params.xml", OUT
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
-      "#{OUT} circularized_sequence/#{strain_name} > resequence_params.xml"
-  system <<-SH
+      "#{OUT} circularized_sequence/#{strain_name} > resequence_params.xml" and
+  system <<-SH or abort
     module load smrtpipe/2.2.0
-    source #{ENV['SMRTANALYSIS']}/etc/setup.sh
-    samtools faidx circularized_sequence/#{strain_name}/sequence/#{strain_name}.fasta
-    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    samtools faidx circularized_sequence/#{strain_name}/sequence/#{strain_name}.fasta &&
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml &&
+    gunzip data/consensus.fasta.gz
   SH
-  system "gunzip data/consensus.fasta.gz"
-  system "cp data/consensus.fasta data/#{strain_name}_consensus.fasta"
+  cp "data/consensus.fasta", "data/#{strain_name}_consensus.fasta"
 end
 
 
