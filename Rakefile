@@ -54,7 +54,7 @@ task :check => ["#{REPO_DIR}/scripts/env.sh", :env] do
   unless ENV['SMRTPIPE'] && File.exists?("#{ENV['SMRTPIPE']}/example_params.xml")
     abort "SMRTPIPE must be set to the directory containing example_params.xml for smrtpipe.py.\n#{env_error}"
   end
-  unless ENV['SMRTANALYSIS'] && File.exists?("#{ENV['SMRTANALYSIS']}/current/etc/setup.sh")
+  unless ENV['SMRTANALYSIS'] && File.exists?("#{ENV['SMRTANALYSIS']}/etc/setup.sh")
     abort <<-ERRMSG
       SMRTANALYSIS must be set to the ROOT directory for the SMRT Analysis package, v2.2.0.
       This software can be downloaded from http://www.pacb.com/devnet/
@@ -88,15 +88,18 @@ desc "Uses scripts/ccs_get.py to save raw reads from PacBio to OUT directory"
 task :pull_down_raw_reads => [:check, "bash5.fofn"]  # <-- file(s) created by this task
 file "bash5.fofn" do |t, args|                       # <-- implementation for generating each of these files
   job_id = ENV['SMRT_JOB_ID'] # an example that works is 019194
-  abort "Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
+  abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   
-  system "python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i"
-  system "ls *bax.h5 > bash5.fofn"
+  system <<-SH
+    python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
+    find #{OUT}/*bax.h5 > bash5.fofn
+  SH
   # NOTE: we will change the above to not fetch the full sequence, but rather symlink to it on minerva, like so
   #       we could even skip straight to circularize_assembly if the polished_assembly.fasta is already there
-  # cp "/sc/orga/projects/pacbio/user_data*/*/#{job_id[0..3]}/#{job_id}/input.fofn" "bash5.fofn"
+  # cp /sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..3]}/#{job_id}/input.fofn baxh5.fofn
   # mkdir_p "data"
-  # cp "/sc/orga/projects/pacbio/user_data*/*/#{job_id[0..3]}/#{job_id}/data/polished_assembly.fasta" "data/"
+  # ln -s /sc/orga/projects/pacbio/userdata_permanent/jobs/data/#{job_id[0..3]}/#{job_id}/polished_assembly.fasta <input assembly file name>
+
 end
 
 # ======================
@@ -108,10 +111,10 @@ task :assemble_raw_reads => [:check, "data/polished_assembly.fasta.gz"]
 file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
   system <<-SH
     module load smrtpipe/2.2.0
-    source #{ENV['SMRTANALYSIS']}/current/etc/setup.sh
-    fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
-    cp #{ENV['SMRTPIPE']}/example_params.xml \.
-    smrtpipe.py -D NPROC=16 -D CLUSTER=BASH -D MAX_THREADS=16 --params example_params.xml xml:bash5.xml -D TMP=#{ENV['TMP']}
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    fofnToSmrtpipeInput.py bash5.fofn > bash5.xml &&
+    cp #{ENV['SMRTPIPE']}/example_params.xml \. &&
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml 
   SH
 end
 
@@ -122,8 +125,8 @@ end
 desc "Circularizes the PacBio assembly"
 task :circularize_assembly => [:check, "data/polished_assembly_circularized.fasta"]
 file "data/polished_assembly_circularized.fasta" => "data/polished_assembly.fasta.gz" do |t|
-  system("gunzip data/polished_assembly.fasta.gz")
-  system("#{REPO_DIR}/scripts/circularizeContig.pl data/polished_assembly.fasta")
+  system "gunzip -c data/polished_assembly.fasta.gz >data/polished_assembly.fasta" and
+  system "#{REPO_DIR}/scripts/circularizeContig.pl data/polished_assembly.fasta"
 end
 
 # =======================
@@ -133,21 +136,23 @@ end
 desc "Resequences the circularized assembly"
 task :resequence_assembly => [:check, "data/consensus.fasta"]
 file "data/consensus.fasta" => "data/polished_assembly_circularized.fasta" do |t|
-  strain_name = ENV['STRAIN_NAME'] # an example that works is 019194
-  abort "Task resequence_assembly requires specifying STRAIN_NAME" unless job_id
+  strain_name = ENV['STRAIN_NAME'] 
+  abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless strain_name 
   
   mkdir_p "circularized_sequence"
   system <<-SH
-    source #{SMRTANALYSIS}/current/etc/setup.sh
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh
     referenceUploader -c -p circularized_sequence -n #{strain_name} -f data/polished_assembly_circularized.fasta
   SH
-  system "cp #{SMRTPIPE}/resequence_example_params.xml \."
+  system "cp #{ENV['SMRTPIPE']}/resequence_example_params.xml \."
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
       "#{OUT} circularized_sequence/#{strain_name} > resequence_params.xml"
   system <<-SH
-    source /hpc/packages/minerva-mothra/smrtanalysis/2.2.0/ROOT/current/etc/setup.sh
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh
     samtools faidx circularized_sequence/#{strain_name}/sequence/#{strain_name}.fasta
-    smrtpipe.py -D NPROC=16 -D CLUSTER=BASH -D MAX_THREADS=16 --params resequence_params.xml xml:bash5.xml -D TMP=#{TMP}
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml
   SH
   system "gunzip data/consensus.fasta.gz"
   system "cp data/consensus.fasta data/#{strain_name}_consensus.fasta"
