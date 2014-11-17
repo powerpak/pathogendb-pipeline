@@ -163,12 +163,18 @@ end
 # = rast_annotate =
 # =================
 
-
-# Creates data/#{strain_name}_consensus.fasta
-# Creates data/#{strain_name}_consensus_rast.gbk
-# Creates data/#{strain_name}_consensus_rast_aa.fa
-# Creates data/#{strain_name}_consensus_rast.fna
-def rast_annotate(strain_name, dir1, species)
+desc "Submits the circularized assembly to RAST for annotations"
+# Besides data/#{ENV['STRAIN_NAME']}_consensus_rast.fna, this also creates:
+# data/#{ENV['STRAIN_NAME']}_consensus.fasta
+# data/#{ENV['STRAIN_NAME']}_consensus_rast.gbk
+# data/#{ENV['STRAIN_NAME']}_consensus_rast_aa.fa
+task :rast_annotate => [:check, :sas, "data/#{ENV['STRAIN_NAME']}_consensus_rast.fna"]
+file "data/#{ENV['STRAIN_NAME']}_consensus_rast.fna" => "data/#{ENV['STRAIN_NAME']}_consensus.fasta" do |t|
+  strain_name = ENV['STRAIN_NAME'] 
+  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless strain_name 
+  species = ENV['SPECIES']
+  abort "FATAL: Task rast_annotate requires specifying SPECIES" unless species 
+  
   rast_job=%x[export PERL5LIB=$PERL5LIB:/sc/orga/work/attieo02/sas/lib:/sc/orga/work/attieo02/sas/modules/lib;export PATH=$PATH:/sc/orga/work/attieo02/sas/bin;perl /sc/orga/work/attieo02/sas/plbin/svr_submit_status_retrieve.pl --user oattie --passwd sessiz_ev --fasta #{dir1}/data/#{strain_name}_consensus.fasta --domain Bacteria --bioname "#{species} #{strain_name}" --genetic_code 11 --gene_caller rast]
   system("export PERL5LIB=$PERL5LIB:/sc/orga/work/attieo02/sas/lib:/sc/orga/work/attieo02/sas/modules/lib;export PATH=$PATH:/sc/orga/work/attieo02/sas/bin; perl /sc/orga/work/attieo02/sas/test_server.pl oattie sessiz_ev genbank #{rast_job} ")
   sleep(120)
@@ -176,6 +182,7 @@ def rast_annotate(strain_name, dir1, species)
   system("python /sc/orga/work/attieo02/genbank_to_fasta_v1.1/gb_to_fasta.py -i #{dir1}/data/#{strain_name}_consensus_rast.gbk -s \'aa\' -o #{dir1}/data/#{strain_name}_consensus_rast_aa.fa")
   system("python /sc/orga/work/attieo02/genbank_to_fasta_v1.1/gb_to_fasta.py -i #{dir1}/data/#{strain_name}_consensus_rast.gbk -s \'nt\' -o #{dir1}/data/#{strain_name}_consensus_rast.fna")
 end
+
 
 # task :resequence, :job_id, :dir1, :strain, :species do |t, args|
 #   job_id=args[:job_id]
