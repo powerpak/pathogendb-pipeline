@@ -1,5 +1,6 @@
 require 'pp'
 require_relative 'lib/colors'
+require 'shellwords'
 include Colors
 
 task :default => :check
@@ -75,6 +76,17 @@ file "#{SAS_DIR}/modules/lib" => ["#{SAS_DIR}/sas.tgz"] do |t|
   Dir.chdir("#{SAS_DIR}/modules") do
     system("./BUILD_MODULES")
   end
+end
+
+file "pathogendb-pipeline.png" => [:graph]
+desc "Generates a graph of tasks, intermediate files and their dependencies from this Rakefile"
+task :graph do
+  system <<-SH
+    module load graphviz
+    STRAIN_NAME=STRAIN_NAME rake -f #{Shellwords.escape(__FILE__)} -P \
+        | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with REPO_DIR \
+        | dot -Tpng -o pathogendb-pipeline.png
+  SH
 end
 
 
