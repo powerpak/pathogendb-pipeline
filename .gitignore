@@ -1,3 +1,4 @@
+.bundle
 out
 vendor/
 scripts/env.sh

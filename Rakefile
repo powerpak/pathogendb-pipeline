@@ -2,27 +2,18 @@ require 'pp'
 require_relative 'lib/colors'
 include Colors
 
-# DEPENDENCIES
-# Centralized
-#   /hpc/users/attieo02/gitrepos/multiscale/bacterial_analysis/src/ccs_get.py
-#   /hpc/packages/minerva-mothra/smrtanalysis/2.2.0/ROOT/current/etc/setup.sh
-#   /sc/orga/projects/InfectiousDisease/smrtpipe/example_params.xml
-#   /sc/orga/projects/InfectiousDisease/smrtpipe/resequence_example_params.xml
-
-# Oliver's
-#   
-#   All of the following come from http://blog.theseed.org/downloads/sas.tgz
-#   /sc/orga/work/attieo02/sas/lib
-#   /sc/orga/work/attieo02/sas/modules/lib
-#   /sc/orga/work/attieo02/sas/plbin/svr_submit_status_retrieve.pl
-#
-#   Now in the repo
-#   /sc/orga/work/attieo02/genbank_to_fasta_v1.1/gb_to_fasta.py
-
 task :default => :check
 
 REPO_DIR = File.dirname(__FILE__)
+SAS_DIR = "#{REPO_DIR}/vendor/sas"
+
 OUT = ENV['OUT'] || "#{REPO_DIR}/out"
+
+#######
+# Other environment variables that may be set by the user for specific tasks (see README.md)
+#######
+STRAIN_NAME = ENV['STRAIN_NAME']
+SPECIES = ENV['SPECIES']
 
 #############################################################
 #  IMPORTANT!
@@ -66,19 +57,26 @@ end
 # pulls down http://blog.theseed.org/downloads/sas.tgz --> ./vendor/sas
 #   then it adds SAS libs to PERL5LIB
 #   then it adds SAS bins to PATH
-task :sas => [:env, "#{REPO_DIR}/vendor/sas/sas.tgz"] do
-  ENV['PERL5LIB'] = "#{ENV['PERL5LIB']}:#{REPO_DIR}/vendor/sas/lib:#{REPO_DIR}/vendor/sas/modules/lib"
-  ENV['PATH'] = "#{REPO_DIR}/vendor/sas/bin:#{ENV['PATH']}"
+task :sas => [:env, "#{SAS_DIR}/sas.tgz", "#{SAS_DIR}/modules/lib"] do
+  ENV['PERL5LIB'] = "#{ENV['PERL5LIB']}:#{SAS_DIR}/lib:#{SAS_DIR}/modules/lib"
+  ENV['PATH'] = "#{SAS_DIR}/bin:#{ENV['PATH']}"
 end
 
-directory "#{REPO_DIR}/vendor/sas"
-file "#{REPO_DIR}/vendor/sas" => :env
-file "#{REPO_DIR}/vendor/sas/sas.tgz" => [:env, "#{REPO_DIR}/vendor/sas"] do |t|
+directory SAS_DIR
+file "#{SAS_DIR}/sas.tgz" => [SAS_DIR] do |t|
   Dir.chdir(File.dirname(t.name)) do
     system("curl -O 'http://blog.theseed.org/downloads/sas.tgz'")
     system("tar xvzf sas.tgz")
   end
 end
+
+directory "#{SAS_DIR}/modules/lib"
+file "#{SAS_DIR}/modules/lib" => ["#{SAS_DIR}/sas.tgz"] do |t|
+  Dir.chdir("#{SAS_DIR}/modules") do
+    system("./BUILD_MODULES")
+  end
+end
+
 
 # =======================
 # = pull_down_raw_reads =
@@ -134,28 +132,27 @@ end
 # =======================
 
 desc "Resequences the circularized assembly"
-task :resequence_assembly => [:check, "data/consensus.fasta"]
-file "data/consensus.fasta" => "data/polished_assembly_circularized.fasta" do |t|
-  strain_name = ENV['STRAIN_NAME'] 
-  abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless strain_name 
+task :resequence_assembly => [:check, "data/#{STRAIN_NAME}_consensus.fasta"]
+file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circularized.fasta" do |t|
+  abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
   
   mkdir_p "circularized_sequence"
   system <<-SH or abort
     module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    referenceUploader -c -p circularized_sequence -n #{strain_name} -f data/polished_assembly_circularized.fasta
+    referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/polished_assembly_circularized.fasta
   SH
   cp "#{ENV['SMRTPIPE']}/resequence_example_params.xml", OUT
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
-      "#{OUT} circularized_sequence/#{strain_name} > resequence_params.xml" and
+      "#{OUT} circularized_sequence/#{STRAIN_NAME} > resequence_params.xml" and
   system <<-SH or abort
     module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    samtools faidx circularized_sequence/#{strain_name}/sequence/#{strain_name}.fasta &&
+    samtools faidx circularized_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml &&
     gunzip data/consensus.fasta.gz
   SH
-  cp "data/consensus.fasta", "data/#{strain_name}_consensus.fasta"
+  cp "data/consensus.fasta", "data/#{STRAIN_NAME}_consensus.fasta"
 end
 
 
@@ -164,37 +161,35 @@ end
 # =================
 
 desc "Submits the circularized assembly to RAST for annotations"
-# Besides data/#{ENV['STRAIN_NAME']}_consensus_rast.fna, this also creates:
-# data/#{ENV['STRAIN_NAME']}_consensus.fasta
-# data/#{ENV['STRAIN_NAME']}_consensus_rast.gbk
-# data/#{ENV['STRAIN_NAME']}_consensus_rast_aa.fa
-task :rast_annotate => [:check, :sas, "data/#{ENV['STRAIN_NAME']}_consensus_rast.fna"]
-file "data/#{ENV['STRAIN_NAME']}_consensus_rast.fna" => "data/#{ENV['STRAIN_NAME']}_consensus.fasta" do |t|
-  strain_name = ENV['STRAIN_NAME'] 
-  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless strain_name 
-  species = ENV['SPECIES']
-  abort "FATAL: Task rast_annotate requires specifying SPECIES" unless species 
+task :rast_annotate => [:check, "data/#{STRAIN_NAME}_consensus_rast.fna", 
+    "data/#{STRAIN_NAME}_consensus_rast.gbk", "data/#{STRAIN_NAME}_consensus_rast_aa.fa"]
+
+file "data/#{STRAIN_NAME}_consensus_rast.gbk" => [:sas, "data/#{STRAIN_NAME}_consensus.fasta"] do |t|
+  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task rast_annotate requires specifying SPECIES" unless SPECIES 
   
-  rast_job=%x[export PERL5LIB=$PERL5LIB:/sc/orga/work/attieo02/sas/lib:/sc/orga/work/attieo02/sas/modules/lib;export PATH=$PATH:/sc/orga/work/attieo02/sas/bin;perl /sc/orga/work/attieo02/sas/plbin/svr_submit_status_retrieve.pl --user oattie --passwd sessiz_ev --fasta #{dir1}/data/#{strain_name}_consensus.fasta --domain Bacteria --bioname "#{species} #{strain_name}" --genetic_code 11 --gene_caller rast]
-  system("export PERL5LIB=$PERL5LIB:/sc/orga/work/attieo02/sas/lib:/sc/orga/work/attieo02/sas/modules/lib;export PATH=$PATH:/sc/orga/work/attieo02/sas/bin; perl /sc/orga/work/attieo02/sas/test_server.pl oattie sessiz_ev genbank #{rast_job} ")
-  sleep(120)
-  system("export PERL5LIB=$PERL5LIB:/sc/orga/work/attieo02/sas/lib:/sc/orga/work/attieo02/sas/modules/lib;export PATH=$PATH:/sc/orga/work/attieo02/sas/bin; svr_retrieve_RAST_job oattie sessiz_ev #{rast_job} genbank > #{dir1}/data/#{strain_name}_consensus_rast.gbk")
-  system("python /sc/orga/work/attieo02/genbank_to_fasta_v1.1/gb_to_fasta.py -i #{dir1}/data/#{strain_name}_consensus_rast.gbk -s \'aa\' -o #{dir1}/data/#{strain_name}_consensus_rast_aa.fa")
-  system("python /sc/orga/work/attieo02/genbank_to_fasta_v1.1/gb_to_fasta.py -i #{dir1}/data/#{strain_name}_consensus_rast.gbk -s \'nt\' -o #{dir1}/data/#{strain_name}_consensus_rast.fna")
+  rast_job = %x[
+    perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user oattie --passwd sessiz_ev \
+        --fasta data/#{STRAIN_NAME}_consensus.fasta --domain Bacteria --bioname "#{SPECIES} #{STRAIN_NAME}" \
+        --genetic_code 11 --gene_caller rast
+  ]
+  system "perl #{REPO_DIR}/scripts/test_server.pl oattie sessiz_ev genbank #{rast_job}"
+  sleep 120
+  system "svr_retrieve_RAST_job oattie sessiz_ev #{rast_job} genbank > data/#{STRAIN_NAME}_consensus_rast.gbk"
 end
 
+file "data/#{STRAIN_NAME}_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
+  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  system <<-SH
+    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_consensus_rast.gbk -s aa \
+        -o data/#{STRAIN_NAME}_consensus_rast_aa.fa
+  SH
+end
 
-# task :resequence, :job_id, :dir1, :strain, :species do |t, args|
-#   job_id=args[:job_id]
-#   dir1=args[:dir1]
-#   strain_name=args[:strain]
-#   species=args[:species]
-#   pull_down_raw_reads(job_id,dir1)
-#   assemble_raw_reads(dir1)
-#   circularize_assembly(dir1)
-#   resequence_assembly(strain_name, dir1, species)
-# end
-#
-# task :circularize do
-#   circularize_assembly
-# end
+file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
+  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  system <<-SH
+    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_consensus_rast.gbk -s nt \
+        -o data/#{STRAIN_NAME}_consensus_rast.fna
+  SH
+end
