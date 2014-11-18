@@ -37,7 +37,7 @@ Certain tasks within the pipeline require you to specify some extra information 
 
     $ SMRT_JOB_ID=019194 rake pull_down_raw_reads
 
-If a required environment variable isn't present when a task is run, rake will abort with an error message.
+If a required environment variable isn't present when a task is run and there is no default value, rake will abort with an error message.
 
 Variable      | Required by                           | Default | Purpose
 --------------|---------------------------------------|---------|-----------------------------------
