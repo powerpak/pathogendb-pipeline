@@ -54,4 +54,4 @@ This Rakefile is able to build a dependency graph of its intermediate files from
 
 ## Other notes
 
-This pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included binaries and the Perl API is also on that page.
+This pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included executables and the Perl API are also on that page.
