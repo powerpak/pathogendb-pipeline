@@ -30,7 +30,7 @@ while(my ($P_defn, $P_body)=$fr->next()){
   $Length{$$P_defn}=length($$P_body);
 }
 
-open(FH, $file1."_itself.coords") or die "Can't open $file"."_itself.coords: $!\n";
+open(FH, "${file1}_itself.coords") or die "Can't open ${file}_itself.coords: $!\n";
 my $i=0;
 my $length=0;
 
@@ -49,7 +49,7 @@ my $fr1=common_util::generic::FastaReader->new();
 
 $fr1->init_file($file);
 my @contigs = keys %beginning;
-open(FH1, ">".$file1."_circularized.fasta");
+open(FH1, ">${file1}_circularized.fasta");
 
 while(my ($P_defn, $P_body)=$fr1->next()){
   for(my $i=0; $i<@contigs; $i++){
