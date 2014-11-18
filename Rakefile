@@ -125,6 +125,7 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   
   system <<-SH
+    module load python/2.7.6
     python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
     find #{OUT}/*bax.h5 > bash5.fofn
   SH
