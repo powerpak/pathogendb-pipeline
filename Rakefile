@@ -49,7 +49,7 @@ task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas] do
   end
   unless ENV['SMRTANALYSIS'] && File.exists?("#{ENV['SMRTANALYSIS']}/etc/setup.sh")
     abort <<-ERRMSG
-      FATAL: SMRTANALYSIS must be set to the ROOT directory for the SMRT Analysis package, v2.2.0.
+      FATAL: SMRTANALYSIS must be set to the ROOT directory for the SMRT Analysis package, v2.3.0.
       This software can be downloaded from http://www.pacb.com/devnet/
       #{ENV_ERROR}"
     ERRMSG
