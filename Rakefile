@@ -91,15 +91,15 @@ end
 # see http://mummer.sourceforge.net/
 task :mummer => [:env, MUMMER_DIR, "#{MUMMER_DIR}/nucmer", "#{MUMMER_DIR}/show-coords"]
 directory MUMMER_DIR
+file "#{MUMMER_DIR}/show-coords" => "#{MUMMER_DIR}/nucmer"
 file "#{MUMMER_DIR}/nucmer" do
-  system <<-SH
-    curl -L -o #{REPO_DIR}/vendor/mummer.tar.gz \
-        'http://sourceforge.net/projects/mummer/files/mummer/3.23/MUMmer3.23.tar.gz/download'
-    tar xvzf #{REPO_DIR}/vendor/mummer.tar.gz
-  SH
-  Dir.chdir(MUMMER_DIR) do
-    system "make install"
+  Dir.chdir(File.dirname(MUMMER_DIR)) do
+    system <<-SH
+      curl -L -o mummer.tar.gz 'http://sourceforge.net/projects/mummer/files/mummer/3.23/MUMmer3.23.tar.gz/download'
+      tar xvzf mummer.tar.gz  # Creates MUMMER_DIR
+    SH
   end
+  Dir.chdir(MUMMER_DIR) { system "make install" }
 end
 
 file "pathogendb-pipeline.png" => [:graph]
