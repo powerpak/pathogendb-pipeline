@@ -7,6 +7,7 @@ task :default => :check
 
 REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
+MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
 
 OUT = ENV['OUT'] || "#{REPO_DIR}/out"
 
@@ -40,7 +41,7 @@ end
 ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
 
 desc "Checks environment variables and requirements before running tasks"
-task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas] do
+task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer] do
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
@@ -74,15 +75,30 @@ end
 directory SAS_DIR
 file "#{SAS_DIR}/sas.tgz" => [SAS_DIR] do |t|
   Dir.chdir(File.dirname(t.name)) do
-    system("curl -O 'http://blog.theseed.org/downloads/sas.tgz'")
-    system("tar xvzf sas.tgz")
+    system "curl -L -O 'http://blog.theseed.org/downloads/sas.tgz'" and
+    system "tar xvzf sas.tgz"
   end
 end
 
 directory "#{SAS_DIR}/modules/lib"
 file "#{SAS_DIR}/modules/lib" => ["#{SAS_DIR}/sas.tgz"] do |t|
   Dir.chdir("#{SAS_DIR}/modules") do
-    system("./BUILD_MODULES")
+    system "./BUILD_MODULES"
+  end
+end
+
+# pulls down and compiles MUMmer 3.23, which is used by scripts/circulizeContig.pl and others
+# see http://mummer.sourceforge.net/
+task :mummer => [:env, MUMMER_DIR, "#{MUMMER_DIR}/nucmer", "#{MUMMER_DIR}/show-coords"]
+directory MUMMER_DIR
+file "#{MUMMER_DIR}/nucmer" do
+  system <<-SH
+    curl -L -o #{REPO_DIR}/vendor/mummer.tar.gz \
+        'http://sourceforge.net/projects/mummer/files/mummer/3.23/MUMmer3.23.tar.gz/download'
+    tar xvzf #{REPO_DIR}/vendor/mummer.tar.gz
+  SH
+  Dir.chdir(MUMMER_DIR) do
+    system "make install"
   end
 end
 
