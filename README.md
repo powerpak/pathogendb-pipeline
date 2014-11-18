@@ -18,13 +18,13 @@ At the moment, there's not much to edit there in the second step, as the default
 
 to install the required gems locally into the `vendor/bundle` directory.  Then run `rake -T` to see the available tasks, and you can run them with `rake $TASK_NAME`.
 
-## Dependency graph
+### Dependency graph
 
 This Rakefile is able to build a dependency graph of its intermediate files from itself.  Use the `rake graph` task for this; it will be generated at `$OUT/pathogendb-pipeline.png`.
 
 ![Dependency graph](https://pakt01.u.hpc.mssm.edu/pathogendb-pipeline.png)
 
-## Environment variables
+### Environment variables
 
 Certain tasks within the pipeline require you to specify some extra information as an environment variable.  You can do this by either editing them into `scripts/env.sh` and re-running `source scripts/env.sh`, or you can prepend them to the `rake` invocation, e.g.:
 
@@ -39,3 +39,6 @@ Variable      | Required by                           | Default | Purpose
 `STRAIN_NAME` | `resequence_assembly` `rast_annotate` | (none)  | The strain name for your sample.
 `SPECIES`     | `rast_annotate`                       | (none)  | The species for your sample.
 
+## Other notes
+
+This pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included binaries and the Perl API is also on that page.
