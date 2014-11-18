@@ -37,20 +37,21 @@ file "#{REPO_DIR}/scripts/env.sh" => "#{REPO_DIR}/scripts/env.example.sh" do
   cp "#{REPO_DIR}/scripts/env.example.sh", "#{REPO_DIR}/scripts/env.sh"
 end
 
+ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
+
 desc "Checks environment variables and requirements before running tasks"
 task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas] do
-  env_error = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
-    abort "You must have the smrtpipe/2.2.0 module in your MODULEPATH."
+    abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
   unless ENV['SMRTPIPE'] && File.exists?("#{ENV['SMRTPIPE']}/example_params.xml")
-    abort "SMRTPIPE must be set to the directory containing example_params.xml for smrtpipe.py.\n#{env_error}"
+    abort "FATAL: SMRTPIPE must be set to the directory containing example_params.xml for smrtpipe.py.\n#{ENV_ERROR}"
   end
   unless ENV['SMRTANALYSIS'] && File.exists?("#{ENV['SMRTANALYSIS']}/etc/setup.sh")
     abort <<-ERRMSG
-      SMRTANALYSIS must be set to the ROOT directory for the SMRT Analysis package, v2.2.0.
+      FATAL: SMRTANALYSIS must be set to the ROOT directory for the SMRT Analysis package, v2.2.0.
       This software can be downloaded from http://www.pacb.com/devnet/
-      #{env_error}"
+      #{ENV_ERROR}"
     ERRMSG
   end
 end
@@ -61,6 +62,13 @@ end
 task :sas => [:env, "#{SAS_DIR}/sas.tgz", "#{SAS_DIR}/modules/lib"] do
   ENV['PERL5LIB'] = "#{ENV['PERL5LIB']}:#{SAS_DIR}/lib:#{SAS_DIR}/modules/lib"
   ENV['PATH'] = "#{SAS_DIR}/bin:#{ENV['PATH']}"
+  
+  unless ENV['RAST_USER'] && ENV['RAST_USER'] != ''
+    abort "FATAL: RAST_USER must be set to your username for http://rast.nmpdr.org/\n#{ENV_ERROR}"
+  end
+  unless ENV['RAST_PASSWORD'] && ENV['RAST_PASSWORD'] != ''
+    abort "FATAL: RAST_PASSWORD must be set to your password for http://rast.nmpdr.org/\n#{ENV_ERROR}"
+  end
 end
 
 directory SAS_DIR
@@ -108,8 +116,8 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   #       we could even skip straight to circularize_assembly if the polished_assembly.fasta is already there
   # cp /sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..3]}/#{job_id}/input.fofn baxh5.fofn
   # mkdir_p "data"
-  # ln -s /sc/orga/projects/pacbio/userdata_permanent/jobs/data/#{job_id[0..3]}/#{job_id}/polished_assembly.fasta <input assembly file name>
-
+  # ln -s /sc/orga/projects/pacbio/userdata_permanent/jobs/data/#{job_id[0..3]}/#{job_id}/polished_assembly.fasta \
+  #       <input assembly file name>
 end
 
 # ======================
@@ -124,7 +132,8 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     fofnToSmrtpipeInput.py bash5.fofn > bash5.xml &&
     cp #{ENV['SMRTPIPE']}/example_params.xml \. &&
-    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml 
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF \
+        -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml 
   SH
 end
 
@@ -161,7 +170,8 @@ file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circulariz
     module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     samtools faidx circularized_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
-    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml &&
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF \
+        -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml &&
     gunzip data/consensus.fasta.gz
   SH
   cp "data/consensus.fasta", "data/#{STRAIN_NAME}_consensus.fasta"
@@ -181,15 +191,16 @@ file "data/#{STRAIN_NAME}_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_consensus
   abort "FATAL: Task rast_annotate requires specifying SPECIES" unless SPECIES 
   
   rast_job = %x[
-    perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user oattie --passwd sessiz_ev \
-        --fasta data/#{STRAIN_NAME}_consensus.fasta --domain Bacteria --bioname "#{SPECIES} #{STRAIN_NAME}" \
-        --genetic_code 11 --gene_caller rast
+    perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{ENV['RAST_USER']} \
+        --passwd #{ENV['RAST_PASSWORD']} --fasta data/#{STRAIN_NAME}_consensus.fasta --domain Bacteria \
+        --bioname "#{SPECIES} #{STRAIN_NAME}" --genetic_code 11 --gene_caller rast
   ]
-  system "perl #{REPO_DIR}/scripts/test_server.pl oattie sessiz_ev genbank #{rast_job}"
+  system "perl #{REPO_DIR}/scripts/test_server.pl #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} genbank #{rast_job}"
   sleep 120
   loop do
     success = system <<-SH
-      svr_retrieve_RAST_job oattie sessiz_ev #{rast_job} genbank > data/#{STRAIN_NAME}_consensus_rast.gbk
+      svr_retrieve_RAST_job #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} #{rast_job} genbank \
+          > data/#{STRAIN_NAME}_consensus_rast.gbk
     SH
     break if success
     puts "RAST output not available yet, retrying..."

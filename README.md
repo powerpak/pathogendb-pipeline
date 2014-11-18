@@ -2,27 +2,34 @@
 
 ## Requirements
 
-As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modules and software found on that cluster.  In due time, it might be made portable to other systems...
+As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modules and software found on that cluster.  In due time, it might be made portable to other systems.
 
 ## Usage
 
-First, clone this repository to a directory and `cd` into it.  You'll want to configure and setup your env first using an included script:
+First, clone this repository to a directory and `cd` into it.  You'll want to configure your environment first using the included script:
 
     $ cp scripts/env.example.sh scripts/env.sh
-    $ $EDITOR scripts/env.sh
+    $ $EDITOR scripts/env.sh    
+
+At a minimum, you will need to configure the following:
+
+- `RAST_USER`: username for your [RAST][rast] account
+- `RAST_PASSWORD`: password for your [RAST][rast] account
+
+[rast]: http://rast.nmpdr.org/
+
+For the rest of the variables, the defaults should work for any Minerva user.  Then, you can source the script into your shell and install required gems locally into the `vendor/bundle` directory as follows:
+
     $ source scripts/env.sh
-
-At the moment, there's not much to edit there in the second step, as the defaults should work for any Minerva user.  Then:
-
     $ bundle install --deployment
 
-to install the required gems locally into the `vendor/bundle` directory.  Then run `rake -T` to see the available tasks, and you can run them with `rake $TASK_NAME`.
+When this is complete, you should be able to run rake to kick off the pipeline as follows. However, also read **[Environment variables](#environment-variables)** below, as certain tasks require more variables to be set before being invoked.
 
-### Dependency graph
+    $ rake -T                    # list the available tasks
+    $ rake $TASK_NAME            # run the task named $TASK_NAME
+    $ FOO="bar" rake $TASK_NAME  # run $TASK_NAME with FOO set to "bar"
 
-This Rakefile is able to build a dependency graph of its intermediate files from itself.  Use the `rake graph` task for this; it will be generated at `$OUT/pathogendb-pipeline.png`.
-
-![Dependency graph](https://pakt01.u.hpc.mssm.edu/pathogendb-pipeline.png)
+When firing up the pipeline in a new shell, always remember to `source scripts/env.sh` before running `rake`.
 
 ### Environment variables
 
@@ -38,6 +45,12 @@ Variable      | Required by                           | Default | Purpose
 `SMRT_JOB_ID` | `pull_down_raw_reads`                 | (none)  | The ID of the job on the SMRT Portal with your reads.
 `STRAIN_NAME` | `resequence_assembly` `rast_annotate` | (none)  | The strain name for your sample.
 `SPECIES`     | `rast_annotate`                       | (none)  | The species for your sample.
+
+### Dependency graph
+
+This Rakefile is able to build a dependency graph of its intermediate files from itself.  Use the `rake graph` task for this; it will be generated at `$OUT/pathogendb-pipeline.png`.
+
+![Dependency graph](https://pakt01.u.hpc.mssm.edu/pathogendb-pipeline.png)
 
 ## Other notes
 
