@@ -1,8 +1,8 @@
 #!/usr/bin/perl5.10.1
 use strict;
-use lib(".");
-use common_util::generic::FastaReader;
 use File::Basename;
+use lib(dirname(__FILE__));
+use common_util::generic::FastaReader;
 
 my $repo_dir = dirname(dirname(__FILE__));
 my $fr=common_util::generic::FastaReader->new();
