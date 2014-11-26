@@ -46,7 +46,7 @@ class LSFClient
     cmd = %Q<bsub #{options_to_args(options)}>
     output = nil
     IO.popen(cmd, 'w+') do |subprocess|
-      subprocess.write(script)
+11      subprocess.write(script)
       subprocess.close_write
       subprocess.read
     end

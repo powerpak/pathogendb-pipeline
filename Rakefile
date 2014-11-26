@@ -262,7 +262,7 @@ file "data/ref.aln.sam" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
   abort "FATAL: Task recall_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
   
   LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
-  LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
+  LSF.job_name "ref.aln.sam"
   LSF.bsub_interactive <<-SH
     module load bwa/0.7.8
     bwa index "data/#{STRAIN_NAME}_consensus.fasta"
