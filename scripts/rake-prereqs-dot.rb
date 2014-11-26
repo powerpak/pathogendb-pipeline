@@ -36,6 +36,8 @@ def clean_task_name(task, options)
 end
 
 puts "digraph g {"
+puts 'size="20,20"'
+puts 'ratio="compress"'
 
 task = nil
 STDIN.each_line do |line|
