@@ -1,9 +1,12 @@
 require 'pp'
 require_relative 'lib/colors'
+require_relative 'lib/lsf_client'
 require 'shellwords'
 include Colors
 
 task :default => :check
+
+LSF = LSFClient.new
 
 REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
@@ -16,6 +19,7 @@ OUT = ENV['OUT'] || "#{REPO_DIR}/out"
 #######
 STRAIN_NAME = ENV['STRAIN_NAME']
 SPECIES = ENV['SPECIES']
+ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ']
 
 #############################################################
 #  IMPORTANT!
@@ -243,4 +247,70 @@ file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_
     python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_consensus_rast.gbk -s nt \
         -o #{OUT}/data/#{STRAIN_NAME}_consensus_rast.fna
   SH
+end
+
+
+# ====================
+# = recall_consensus =
+# ====================
+
+desc "Recalls a consensus for SNPs by piling Illumina reads onto a PacBio assembly"
+task :recall_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf"]
+
+file "data/ref.aln.sam" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
+  abort "FATAL: Task recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task recall_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
+  
+  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
+  LSF.bsub_interactive <<-SH
+    module load bwa/0.7.8
+    bwa index "data/#{STRAIN_NAME}_consensus.fasta"
+    bwa mem "data/#{STRAIN_NAME}_consensus.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/ref.aln.sam
+  SH
+end
+
+file "data/ref.sort.bam" => "data/ref.aln.sam" do |t|
+  # Use samtools to convert ref.aln.sam into a .bam file and sort the .bam file
+  # This produces ref.sort.bam.
+  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.job_name "ref.sort.bam"
+  LSF.bsub_interactive <<-SH
+    module load samtools/1.1
+    samtools view -bS data/ref.aln.sam > data/ref.aln.bam
+    samtools sort data/ref.aln.bam data/ref.sort
+  SH
+end
+
+file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
+  abort "FATAL: Task recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  # Use mpileup to do the consensus calling.
+  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
+  LSF.bsub_interactive <<-SH
+    module load samtools/1.1
+    module load bcftools/1.1
+    samtools mpileup -uf "data/#{STRAIN_NAME}_consensus.fasta" data/ref.sort.bam \
+        | bcftools call -cv -Ob > "data/#{STRAIN_NAME}_ref_raw.bcf"
+  SH
+end
+
+file "data/#{STRAIN_NAME}_ref_flt.vcf" => "data/#{STRAIN_NAME}_ref_raw.bcf" do |t|
+  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.job_name "#{STRAIN_NAME}_ref_flt.vcf"
+  LSF.bsub_interactive <<-SH
+    module load samtools/1.1
+    module load bcftools/1.1
+    bcftools view "data/#{STRAIN_NAME}_ref_raw.bcf" | vcfutils.pl varFilter > "data/#{STRAIN_NAME}_ref_flt.vcf"
+  SH
+end
+
+desc "Fakes the prerequisites for the recall_consensus task"
+task :recall_consensus_fake_prereqs do
+  abort "FATAL: Task recall_consensus_fake_prereqs requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  mkdir_p "log"
+  touch "bash5.fofn"                                  and sleep 1
+  touch "data/polished_assembly.fasta.gz"             and sleep 1
+  touch "data/polished_assembly_circularized.fasta"   and sleep 1
+  touch "data/#{STRAIN_NAME}_consensus.fasta"
 end
