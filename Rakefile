@@ -60,6 +60,8 @@ task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer] do
       #{ENV_ERROR}"
     ERRMSG
   end
+  mkdir_p ENV['TMP'] or abort "FATAL: set TMP to a directory that can store scratch files"
+  mkdir_p ENV['SHARED_DIR'] or abort "FATAL: set SHARED_DIR to a directory that can store scratch files"
 end
 
 # pulls down http://blog.theseed.org/downloads/sas.tgz --> ./vendor/sas
