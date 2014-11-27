@@ -1,4 +1,5 @@
 require 'pp'
+require 'net/http'
 require_relative 'lib/colors'
 require_relative 'lib/lsf_client'
 require 'shellwords'
@@ -125,20 +126,32 @@ end
 desc "Uses scripts/ccs_get.py to save raw reads from PacBio to OUT directory"
 task :pull_down_raw_reads => [:check, "bash5.fofn"]  # <-- file(s) created by this task
 file "bash5.fofn" do |t, args|                       # <-- implementation for generating each of these files
-  job_id = ENV['SMRT_JOB_ID'] # an example that works is 019194
+  job_id = ENV['SMRT_JOB_ID'] # Examples that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
-  
-  system <<-SH
-    module load python/2.7.6
-    python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
-    find #{OUT}/*bax.h5 > bash5.fofn
-  SH
-  # NOTE: we will change the above to not fetch the full sequence, but rather symlink to it on minerva, like so
-  #       we could even skip straight to circularize_assembly if the polished_assembly.fasta is already there
-  # cp /sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..3]}/#{job_id}/input.fofn baxh5.fofn
-  # mkdir_p "data"
-  # ln -s /sc/orga/projects/pacbio/userdata_permanent/jobs/data/#{job_id[0..3]}/#{job_id}/polished_assembly.fasta \
-  #       <input assembly file name>
+  pacbio_job_dir = "/sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..2]}/#{job_id}"
+  smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
+    
+  if File.exist? "#{pacbio_job_dir}/input.fofn"
+    cp "#{pacbio_job_dir}/input.fofn", "bash5.fofn"
+    mkdir_p "data"
+    if File.exist? "#{pacbio_job_dir}/data/polished_assembly.fasta.gz"
+      ln_s "#{pacbio_job_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
+    end
+  else
+    url = URI.parse(smrtpipe_log_url)
+    req = Net::HTTP.new(url.host, url.port)
+    res = req.request_head(url.path)
+    unless res.code == "200"
+      abort "FATAL: Task pull_down_raw_reads cannot find a way to fetch reads for that SMRT_JOB_ID"
+    end
+    
+    puts "<< Fetching reads with ccs_get.py >>"
+    system <<-SH
+      module load python/2.7.6
+      python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
+      find #{OUT}/*bax.h5 > bash5.fofn
+    SH
+  end
 end
 
 # ======================
@@ -148,6 +161,12 @@ end
 desc "Uses smrtpipe.py to assemble raw reads from PacBio within OUT directory"
 task :assemble_raw_reads => [:check, "data/polished_assembly.fasta.gz"]
 file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
+  lstat = File::lstat("data/polished_assembly.fasta.gz") rescue nil
+  if lstat and lstat.symlink?
+    puts "NOTICE: polished_assembly.fasta.gz is symlinked to an existing assembly, skipping assemble_raw_reads"
+    next
+  end
+  
   system <<-SH
     module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
