@@ -125,7 +125,7 @@ end
 # = pull_down_raw_reads =
 # =======================
 
-desc "Uses scripts/ccs_get.py to save raw reads from PacBio to OUT directory"
+desc "Copies or downloads raw reads from a PacBio job to the OUT directory"
 task :pull_down_raw_reads => [:check, "bash5.fofn"]  # <-- file(s) created by this task
 file "bash5.fofn" do |t, args|                       # <-- implementation for generating each of these files
   job_id = ENV['SMRT_JOB_ID'] # Examples that work are: 019194, 020266
@@ -163,19 +163,24 @@ end
 desc "Uses smrtpipe.py to assemble raw reads from PacBio within OUT directory"
 task :assemble_raw_reads => [:check, "data/polished_assembly.fasta.gz"]
 file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
+    fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
+  SH
+  
   lstat = File::lstat("data/polished_assembly.fasta.gz") rescue nil
   if lstat and lstat.symlink?
     puts "NOTICE: polished_assembly.fasta.gz is symlinked to an existing assembly, skipping assemble_raw_reads"
     next
   end
   
+  cp "#{ENV['SMRTPIPE']}/example_params.xml", "."
   system <<-SH
     module load smrtpipe/2.2.0
-    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    fofnToSmrtpipeInput.py bash5.fofn > bash5.xml &&
-    cp #{ENV['SMRTPIPE']}/example_params.xml \. &&
+    source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF \
-        -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml 
+        -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml
   SH
 end
 
