@@ -4,7 +4,7 @@
 
 As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modules and software found on that cluster.  In due time, it might be made portable to other systems.
 
-Currently, you also need to be in the `pacbioUsers` group on Minerva and have access to the `premium` LSF queue and the acc_PBG LSF account.
+Currently, you also need to be in the `pacbioUsers` group on Minerva and have access to the `premium` LSF queue and the `acc_PBG` LSF account.
 
 ## Usage
 
