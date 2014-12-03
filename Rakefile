@@ -13,7 +13,7 @@ REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
 MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
 
-OUT = ENV['OUT'] || "#{REPO_DIR}/out"
+OUT = File.expand_path(ENV['OUT'] || "#{REPO_DIR}/out")
 
 #######
 # Other environment variables that may be set by the user for specific tasks (see README.md)
