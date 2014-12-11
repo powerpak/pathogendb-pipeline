@@ -192,7 +192,7 @@ desc "Circularizes the PacBio assembly"
 task :circularize_assembly => [:check, "data/polished_assembly_circularized.fasta"]
 file "data/polished_assembly_circularized.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system "gunzip -c data/polished_assembly.fasta.gz >data/polished_assembly.fasta" and
-  system "#{REPO_DIR}/scripts/circularizeContig.pl data/polished_assembly.fasta"
+  system "#{REPO_DIR}/scripts/circularizeContigs.pl -i data/polished_assembly.fasta"
 end
 
 # =======================
