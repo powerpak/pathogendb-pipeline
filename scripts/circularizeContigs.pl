@@ -1,15 +1,15 @@
-#!/usr/bin/perl5.10.1
+#!/usr/bin/perl
 
 # GENERAL MODULES
 use strict;
 use warnings;
 use Getopt::Long;
 use File::Basename;
-
-# SET REPO AND LIB DIR
-$ENV{REPO_DIR} ||= dirname(dirname(__FILE__));
-use lib("$ENV{REPO_DIR}/scripts");
+use lib(dirname(__FILE__));
 use common_util::generic::FastaReader;
+
+# SET REPO DIR
+$ENV{REPO_DIR} ||=  dirname(dirname(__FILE__));
 
 # GET ARGUMENTS
 my $sHelp        = 0;
