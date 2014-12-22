@@ -36,7 +36,7 @@ def clean_task_name(task, options)
 end
 
 puts "digraph g {"
-puts 'size="20,20"'
+puts 'size="30,12"'
 puts 'ratio="compress"'
 
 task = nil

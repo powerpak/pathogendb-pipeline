@@ -304,29 +304,24 @@ end
 desc "Recalls a new consensus by piling Illumina reads onto a PacBio assembly"
 task :recall_ilm_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_consensus.fasta"]
 
-file "data/ref.aln.sam" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
+file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
   abort "FATAL: Task recall_ilm_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task recall_ilm_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
   
   LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
   LSF.job_name "ref.aln.sam"
-  LSF.bsub_interactive <<-SH
+  LSF.bsub_interactive <<-SH or abort
     module load bwa/0.7.8
     bwa index "data/#{STRAIN_NAME}_consensus.fasta"
     bwa mem "data/#{STRAIN_NAME}_consensus.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/ref.aln.sam
-  SH
-end
-
-file "data/ref.sort.bam" => "data/ref.aln.sam" do |t|
-  # Use samtools to convert ref.aln.sam into a .bam file and sort the .bam file
-  # This produces ref.sort.bam.
-  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-  LSF.job_name "ref.sort.bam"
-  LSF.bsub_interactive <<-SH
+    
     module load samtools/1.1
     samtools view -bS data/ref.aln.sam > data/ref.aln.bam
     samtools sort data/ref.aln.bam data/ref.sort
   SH
+  
+  # Can remove the SAM as it is huge and the .aln.bam should contain everything in it
+  rm "data/ref.aln.sam"
 end
 
 file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
