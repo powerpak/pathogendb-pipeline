@@ -12,6 +12,8 @@ LSF = LSFClient.new
 REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
 MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
+BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
+HTSLIB_DIR = "#{REPO_DIR}/vendor/htslib"
 
 OUT = File.expand_path(ENV['OUT'] || "#{REPO_DIR}/out")
 
@@ -46,7 +48,7 @@ end
 ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
 
 desc "Checks environment variables and requirements before running tasks"
-task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer] do
+task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer, :bcftools] do
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
@@ -108,6 +110,25 @@ file "#{MUMMER_DIR}/nucmer" do
   end
   Dir.chdir(MUMMER_DIR) { system "make install" }
 end
+
+task :bcftools => [:env, "#{BCFTOOLS_DIR}/bcftools", HTSLIB_DIR, "#{HTSLIB_DIR}/bgzip", "#{HTSLIB_DIR}/tabix"]
+directory BCFTOOLS_DIR
+file "#{BCFTOOLS_DIR}/bcftools" do
+  Dir.chdir(File.dirname(BCFTOOLS_DIR)) do
+    system <<-SH
+      git clone --branch=develop git://github.com/samtools/htslib.git
+      git clone --branch=develop git://github.com/samtools/samtools.git
+      git clone --branch=develop git://github.com/samtools/bcftools.git
+    SH
+  end
+  Dir.chdir(BCFTOOLS_DIR) { system "make" }
+  Dir.chdir("#{File.dirname(BCFTOOLS_DIR)}/samtools") { system "make" }
+end
+directory HTSLIB_DIR
+file "#{HTSLIB_DIR}/bgzip" => "#{BCFTOOLS_DIR}/bcftools" do
+  Dir.chdir(HTSLIB_DIR) { system "make" }
+end
+file "#{HTSLIB_DIR}/tabix" => "#{HTSLIB_DIR}/bgzip"
 
 file "pathogendb-pipeline.png" => [:graph]
 desc "Generates a graph of tasks, intermediate files and their dependencies from this Rakefile"
@@ -276,18 +297,18 @@ file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_
 end
 
 
-# ====================
-# = recall_consensus =
-# ====================
+# ========================
+# = recall_ilm_consensus =
+# ========================
 
-desc "Recalls a consensus for SNPs by piling Illumina reads onto a PacBio assembly"
-task :recall_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf"]
+desc "Recalls a new consensus by piling Illumina reads onto a PacBio assembly"
+task :recall_ilm_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_consensus.fasta"]
 
 file "data/ref.aln.sam" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
-  abort "FATAL: Task recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  abort "FATAL: Task recall_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
+  abort "FATAL: Task recall_ilm_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task recall_ilm_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
   
-  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
   LSF.job_name "ref.aln.sam"
   LSF.bsub_interactive <<-SH
     module load bwa/0.7.8
@@ -299,7 +320,7 @@ end
 file "data/ref.sort.bam" => "data/ref.aln.sam" do |t|
   # Use samtools to convert ref.aln.sam into a .bam file and sort the .bam file
   # This produces ref.sort.bam.
-  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
   LSF.job_name "ref.sort.bam"
   LSF.bsub_interactive <<-SH
     module load samtools/1.1
@@ -309,9 +330,9 @@ file "data/ref.sort.bam" => "data/ref.aln.sam" do |t|
 end
 
 file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
-  abort "FATAL: Task recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task recall_ilm_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
   # Use mpileup to do the consensus calling.
-  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
   LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
   LSF.bsub_interactive <<-SH
     module load samtools/1.1
@@ -322,7 +343,7 @@ file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
 end
 
 file "data/#{STRAIN_NAME}_ref_flt.vcf" => "data/#{STRAIN_NAME}_ref_raw.bcf" do |t|
-  LSF.set_out_err("log/recall_consensus.log", "log/recall_consensus.err.log")
+  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
   LSF.job_name "#{STRAIN_NAME}_ref_flt.vcf"
   LSF.bsub_interactive <<-SH
     module load samtools/1.1
@@ -331,12 +352,76 @@ file "data/#{STRAIN_NAME}_ref_flt.vcf" => "data/#{STRAIN_NAME}_ref_raw.bcf" do |
   SH
 end
 
-desc "Fakes the prerequisites for the recall_consensus task"
-task :recall_consensus_fake_prereqs do
-  abort "FATAL: Task recall_consensus_fake_prereqs requires specifying STRAIN_NAME" unless STRAIN_NAME 
+file "data/#{STRAIN_NAME}_ilm_consensus.fasta" => 
+    ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_consensus.fasta"] do |t|
+  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
+  LSF.job_name "#{STRAIN_NAME}_ilm_consensus.fasta"
+  # For this task, we use the development branch of bcftools, because `bcf consensus` is not in 1.1
+  system <<-SH
+    #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+    #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+    #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_consensus.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+        > "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+  SH
+end
+
+desc "Fakes the prerequisites for the recall_ilm_consensus task"
+task :recall_ilm_consensus_fake_prereqs do
+  abort "FATAL: Task recall_ilm_consensus_fake_prereqs requires specifying STRAIN_NAME" unless STRAIN_NAME 
   mkdir_p "log"
   touch "bash5.fofn"                                  and sleep 1
   touch "data/polished_assembly.fasta.gz"             and sleep 1
   touch "data/polished_assembly_circularized.fasta"   and sleep 1
   touch "data/#{STRAIN_NAME}_consensus.fasta"
+end
+
+
+# =====================
+# = rast_annotate_ilm =
+# =====================
+
+desc "Submits the Illumina-fixed consensus to RAST for annotations"
+task :rast_annotate_ilm => [:check, "data/#{STRAIN_NAME}_ilm_consensus_rast.fna", 
+    "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa"]
+
+file "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_consensus.fasta"] do |t|
+  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task rast_annotate requires specifying SPECIES" unless SPECIES 
+  
+  rast_job = %x[
+    perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{ENV['RAST_USER']} \
+        --passwd #{ENV['RAST_PASSWORD']} --fasta data/#{STRAIN_NAME}_ilm_consensus.fasta --domain Bacteria \
+        --bioname "#{SPECIES} #{STRAIN_NAME}" --genetic_code 11 --gene_caller rast
+  ]
+  system "perl #{REPO_DIR}/scripts/test_server.pl #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} genbank #{rast_job}"
+  sleep 120
+  loop do
+    success = system <<-SH
+      svr_retrieve_RAST_job #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} #{rast_job} genbank \
+          > data/#{STRAIN_NAME}_ilm_consensus_rast.gbk
+    SH
+    break if success
+    puts "RAST output not available yet, retrying..."
+    sleep 60
+  end
+end
+
+file "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
+  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  system <<-SH
+    module load python/2.7.6
+    module load py_packages/2.7
+    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_ilm_consensus_rast.gbk -s aa \
+        -o #{OUT}/data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa
+  SH
+end
+
+file "data/#{STRAIN_NAME}_ilm_consensus_rast.fna" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
+  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  system <<-SH
+    module load python/2.7.6
+    module load py_packages/2.7
+    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_ilm_consensus_rast.gbk -s nt \
+        -o #{OUT}/data/#{STRAIN_NAME}_ilm_consensus_rast.fna
+  SH
 end
