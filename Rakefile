@@ -353,10 +353,17 @@ file "data/#{STRAIN_NAME}_ilm_consensus.fasta" =>
   LSF.job_name "#{STRAIN_NAME}_ilm_consensus.fasta"
   # For this task, we use the development branch of bcftools, because `bcf consensus` is not in 1.1
   system <<-SH
-    #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_consensus.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
-        > "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+    module load vcftools/0.1.12b
+    module load tabix/0.2.6 
+    
+    bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+    tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+    cat "data/#{STRAIN_NAME}_consensus.fasta" | vcf-consensus "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+            > "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+    # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+    # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+    # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_consensus.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+    #    > "data/#{STRAIN_NAME}_ilm_consensus.fasta"
   SH
 end
 
