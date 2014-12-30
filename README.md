@@ -43,7 +43,7 @@ If a required environment variable isn't present when a task is run and there is
 
 Variable             | Required by                           | Default | Purpose
 ---------------------|---------------------------------------|---------|-----------------------------------
-`OUT`                | all tasks                             | ./out   | This is where your interim files are saved.
+`OUT`                | all tasks                             | ./out   | This is where your interim and completed files are saved
 `SMRT_JOB_ID`        | `pull_down_raw_reads`                 | (none)  | The ID of the job on the SMRT Portal with your reads.
 `STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `recall_ilm_consensus` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
 `SPECIES`            | `rast_annotate`                       | (none)  | The species for your sample.
