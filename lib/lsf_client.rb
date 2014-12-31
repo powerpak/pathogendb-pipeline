@@ -35,7 +35,7 @@ class LSFClient
     options.each do |opt, val|
       opt = opt.to_s
       if val
-        args << (opt.size == 1 ? "-#{opt}" : "--#{opt}")
+        args << "-#{opt}"
         args << Shellwords.escape(val) unless val == true
       end
     end
@@ -53,7 +53,7 @@ class LSFClient
   end
   
   def bsub_interactive(script, options=nil)
-    bsub(script, (options || {}).merge(:K => true))
+    bsub(script, (options || {}).merge(:I => true, :tty => true))
   end
   
 end
