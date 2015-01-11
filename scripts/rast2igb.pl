@@ -12,7 +12,6 @@ use Getopt::Long;
 my $sSvrRetrieveJob = 'svr_retrieve_RAST_job';
 my $sGffToBed       = 'gff2bed.pl';
 my $sFaToTwoBit     = 'faToTwoBit';
-my $sFaInfo         = 'fasta-get-info.pl';
 
 # GET PARAMETERS
 my $sHelp        = 0;
@@ -96,6 +95,7 @@ while (<FASTAIN>){
       $sLocusID = $1;
       $sLocusID =~ s/^ +//;
       $sLocusID =~ s/\|/_/g;
+      $sLocusID =~ s/\s+$//;
       print FASTAOUT ">$sLocusID\n";
    }
    if (/^ORIGIN/){
@@ -155,8 +155,12 @@ print ANNOTSOUT "</files>\r\n";
 close ANNOTSOUT;
 
 # Create the genome file
-system("fasta-get-info.pl $sGenomeDir/$sGenomeName.fasta | grep -vP '^#'| cut -f 1,2 | unix2dos > $sGenomeDir/genome.txt") == 0
-   or die "Error: could not create the genome file for job '$nRastJobID'\n";
+my @aaFastaLengths = get_fasta_lengths("$sGenomeDir/$sGenomeName.fasta");
+open GENOMEOUT, ">$sGenomeDir/genome.txt" or die "Error: can't open genome.txt file '$sGenomeDir/genome.txt' for writing: $!\n";
+foreach my $rContig (@aaFastaLengths){
+   print GENOMEOUT join("\t", $rContig->[0], $rContig->[1]), "\r\n";
+}
+close GENOMEOUT;
 
 # And finally, append the genome to the content.txt file
 my %hContentIDs;
@@ -176,3 +180,44 @@ unless(exists $hContentIDs{$sGenomeName}){
 close CONTENTOUT;
 system("mv -f $sIGBdir/contents.txt $sIGBdir/contents.bkp") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
 system("mv -f $sIGBdir/contents_new.txt $sIGBdir/contents.txt") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
+
+
+#################
+## SUBROUTINES ##
+#################
+
+# get_fasta_lengths
+#
+# Return lengths of sequences in a multi-fasta file
+sub get_fasta_lengths {
+   my ($sInput) = @_;
+   my @aaReturn;
+   my $sFastaHeader = '';
+   my $sFastaSeq    = '';
+   open INPUT, "<$sInput" or die "Error: can't read the fasta file\n";
+   while (<INPUT>){
+      if (/^>/ or eof){
+         if (eof){
+            die "Error: file ends in fasta header without sequence\n" if (/^>/);
+            $sFastaSeq .= $_;
+         }
+         if ($sFastaHeader){
+            $sFastaHeader =~ s/^>//;
+            $sFastaHeader =~ s/\s+$//;
+            $sFastaHeader =~ s/[\n\r]+//g;
+            $sFastaSeq    =~ s/\s//g;
+            $sFastaSeq    =~ s/[\n\r]+//g;
+            push @aaReturn, [($sFastaHeader, length($sFastaSeq))];
+         }
+         $sFastaHeader = $_;
+         $sFastaSeq    = "";
+      }
+      else{
+         next if (/^\s*$/);
+         next if (/^ *#/);
+         $sFastaSeq .= $_ if ($sFastaHeader);
+      }
+   }
+   close INPUT;
+   return(@aaReturn);
+}
