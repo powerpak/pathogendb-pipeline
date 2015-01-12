@@ -10,7 +10,6 @@ use Getopt::Long;
 
 # GLOBALS
 my $sSvrRetrieveJob = 'svr_retrieve_RAST_job';
-my $sGffToBed       = 'gff2bed.pl';
 my $sFaToTwoBit     = 'faToTwoBit';
 
 # GET PARAMETERS
@@ -60,12 +59,13 @@ HELP
 # Check args
 die "Error: IGB directory '$sIGBdir' does not exist\n" unless (-d $sIGBdir);
 die "Error: incorrect job ID format\n" unless ($nRastJobID =~ /^\d+$/);
+$sGenomeName =~ s/ /_/g;
 
-# Create new genome dir
+# Create a new Quickload genome dir
 my $sGenomeDir = "$sIGBdir/$sGenomeName";
 mkdir($sGenomeDir) or die "Error: could not create genome dir: $!\n";
 
-# Retrieve gff3 annotations and convert rRNA and tRNA annots
+# Retrieve gff3 annotations and convert rRNA and tRNA annots to a standard feature type
 open GFFOUT, ">$sGenomeDir/$sGenomeName.gff3" or die "Error: can't open gff3 file '$sGenomeDir/$sGenomeName.gff3' for writing: $!\n";
 open GFFIN, "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID gff3 |" or die "Error: could not retrieve gff file for job '$nRastJobID'\n";
 while (<GFFIN>){
@@ -83,7 +83,47 @@ while (<GFFIN>){
 close GFFIN;
 close GFFOUT;
 
-# Retrieve fasta sequence
+# Convert the gff3 format to bed basic
+my %hFeatures;
+open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
+open GFF, "sort -s -t '\t' -k9,9 $sGenomeDir/$sGenomeName.gff3 |" or die "Error sorting gff file: $!\n";
+while (<GFF>){
+   next if /^\s*$/;
+   next if /^\s*[Tt]rack/;
+   next if /^\s*#/;
+   s/[\n\r]$//g;
+   my ($sChr, $sSource, $sType, $nStart, $nEnd, $nScore, $sStrand, $nFrame, $sID) = split /\t/;
+   $sType = lc($sType);
+   if (exists($hFeatures{$sID})){
+      die "Error: feature '$sID' was found on multiple chromosomes\n" unless($hFeatures{$sID}{'chr'} eq $sChr);
+      die "Error: feature '$sID' was found on multiple strands\n"     unless($hFeatures{$sID}{'strand'} eq $sStrand);
+      $hFeatures{$sID}{$sType}{'start'} ||= $nStart;
+      $hFeatures{$sID}{$sType}{'end'}   ||= $nEnd;
+      $hFeatures{$sID}{$sType}{'start'} = $nStart if ($nStart < $hFeatures{$sID}{$sType}{'start'});
+      $hFeatures{$sID}{$sType}{'end'}   = $nEnd   if ($nEnd   > $hFeatures{$sID}{$sType}{'end'});
+      push @{$hFeatures{$sID}{$sType}{'features'}}, [$nStart, $nEnd];
+   }
+   else{
+      print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
+      %hFeatures = ();
+      $hFeatures{$sID}{'strand'}        = $sStrand;
+      $hFeatures{$sID}{'chr'}           = $sChr;
+      $hFeatures{$sID}{$sType}{'start'} = $nStart;
+      $hFeatures{$sID}{$sType}{'end'}   = $nEnd;
+      push @{$hFeatures{$sID}{$sType}{'features'}}, [$nStart, $nEnd];
+   }   
+}
+print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
+close BEDOUT;
+
+# Create the annots file
+open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
+print ANNOTSOUT "<files>\r\n";
+print ANNOTSOUT "<file name=\"$sGenomeName.bed\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\"/>\r\n";
+print ANNOTSOUT "</files>\r\n";
+close ANNOTSOUT;
+
+# Retrieve the RAST genbank file and extract fasta sequences
 my ($flSeq, $sLocusID) = (0,"");
 open FASTAOUT, ">$sGenomeDir/$sGenomeName.fasta" or die "Error: can't open fasta '$sGenomeDir/$sGenomeName.fasta' for writing: $!\n";
 open FASTAIN, "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID genbank |"
@@ -114,45 +154,9 @@ while (<FASTAIN>){
 close FASTAIN;
 close FASTAOUT;
 
-# Convert fasta sequence to twobit format
+# Convert fasta sequences to twobit format
 system("$sFaToTwoBit -noMask $sGenomeDir/$sGenomeName.fasta $sGenomeDir/$sGenomeName.2bit") == 0
    or die "Error: conversion of fasta to twobit format failed for job '$nRastJobID': $!\n";
-
-# Convert the gff3 format to bed basic
-open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
-open GFF3, "$sGffToBed $sGenomeDir/$sGenomeName.gff3|" or die "Error: can't open gff3 file '$sGenomeDir/$sGenomeName.gff3':$!\n";
-while (<GFF3>){
-   next if (/^\s*$/);
-   next if (/^ *#/);
-   s/[\r\n]+$//;
-   my @asLine = split /\t/, $_, -1;
-   my $sAnnots = $asLine[3];
-   
-   # Parse ID string
-   my %hAnnots;
-   my @asAnnots = split /;/, $sAnnots;
-   foreach my $sAnnot (@asAnnots){
-      my ($key, $val) = split /=/, $sAnnot;
-      $hAnnots{$key} = $val;
-   }
-   my $sID   = exists($hAnnots{ID}) ? $hAnnots{ID} : "ID not found";
-   my $sName = exists($hAnnots{Name}) ? $hAnnots{Name} : "Name not found";
-   
-   # Append bed basic fields
-   $asLine[3] = $sID;
-   push @asLine, $sID;
-   push @asLine, $sName;
-   print BEDOUT join("\t", @asLine), "\r\n";
-}
-close GFF3;
-close BEDOUT;
-
-# Create the annots file
-open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
-print ANNOTSOUT "<files>\r\n";
-print ANNOTSOUT "<file name=\"$sGenomeName.bed\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\"/>\r\n";
-print ANNOTSOUT "</files>\r\n";
-close ANNOTSOUT;
 
 # Create the genome file
 my @aaFastaLengths = get_fasta_lengths("$sGenomeDir/$sGenomeName.fasta");
@@ -162,7 +166,7 @@ foreach my $rContig (@aaFastaLengths){
 }
 close GENOMEOUT;
 
-# And finally, append the genome to the content.txt file
+# And finally, append the new IGB Quickload dir to the content.txt file
 my %hContentIDs;
 open CONTENTOUT, ">$sIGBdir/contents_new.txt" or die "Error: can't open '$sIGBdir/contents_new.txt' for writing: $!\n";
 open CONTENT, "$sIGBdir/contents.txt" or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
@@ -220,4 +224,81 @@ sub get_fasta_lengths {
    }
    close INPUT;
    return(@aaReturn);
+}
+
+# get_bedline
+#
+# Convert gff features to bed detail lines
+sub get_bedline{
+   my $rhFeatures = shift @_;
+   my $sReturn = "";
+   
+   foreach my $sID (keys(%$rhFeatures)){
+      # Parse ID string
+      my %hAnnots;
+      my @asAnnots = split /;/, $sID;
+      foreach my $sAnnot (@asAnnots){
+         my ($key, $val) = split /=/, $sAnnot;
+         $hAnnots{$key} = $val;
+      }
+      my $sOutID   = exists($hAnnots{ID}) ? $hAnnots{ID} : "ID not found";
+      my $sOutDesc = exists($hAnnots{Name}) ? $hAnnots{Name} : "Name not found";
+   
+      if (exists($rhFeatures->{$sID}{'exon'}) and exists($rhFeatures->{$sID}{'cds'})){
+         my $nStart      = $rhFeatures->{$sID}{'exon'}{'start'} - 1;
+         my $nThickStart = $rhFeatures->{$sID}{'cds'}{'start'} - 1;
+         $sReturn .= join ("\t", $rhFeatures->{$sID}{'chr'}, $nStart, $rhFeatures->{$sID}{'exon'}{'end'},
+                     $sOutID, '0', $rhFeatures->{$sID}{'strand'}, $nThickStart, $rhFeatures->{$sID}{'cds'}{'end'},
+                     '0', get_blocks($rhFeatures->{$sID}{'exon'}{'start'}, $rhFeatures->{$sID}{'exon'}{'features'}), $sOutID, $sOutDesc);
+      }
+      elsif (exists($rhFeatures->{$sID}{'exon'})){
+         my $nStart      = $rhFeatures->{$sID}{'exon'}{'start'} - 1;
+         my $nThickStart = $nStart;
+         $sReturn .= join ("\t", $rhFeatures->{$sID}{'chr'}, $nStart, $rhFeatures->{$sID}{'exon'}{'end'},
+                     $sOutID, '0', $rhFeatures->{$sID}{'strand'}, $nThickStart, $rhFeatures->{$sID}{'exon'}{'end'},
+                     '0', get_blocks($rhFeatures->{$sID}{'exon'}{'start'}, $rhFeatures->{$sID}{'exon'}{'features'}), $sOutID, $sOutDesc);
+      }
+      elsif (exists($rhFeatures->{$sID}{'cds'})){
+         my $nStart      = $rhFeatures->{$sID}{'cds'}{'start'} - 1;
+         my $nThickStart = $nStart;
+         $sReturn .= join ("\t", $rhFeatures->{$sID}{'chr'}, $nStart, $rhFeatures->{$sID}{'cds'}{'end'},
+                     $sOutID, '0', $rhFeatures->{$sID}{'strand'}, $nThickStart, $rhFeatures->{$sID}{'cds'}{'end'},
+                     '0', get_blocks($rhFeatures->{$sID}{'cds'}{'start'}, $rhFeatures->{$sID}{'cds'}{'features'}), $sOutID, $sOutDesc);
+      }
+      else{
+         die "Error: no exon or CDS information was found for feature '$sID'\n";
+      }
+      $sReturn .= "\r\n";
+   }
+   return($sReturn);
+}
+
+
+# get_blocks
+#
+# Get block count, sizes and starts
+sub get_blocks {
+   my ($nGenomeStart, $raBlocks) = @_;
+   my @aaBlocks = @$raBlocks;
+   
+   if (scalar(@aaBlocks)==1){
+      my ($nStart,$nEnd) = @{$aaBlocks[0]};
+      my $blocksize = $nEnd-$nStart+1;
+      return join("\t", 1,"$blocksize,","0,");
+   }
+   else{
+      
+      # Now sort by start then end and process each block
+      @aaBlocks = sort { $a->[0] <=> $b->[0] || $a->[1] <=> $b->[1] } @aaBlocks;
+      my @anBlockStarts;
+      my @anBlockSizes;
+      foreach my $rBlock (@aaBlocks){
+         my ($nStart, $nEnd) = @{$rBlock};
+         push @anBlockStarts, $nStart-$nGenomeStart;
+         push @anBlockSizes,  $nEnd-$nStart+1;
+      }
+      my $sBlockStarts = join(',', @anBlockStarts);
+      my $sBlockSizes  = join(',', @anBlockSizes);
+      return join("\t", scalar(@aaBlocks), "$sBlockSizes,","$sBlockStarts,");
+   }
 }
