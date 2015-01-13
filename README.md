@@ -6,6 +6,8 @@ As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modu
 
 Currently, you also need to be in the `pacbioUsers` group on Minerva and have access to the `premium` LSF queue and the `acc_PBG` LSF account.
 
+To avoid hitting resource limits on the login nodes on Minerva, we recommend that you run the pipeline on the interactive1 or interactive2 nodes, which have no such limits.  To do so run `ssh interactive1` or `ssh interactive2` after logging into Minerva normally.
+
 ## Usage
 
 First, clone this repository to a directory and `cd` into it.  You'll want to configure your environment first using the included script:
@@ -47,8 +49,35 @@ Variable             | Required by                           | Default | Purpose
 `SMRT_JOB_ID`        | `pull_down_raw_reads`                 | (none)  | The ID of the job on the SMRT Portal with your reads.
 `STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `recall_ilm_consensus` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
 `SPECIES`            | `rast_annotate`                       | (none)  | The species for your sample.
-`ILLUMINA_FASTQ`     | `recall_ilm_consensus`                    | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
+`ILLUMINA_FASTQ`     | `recall_ilm_consensus`                | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
 
+### Tasks
+
+The typical series of tasks used to assemble a strain's genome from PacBio RS reads and then annotate with RAST are:
+
+1. `pull_down_raw_reads`
+2. `assemble_raw_reads`
+3. `circularize_assembly`
+4. `resequence_assembly`
+5. `rast_annotate`
+
+Optionally, if Illumina reads are also available the same isolate, they can be used to iron out small errors in the PacBio-produced assembly and then the new consensus can be re-annotated with these two extra steps:
+
+6. `recall_ilm_consensus`
+7. `rast_annotate_ilm`
+
+### Multiple runs within `screen`
+
+If you'd like to run the pipeline multiple times with different parameters placed into the environment variables, you might find it useful to try the special `rake multi[$TASK_FILE]` task.
+
+This takes one parameter placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
+
+    resequence_assembly OUT=$HOME/Steno/SM_278  SMRT_JOB_ID=017871 STRAIN_NAME=SM_278  SPECIES="Stenotrophomonas"
+    rast_annotate OUT=$HOME/Steno/SM_5478 SMRT_JOB_ID=019203 STRAIN_NAME=SM_5478 SPECIES="Stenotrophomonas"
+
+When you run `rake multi[$TASK_FILE]`, setting TASK_FILE to this file, a `screen` session will be created and split vertically into multiple windows, each of which will run `rake` with the various parameters you put on that line.
+
+You most certainly need to run `rake multi` on an interactive node or the jobs **will** fail.
 
 ### Dependency graph
 
@@ -59,3 +88,7 @@ This Rakefile is able to build a dependency graph of its intermediate files from
 ## Other notes
 
 This pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included executables and the Perl API are also on that page.
+
+### Known issues
+
+Minerva's interactive nodes cannot access outside servers, like the RAST servers used for the annotation steps.  We are configuring an internal HTTP proxy that will support this, but until then, the `rast_*` steps need to be run separately on the login nodes. They are not resource-intensive.
