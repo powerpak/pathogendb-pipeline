@@ -10,7 +10,7 @@ Currently, you also need to be in the `pacbioUsers` group on Minerva and have ac
 
 First, clone this repository to a directory and `cd` into it.  You'll want to configure your environment first using the included script:
 
-    $ cp scripts/env.example.sh scripts/env.sh
+    $ cp scripts/example.env.sh scripts/env.sh
     $ $EDITOR scripts/env.sh    
 
 At a minimum, you will need to configure the following:

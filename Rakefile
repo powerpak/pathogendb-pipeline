@@ -2,6 +2,7 @@ require 'pp'
 require 'net/http'
 require_relative 'lib/colors'
 require_relative 'lib/lsf_client'
+require_relative 'lib/subscreens'
 require 'shellwords'
 include Colors
 
@@ -23,6 +24,7 @@ OUT = File.expand_path(ENV['OUT'] || "#{REPO_DIR}/out")
 STRAIN_NAME = ENV['STRAIN_NAME']
 SPECIES = ENV['SPECIES']
 ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ']
+TASK_FILE = ENV['TASK_FILE']
 
 #############################################################
 #  IMPORTANT!
@@ -41,8 +43,8 @@ task :env do
   ENV['PERL5LIB'] ||= "/usr/bin/perl5.10.1"
 end
 
-file "#{REPO_DIR}/scripts/env.sh" => "#{REPO_DIR}/scripts/env.example.sh" do
-  cp "#{REPO_DIR}/scripts/env.example.sh", "#{REPO_DIR}/scripts/env.sh"
+file "#{REPO_DIR}/scripts/env.sh" => "#{REPO_DIR}/scripts/example.env.sh" do
+  cp "#{REPO_DIR}/scripts/example.env.sh", "#{REPO_DIR}/scripts/env.sh"
 end
 
 ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
@@ -142,6 +144,20 @@ task :graph do
 end
 
 
+desc "Runs this pipeline multiple times in separate screens, doing all the tasks in TASK_FILE"
+task :multi, [:task_file] => [:check] do |t, args|
+  abort "FATAL: Task multi requires specifying TASK_FILE" unless args[:task_file]
+  
+  cmds = []
+  File.open(args[:task_file], 'r') do |f|
+    f.each_line { |line| cmds << "source scripts/env.sh && rake #{line}" }
+  end
+  Dir.chdir(REPO_DIR) do
+    Subscreens.run(cmds)
+  end
+end
+
+
 # =======================
 # = pull_down_raw_reads =
 # =======================
@@ -151,10 +167,13 @@ task :pull_down_raw_reads => [:check, "bash5.fofn"]  # <-- file(s) created by th
 file "bash5.fofn" do |t, args|                       # <-- implementation for generating each of these files
   job_id = ENV['SMRT_JOB_ID'] # Examples that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
-  pacbio_job_dir = "/sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..2]}/#{job_id}"
+  job_id = job_id.rjust(6, '0')
+  pacbio_job_dirs = ["/sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..2]}/#{job_id}",
+                     "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}"]
   smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
-    
-  if File.exist? "#{pacbio_job_dir}/input.fofn"
+  
+  found_fofn = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
+  if found_fofn
     cp "#{pacbio_job_dir}/input.fofn", "bash5.fofn"
     mkdir_p "data"
     if File.exist? "#{pacbio_job_dir}/data/polished_assembly.fasta.gz"
