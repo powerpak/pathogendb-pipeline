@@ -26,9 +26,9 @@ module Subscreens
     num_splits.times do |i|
       system "screen -X focus" if i != 0
       system "screen -X screen -t run#{i+1} #{i+1}"
-      sleep 10
+      sleep 5
       system "screen -X -p #{i+1} stuff #{Shellwords.escape(cmd + "\n")}"
-      sleep 10
+      sleep 2
       system "screen -X select #{i+1}" if i != 0
     end
   end
@@ -40,9 +40,9 @@ module Subscreens
     cmds.each_with_index do |cmd, i|
       system "screen -X focus" if i != 0
       system "screen -X screen -t run#{i+1} #{i+1}"
-      sleep 10
+      sleep 5
       system "screen -X -p #{i+1} stuff #{Shellwords.escape(cmd + "\n")}"
-      sleep 10
+      sleep 2
       system "screen -X select #{i+1}" if i != 0
     end
   end

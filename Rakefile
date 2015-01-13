@@ -150,7 +150,7 @@ task :multi, [:task_file] => [:check] do |t, args|
   
   cmds = []
   File.open(args[:task_file], 'r') do |f|
-    f.each_line { |line| cmds << "source scripts/env.sh && rake #{line}" }
+    f.each_line { |line| cmds << "source scripts/env.sh && rake #{line}" unless line =~ /^\s*#/ }
   end
   Dir.chdir(REPO_DIR) do
     Subscreens.run(cmds)
