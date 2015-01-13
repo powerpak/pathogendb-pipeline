@@ -172,12 +172,12 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
                      "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}"]
   smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
   
-  found_fofn = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
-  if found_fofn
-    cp "#{pacbio_job_dir}/input.fofn", "bash5.fofn"
+  found_fofn_dir = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
+  if found_fofn_dir
+    cp "#{found_fofn_dir}/input.fofn", "bash5.fofn"
     mkdir_p "data"
-    if File.exist? "#{pacbio_job_dir}/data/polished_assembly.fasta.gz"
-      ln_s "#{pacbio_job_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
+    if File.exist? "#{found_fofn_dir}/data/polished_assembly.fasta.gz"
+      ln_s "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
     end
   else
     url = URI.parse(smrtpipe_log_url)
