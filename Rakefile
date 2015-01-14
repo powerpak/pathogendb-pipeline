@@ -41,6 +41,8 @@ task :env do
   sc_orga_scratch = "/sc/orga/scratch/#{ENV['USER']}"
   ENV['TMP'] ||= Dir.exists?(sc_orga_scratch) ? sc_orga_scratch : "/tmp"
   ENV['PERL5LIB'] ||= "/usr/bin/perl5.10.1"
+  # Always use our locally bundled (patched) perl modules over anything else
+  ENV['PERL5LIB'] = "#{REPO_DIR}/lib/perl:#{ENV['PERL5LIB']}"
 end
 
 file "#{REPO_DIR}/scripts/env.sh" => "#{REPO_DIR}/scripts/example.env.sh" do
