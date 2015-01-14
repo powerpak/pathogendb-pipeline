@@ -61,7 +61,7 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 4. `resequence_assembly`
 5. `rast_annotate`
 
-With a few exceptions (for instance, if you need to manually edit interim files, or if you are running on the interactive nodes--see [Known issues](#known-issues)) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all required [environment variables](#environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
+With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all required [environment variables](#environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
 
 Optionally, if Illumina reads are also available the same isolate, they can be used to iron out small errors in the PacBio-produced assembly and then the new consensus can be re-annotated with these two extra steps:
 
@@ -89,8 +89,4 @@ This Rakefile is able to build a dependency graph of its intermediate files from
 
 ## Other notes
 
-This pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included executables and the Perl API are also on that page.
-
-### Known issues
-
-Minerva's interactive nodes cannot access outside servers, like the RAST servers used for the annotation steps.  We are configuring an internal HTTP proxy that will support this, but until then, the `rast_*` steps need to be run separately on the login nodes. They are not resource-intensive.
+This pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included executables and the Perl API are also on that page.  Within this package, we are overriding `RASTserver.pm` with our own version in `lib/perl`, because we need to support setting use of a proxy via the `HTTP_PROXY` environment variable.
