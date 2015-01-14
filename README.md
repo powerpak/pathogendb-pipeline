@@ -27,7 +27,7 @@ For the rest of the variables, the defaults should work for any Minerva user.  T
     $ source scripts/env.sh
     $ bundle install --deployment
 
-When this is complete, you should be able to run rake to kick off the pipeline as follows. However, also read **[Environment variables](#environment-variables)** below, as certain tasks require more variables to be set before being invoked.
+When this is complete, you should be able to run rake to kick off the pipeline as follows. However, first read **[Environment variables](#environment-variables)** below, as certain tasks require more variables to be set before being invoked.  A description of the typical sequence for assembling a genome is described below in **[Tasks](#tasks)**.
 
     $ rake -T                    # list the available tasks
     $ rake $TASK_NAME            # run the task named $TASK_NAME
@@ -72,14 +72,14 @@ Optionally, if Illumina reads are also available the same isolate, they can be u
 
 If you'd like to run the pipeline multiple times with different parameters placed into the environment variables, you might find it useful to try the special `rake multi[$TASK_FILE]` task.
 
-This takes one parameter placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
+This takes one parameter, `$TASK_FILE` placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
 
     resequence_assembly OUT=$HOME/Steno/SM_278  SMRT_JOB_ID=017871 STRAIN_NAME=SM_278  SPECIES="Stenotrophomonas"
     rast_annotate OUT=$HOME/Steno/SM_5478 SMRT_JOB_ID=019203 STRAIN_NAME=SM_5478 SPECIES="Stenotrophomonas"
 
-When you run `rake multi[$TASK_FILE]`, setting TASK_FILE to this file, a `screen` session will be created and split vertically into multiple windows, each of which will run `rake` with the various parameters you put on that line.
+When you run `rake multi[$TASK_FILE]`, with the filename of your task file in the brackets, a `screen` session will be created and split vertically into multiple windows, each of which will run `rake` with the various parameters you put on that line.
 
-You most certainly need to run `rake multi` on an interactive node or the jobs **will** fail.
+You will almost certainly need to run `rake multi` on an interactive node or the process will hit resource limits.
 
 ### Dependency graph
 
