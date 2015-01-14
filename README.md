@@ -61,6 +61,8 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 4. `resequence_assembly`
 5. `rast_annotate`
 
+With a few exceptions (for instance, if you need to manually edit interim files, or if you are running on the interactive nodes--see [Known issues](#known-issues)) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all required [environment variables](#environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
+
 Optionally, if Illumina reads are also available the same isolate, they can be used to iron out small errors in the PacBio-produced assembly and then the new consensus can be re-annotated with these two extra steps:
 
 6. `recall_ilm_consensus`
