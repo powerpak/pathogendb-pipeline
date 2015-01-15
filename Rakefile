@@ -275,21 +275,26 @@ desc "Submits the circularized assembly to RAST for annotations"
 task :rast_annotate => [:check, "data/#{STRAIN_NAME}_consensus_rast.fna", 
     "data/#{STRAIN_NAME}_consensus_rast.gbk", "data/#{STRAIN_NAME}_consensus_rast_aa.fa"]
 
-file "data/#{STRAIN_NAME}_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_consensus.fasta"] do |t|
-  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  abort "FATAL: Task rast_annotate requires specifying SPECIES" unless SPECIES 
+def submit_and_retrieve_rast(fasta, gbk_file, job_id_file="rast_job_id", task_name="rast_annotate") 
+  abort "FATAL: Task #{task_name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task #{task_name} requires specifying SPECIES" unless SPECIES 
   
-  rast_job = %x[
-    perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{ENV['RAST_USER']} \
-        --passwd #{ENV['RAST_PASSWORD']} --fasta data/#{STRAIN_NAME}_consensus.fasta --domain Bacteria \
-        --bioname "#{SPECIES} #{STRAIN_NAME}" --genetic_code 11 --gene_caller rast
-  ]
+  if File.exist? "data/#{job_id_file}"
+    rast_job = IO.read("data/#{job_id_file}")
+  else
+    rast_job = %x[
+      perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{ENV['RAST_USER']} \
+          --passwd #{ENV['RAST_PASSWORD']} --fasta #{fasta} --domain Bacteria \
+          --bioname "#{SPECIES} #{STRAIN_NAME}" --genetic_code 11 --gene_caller rast
+    ]
+    IO.write("data/#{job_id_file}", rast_job)
+  end
   system "perl #{REPO_DIR}/scripts/test_server.pl #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} genbank #{rast_job}"
   sleep 120
   loop do
     success = system <<-SH
       svr_retrieve_RAST_job #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} #{rast_job} genbank \
-          > data/#{STRAIN_NAME}_consensus_rast.gbk
+          > #{gbk_file}
     SH
     break if success
     puts "RAST output not available yet, retrying..."
@@ -297,25 +302,34 @@ file "data/#{STRAIN_NAME}_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_consensus
   end
 end
 
-file "data/#{STRAIN_NAME}_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
-  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+file "data/#{STRAIN_NAME}_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_consensus.fasta"] do |t|
+  submit_and_retrieve_rast("data/#{STRAIN_NAME}_consensus.fasta", t.name)
+end
+file "data/rast_job_id" => "data/#{STRAIN_NAME}_consensus_rast.gbk"
+
+def gb_to_fasta(gb, fasta, seq_type=:nt, task_name="rast_annotate")
+  abort "FATAL: Task #{task_name} requires specifying STRAIN_NAME" unless STRAIN_NAME
+  abort "FATAL: gb_to_fasta called with invalid seq_type" unless [:nt, :aa].include? seq_type
   system <<-SH
     module load python/2.7.6
     module load py_packages/2.7
-    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_consensus_rast.gbk -s aa \
-        -o #{OUT}/data/#{STRAIN_NAME}_consensus_rast_aa.fa
+    python #{REPO_DIR}/scripts/gb_to_fasta.py -i #{gb} -s #{seq_type} -o #{fasta}
   SH
 end
 
-file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
-  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  system <<-SH
-    module load python/2.7.6
-    module load py_packages/2.7
-    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_consensus_rast.gbk -s nt \
-        -o #{OUT}/data/#{STRAIN_NAME}_consensus_rast.fna
-  SH
+file "data/#{STRAIN_NAME}_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
+  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", t.name, :aa
 end
+
+file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
+  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", t.name, :nt
+end
+
+# ===============
+# = rast_to_igb =
+# ===============
+
+
 
 
 # ========================
@@ -380,6 +394,8 @@ file "data/#{STRAIN_NAME}_ilm_consensus.fasta" =>
     tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
     cat "data/#{STRAIN_NAME}_consensus.fasta" | vcf-consensus "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
             > "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+    
+    # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
     # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
     # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
     # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_consensus.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
@@ -407,43 +423,14 @@ task :rast_annotate_ilm => [:check, "data/#{STRAIN_NAME}_ilm_consensus_rast.fna"
     "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa"]
 
 file "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_consensus.fasta"] do |t|
-  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  abort "FATAL: Task rast_annotate requires specifying SPECIES" unless SPECIES 
-  
-  rast_job = %x[
-    perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{ENV['RAST_USER']} \
-        --passwd #{ENV['RAST_PASSWORD']} --fasta data/#{STRAIN_NAME}_ilm_consensus.fasta --domain Bacteria \
-        --bioname "#{SPECIES} #{STRAIN_NAME}" --genetic_code 11 --gene_caller rast
-  ]
-  system "perl #{REPO_DIR}/scripts/test_server.pl #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} genbank #{rast_job}"
-  sleep 120
-  loop do
-    success = system <<-SH
-      svr_retrieve_RAST_job #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} #{rast_job} genbank \
-          > data/#{STRAIN_NAME}_ilm_consensus_rast.gbk
-    SH
-    break if success
-    puts "RAST output not available yet, retrying..."
-    sleep 60
-  end
+  fasta = "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+  submit_and_retrieve_rast(fasta, t.name, "data/ilm_rast_job_id", "rast_annotate_ilm")
 end
 
 file "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
-  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  system <<-SH
-    module load python/2.7.6
-    module load py_packages/2.7
-    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_ilm_consensus_rast.gbk -s aa \
-        -o #{OUT}/data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa
-  SH
+  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", t.name, :aa, "rast_annotate_ilm"
 end
 
 file "data/#{STRAIN_NAME}_ilm_consensus_rast.fna" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
-  abort "FATAL: Task rast_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  system <<-SH
-    module load python/2.7.6
-    module load py_packages/2.7
-    python #{REPO_DIR}/scripts/gb_to_fasta.py -i data/#{STRAIN_NAME}_ilm_consensus_rast.gbk -s nt \
-        -o #{OUT}/data/#{STRAIN_NAME}_ilm_consensus_rast.fna
-  SH
+  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", t.name, :nt, "rast_annotate_ilm"
 end
