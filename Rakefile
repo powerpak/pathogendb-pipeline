@@ -16,6 +16,8 @@ MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
 BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
 HTSLIB_DIR = "#{REPO_DIR}/vendor/htslib"
 
+IGB_DIR = ENV['IGB_DIR'] || "#{ENV['HOME']}/www/igb"
+
 OUT = File.expand_path(ENV['OUT'] || "#{REPO_DIR}/out")
 
 #######
@@ -284,18 +286,21 @@ def submit_and_retrieve_rast(fasta, gbk_file, job_id_file="rast_job_id", task_na
     rast_job = IO.read("data/#{job_id_file}").strip
   else
     rast_job = %x[
-      perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{ENV['RAST_USER']} \
-          --passwd #{ENV['RAST_PASSWORD']} --fasta #{fasta} --domain Bacteria \
+      perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{Shellwords.escape ENV['RAST_USER']} \
+          --passwd #{Shellwords.escape ENV['RAST_PASSWORD']} --fasta #{fasta} --domain Bacteria \
           --bioname "#{SPECIES} #{STRAIN_NAME}" --genetic_code 11 --gene_caller rast
     ]
     IO.write("data/#{job_id_file}", rast_job)
   end
-  system "perl #{REPO_DIR}/scripts/test_server.pl #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} genbank #{rast_job}"
+  system <<-SH
+    perl #{REPO_DIR}/scripts/test_server.pl #{Shellwords.escape ENV['RAST_USER']} \
+        #{Shellwords.escape ENV['RAST_PASSWORD']} genbank #{rast_job}
+  SH
   sleep 120
   loop do
     success = system <<-SH
-      svr_retrieve_RAST_job #{ENV['RAST_USER']} #{ENV['RAST_PASSWORD']} #{rast_job} genbank \
-          > #{gbk_file}
+      svr_retrieve_RAST_job #{Shellwords.escape ENV['RAST_USER']} #{Shellwords.escape ENV['RAST_PASSWORD']} \
+          #{rast_job} genbank > #{gbk_file}
     SH
     break if success
     puts "RAST output not available yet, retrying..."
@@ -330,7 +335,24 @@ end
 # = rast_to_igb =
 # ===============
 
+species_clean = SPECIES && SPECIES.gsub(/[^a-z_]/i, "_")
+strain_igb_dir = "#{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}"
+task :rast_to_igb => [:check, strain_igb_dir]
 
+directory IGB_DIR
+file strain_igb_dir => [IGB_DIR, "data/rast_job_id"] do |t|
+  abort "FATAL: Task rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task rast_to_igb requires specifying SPECIES" unless SPECIES 
+  rast_job = IO.read("data/rast_job_id").strip
+  
+  system <<-SH
+    module load blat/3.0.5
+    export SAS_DIR=#{SAS_DIR}
+    perl #{REPO_DIR}/scripts/rast2igb.pl -u #{Shellwords.escape ENV['RAST_USER']} \
+        -p #{Shellwords.escape ENV['RAST_PASSWORD']} -j #{rast_job} -g #{species_clean}_#{STRAIN_NAME} \
+        -i #{IGB_DIR}
+  SH
+end
 
 
 # ========================

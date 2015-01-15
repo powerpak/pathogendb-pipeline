@@ -12,6 +12,9 @@ use Getopt::Long;
 my $sSvrRetrieveJob = 'svr_retrieve_RAST_job';
 my $sFaToTwoBit     = 'faToTwoBit';
 
+# If SAS_DIR is set in the environment, use perl to interpret the plbins directly (preserving the environment)
+if ($ENV{'SAS_DIR'}) { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
+
 # GET PARAMETERS
 my $sHelp        = 0;
 my $sRastUser    = '';
@@ -169,6 +172,7 @@ close GENOMEOUT;
 # And finally, append the new IGB Quickload dir to the content.txt file
 my %hContentIDs;
 open CONTENTOUT, ">$sIGBdir/contents_new.txt" or die "Error: can't open '$sIGBdir/contents_new.txt' for writing: $!\n";
+`touch $sIGBdir/contents.txt`;
 open CONTENT, "$sIGBdir/contents.txt" or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
 while (<CONTENT>){
    next if (/^\s*$/);
