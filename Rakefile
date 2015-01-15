@@ -273,14 +273,15 @@ end
 
 desc "Submits the circularized assembly to RAST for annotations"
 task :rast_annotate => [:check, "data/#{STRAIN_NAME}_consensus_rast.fna", 
-    "data/#{STRAIN_NAME}_consensus_rast.gbk", "data/#{STRAIN_NAME}_consensus_rast_aa.fa"]
+    "data/#{STRAIN_NAME}_consensus_rast.gbk", "data/#{STRAIN_NAME}_consensus_rast_aa.fa",
+    "data/rast_job_id"]
 
 def submit_and_retrieve_rast(fasta, gbk_file, job_id_file="rast_job_id", task_name="rast_annotate") 
   abort "FATAL: Task #{task_name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task #{task_name} requires specifying SPECIES" unless SPECIES 
   
   if File.exist? "data/#{job_id_file}"
-    rast_job = IO.read("data/#{job_id_file}")
+    rast_job = IO.read("data/#{job_id_file}").strip
   else
     rast_job = %x[
       perl #{REPO_DIR}/scripts/svr_submit_status_retrieve.pl --user #{ENV['RAST_USER']} \
@@ -318,11 +319,11 @@ def gb_to_fasta(gb, fasta, seq_type=:nt, task_name="rast_annotate")
 end
 
 file "data/#{STRAIN_NAME}_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", t.name, :aa
+  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", "#{OUT}/#{t.name}", :aa
 end
 
 file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", t.name, :nt
+  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", "#{OUT}/#{t.name}", :nt
 end
 
 # ===============
@@ -420,17 +421,19 @@ end
 
 desc "Submits the Illumina-fixed consensus to RAST for annotations"
 task :rast_annotate_ilm => [:check, "data/#{STRAIN_NAME}_ilm_consensus_rast.fna", 
-    "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa"]
+    "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa",
+    "data/ilm_rast_job_id"]
 
 file "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_consensus.fasta"] do |t|
   fasta = "data/#{STRAIN_NAME}_ilm_consensus.fasta"
   submit_and_retrieve_rast(fasta, t.name, "data/ilm_rast_job_id", "rast_annotate_ilm")
 end
+file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_consensus_rast.gbk"
 
 file "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", t.name, :aa, "rast_annotate_ilm"
+  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "#{OUT}/#{t.name}", :aa, "rast_annotate_ilm"
 end
 
 file "data/#{STRAIN_NAME}_ilm_consensus_rast.fna" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", t.name, :nt, "rast_annotate_ilm"
+  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
 end
