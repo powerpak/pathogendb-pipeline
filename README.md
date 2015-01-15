@@ -47,8 +47,8 @@ Variable             | Required by                           | Default | Purpose
 ---------------------|---------------------------------------|---------|-----------------------------------
 `OUT`                | all tasks                             | ./out   | This is where your interim and completed files are saved
 `SMRT_JOB_ID`        | `pull_down_raw_reads`                 | (none)  | The ID of the job on the SMRT Portal with your reads.
-`STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `recall_ilm_consensus` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
-`SPECIES`            | `rast_annotate`                       | (none)  | The species for your sample.
+`STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `rast_annotate_ilm` `recall_ilm_consensus` `rast_to_igb` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
+`SPECIES`            | `rast_annotate` `rast_annotate_ilm` `rast_to_igb`         | (none)  | The species for your sample.
 `ILLUMINA_FASTQ`     | `recall_ilm_consensus`                | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
 
 ### Tasks
@@ -60,8 +60,11 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 3. `circularize_assembly`
 4. `resequence_assembly`
 5. `rast_annotate`
+6. `rast_to_igb`
 
 With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all required [environment variables](#environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
+
+The final task, `rast_to_igb`, creates an IGB Quickload-compatible directory so you can load the genome into IGB. By default, this occurs in `~/www/igb`, although you can override this by setting `IGB_DIR` in your `scripts/env.sh`.
 
 Optionally, if Illumina reads are also available the same isolate, they can be used to iron out small errors in the PacBio-produced assembly and then the new consensus can be re-annotated with these two extra steps:
 
