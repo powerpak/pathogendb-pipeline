@@ -148,14 +148,23 @@ task :graph do
 end
 
 
-desc "Runs this pipeline multiple times in separate screens, doing all the tasks in TASK_FILE"
-task :multi, [:task_file] => [:check] do |t, args|
-  abort "FATAL: Task multi requires specifying TASK_FILE" unless args[:task_file]
+desc "Runs this pipeline in $n separate screens, doing all the tasks in $task_file"
+task :multi, [:task_file, :n] => [:check] do |t, args|
+  abort "FATAL: Task multi requires specifying task_file argument" unless args[:task_file]
   
+  i = 0
+  n = args[:n] && args[:n].to_i
   cmds = []
   File.open(args[:task_file], 'r') do |f|
-    f.each_line { |line| cmds << "source scripts/env.sh && rake #{line}" unless line =~ /^\s*#/ }
+    f.each_line do |line|
+      next if line =~ /^\s*#/
+      cmds[i] ||= "source scripts/env.sh"
+      cmds[i] += "\nrake #{line.strip}"
+      i = (n && n != 0) ? ((i + 1) % n) : (i + 1)
+    end
   end
+  puts "Creating screen session `nested` with #{cmds.size} windows."
+  sleep 2
   Dir.chdir(REPO_DIR) do
     Subscreens.run(cmds)
   end

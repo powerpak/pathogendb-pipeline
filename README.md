@@ -73,14 +73,18 @@ Optionally, if Illumina reads are also available the same isolate, they can be u
 
 ### Multiple runs within `screen`
 
-If you'd like to run the pipeline multiple times with different parameters placed into the environment variables, you might find it useful to try the special `rake multi[$TASK_FILE]` task.
+If you'd like to run the pipeline multiple times with different parameters placed into the environment variables, you might find it useful to try the special `rake multi[$TASK_FILE,$N]` task.
 
-This takes one parameter, `$TASK_FILE` placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
+This takes one required parameter, `$TASK_FILE`, placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
 
     resequence_assembly OUT=$HOME/Steno/SM_278  SMRT_JOB_ID=017871 STRAIN_NAME=SM_278  SPECIES="Stenotrophomonas"
     rast_annotate OUT=$HOME/Steno/SM_5478 SMRT_JOB_ID=019203 STRAIN_NAME=SM_5478 SPECIES="Stenotrophomonas"
 
 When you run `rake multi[$TASK_FILE]`, with the filename of your task file in the brackets, a `screen` session will be created and split vertically into multiple windows, each of which will run `rake` with the various parameters you put on that line.
+
+If you don't want as many splits, and would like some of the jobs to run in series, also specify a number `$N` that is smaller than the number of lines in your task file, like so:
+
+    $ rake multi[/path/to/task/file,3]
 
 You will almost certainly need to run `rake multi` on an interactive node or the process will hit resource limits.
 
