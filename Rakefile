@@ -143,6 +143,7 @@ task :graph do
     module load graphviz
     STRAIN_NAME=STRAIN_NAME rake -f #{Shellwords.escape(__FILE__)} -P \
         | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with REPO_DIR \
+        | unflatten -f -l5 -c 3 \
         | dot -Tpng -o pathogendb-pipeline.png
   SH
 end
