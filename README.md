@@ -1,4 +1,4 @@
-# Prototype PathogenDB pipeline
+# PathogenDB assembly and annotation
 
 ## Requirements
 
