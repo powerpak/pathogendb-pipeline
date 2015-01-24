@@ -10,7 +10,7 @@ task :default => :check
 
 LSF = LSFClient.new
 
-REPO_DIR = File.dirname(__FILE__)
+REPO_DIR = ENV['REPO_DIR'] || File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
 MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
 BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
