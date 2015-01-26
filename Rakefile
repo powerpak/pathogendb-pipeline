@@ -309,8 +309,8 @@ def submit_and_retrieve_rast(fasta, gbk_file, job_id_file="rast_job_id", task_na
   sleep 120
   loop do
     success = system <<-SH
-      svr_retrieve_RAST_job #{Shellwords.escape ENV['RAST_USER']} #{Shellwords.escape ENV['RAST_PASSWORD']} \
-          #{rast_job} genbank > #{gbk_file}
+      perl #{SAS_DIR}/plbin/svr_retrieve_RAST_job.pl #{Shellwords.escape ENV['RAST_USER']} \
+          #{Shellwords.escape ENV['RAST_PASSWORD']} #{rast_job} genbank > #{gbk_file}
     SH
     break if success
     puts "RAST output not available yet, retrying..."
