@@ -10,7 +10,7 @@ task :default => :check
 
 LSF = LSFClient.new
 
-REPO_DIR = ENV['REPO_DIR'] || File.dirname(__FILE__)
+REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
 MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
 BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
@@ -141,8 +141,8 @@ desc "Generates a graph of tasks, intermediate files and their dependencies from
 task :graph do
   system <<-SH
     module load graphviz
-    STRAIN_NAME=STRAIN_NAME rake -f #{Shellwords.escape(__FILE__)} -P \
-        | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with REPO_DIR \
+    STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' rake -f #{Shellwords.escape(__FILE__)} -P \
+        | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with '$REPO_DIR' \
         | unflatten -f -l5 -c 3 \
         | dot -Tpng -o pathogendb-pipeline.png
   SH
@@ -345,7 +345,7 @@ end
 # = rast_to_igb =
 # ===============
 
-species_clean = SPECIES && SPECIES.gsub(/[^a-z_]/i, "_")
+species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
 strain_igb_dir = "#{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}"
 
 desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
