@@ -102,7 +102,7 @@ file "#{SAS_DIR}/modules/lib" => ["#{SAS_DIR}/sas.tgz"] do |t|
   end
 end
 
-# pulls down and compiles MUMmer 3.23, which is used by scripts/circulizeContig.pl and others
+# pulls down and compiles MUMmer 3.23, which is used by scripts/circularizeContig.pl and others
 # see http://mummer.sourceforge.net/
 task :mummer => [:env, MUMMER_DIR, "#{MUMMER_DIR}/nucmer", "#{MUMMER_DIR}/show-coords"]
 directory MUMMER_DIR
