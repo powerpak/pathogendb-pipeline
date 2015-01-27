@@ -257,6 +257,7 @@ desc "Resequences the circularized assembly"
 task :resequence_assembly => [:check, "data/#{STRAIN_NAME}_consensus.fasta"]
 file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circularized.fasta" do |t|
   abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
   
   mkdir_p "circularized_sequence"
   system <<-SH or abort
