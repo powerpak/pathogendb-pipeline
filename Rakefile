@@ -344,9 +344,9 @@ end
 # ===============
 # = rast_to_igb =
 # ===============
-
+job_id = ENV['SMRT_JOB_ID']
 species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
-strain_igb_dir = "#{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}"
+strain_igb_dir = "#{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}"
 
 desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
 task :rast_to_igb => [:check, strain_igb_dir]
@@ -361,7 +361,7 @@ file strain_igb_dir => [IGB_DIR, "data/rast_job_id"] do |t|
     module load blat/3.0.5
     export SAS_DIR=#{SAS_DIR}
     perl #{REPO_DIR}/scripts/rast2igb.pl -u #{Shellwords.escape ENV['RAST_USER']} \
-        -p #{Shellwords.escape ENV['RAST_PASSWORD']} -j #{rast_job} -g #{species_clean}_#{STRAIN_NAME} \
+        -p #{Shellwords.escape ENV['RAST_PASSWORD']} -j #{rast_job} -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
         -i #{IGB_DIR}
   SH
 end
