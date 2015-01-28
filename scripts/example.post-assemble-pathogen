@@ -1,15 +1,21 @@
 #!/bin/bash
 
-module unload ruby
-module load ruby
-
 # Must be configured by the end user
 export RAST_USER=""
 export RAST_PASSWORD=""
 export REPO_DIR=""
 
+# Reset module system for node architecture
+module purge
+unset MODULEPATH
+source /etc/profile.d/modules.sh
+
+# Load required modules
+module load boost/1.55.0-gcc
+module load java/1.7.0_60
+module load ruby/2.1.1
+
 # Defaults will probably work for these
-export PERL5LIB="/usr/bin/perl5.10.1"
 export TMP="/sc/orga/scratch/$USER/tmp"
 export SMRTPIPE="/sc/orga/projects/InfectiousDisease/smrtpipe"
 export SMRTANALYSIS="/sc/orga/projects/pacbio/modules/smrtanalysis/2.2.0/install/smrtanalysis_2.3.0.140936"
@@ -18,11 +24,6 @@ export IGB_DIR="$HOME/www/igb"
 
 # If running from interactive1/interactive2, need to run requests through internal HTTP proxy
 export HTTP_PROXY="http://proxy.mgmt.hpc.mssm.edu:8123"
-
-# Ensures that the required module files are in MODULEPATH
-if [[ ":$MODULEPATH:" != *":/hpc/packages/minerva-mothra/modulefiles:"* ]]; then
-    export MODULEPATH="${MODULEPATH:+"$MODULEPATH:"}/hpc/packages/minerva-mothra/modulefiles"
-fi
 
 # Run rake
 rake -f $REPO_DIR/Rakefile $@
