@@ -360,7 +360,7 @@ file strain_igb_dir => [IGB_DIR, "data/rast_job_id"] do |t|
   rast_job = IO.read("data/rast_job_id").strip
   
   system <<-SH
-    module load blat/3.0.5
+    module load blat
     export SAS_DIR=#{SAS_DIR}
     perl #{REPO_DIR}/scripts/rast2igb.pl -u #{Shellwords.escape ENV['RAST_USER']} \
         -p #{Shellwords.escape ENV['RAST_PASSWORD']} -j #{rast_job} -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
