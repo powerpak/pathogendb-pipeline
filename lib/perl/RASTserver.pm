@@ -139,7 +139,7 @@ sub submit_RAST_job
 	    $error_string .= "-domain must be $tmp\n";
     	}
 	
-	if ($organism !~ m/^[A-Z][a-z]*\s+\S+/o) {
+	unless ($organism) {
 	    $error_string .= "-organismName is mandatory for non-GenBank submissions\n";
 	}
     }
