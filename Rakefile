@@ -140,7 +140,8 @@ desc "Generates a graph of tasks, intermediate files and their dependencies from
 task :graph do
   system <<-SH
     module load graphviz
-    STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' rake -f #{Shellwords.escape(__FILE__)} -P \
+    STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' SMRT_JOB_ID='${SMRT_JOB_ID}' rake -f \
+        #{Shellwords.escape(__FILE__)} -P \
         | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with '$REPO_DIR' \
         | unflatten -f -l5 -c 3 \
         | dot -Tpng -o pathogendb-pipeline.png
@@ -256,6 +257,7 @@ desc "Resequences the circularized assembly"
 task :resequence_assembly => [:check, "data/#{STRAIN_NAME}_consensus.fasta"]
 file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circularized.fasta" do |t|
   abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
   
   mkdir_p "circularized_sequence"
   system <<-SH or abort
@@ -352,6 +354,7 @@ task :rast_to_igb => [:check, strain_igb_dir]
 
 directory IGB_DIR
 file strain_igb_dir => [IGB_DIR, "data/rast_job_id"] do |t|
+  abort "FATAL: Task rast_to_igb requires specifying SMRT_JOB_ID" unless job_id
   abort "FATAL: Task rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task rast_to_igb requires specifying SPECIES" unless SPECIES 
   rast_job = IO.read("data/rast_job_id").strip
