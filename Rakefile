@@ -33,18 +33,17 @@ TASK_FILE = ENV['TASK_FILE']
 #  This Rakefile runs with the working directory set to OUT
 #  All filenames from hereon are relative to that directory
 #############################################################
+mkdir_p OUT
 Dir.chdir(OUT)
 
 task :env do
   puts "Output directory: #{OUT}"
-  mkdir_p OUT
   mkdir_p File.join(REPO_DIR, "vendor")
   
   sc_orga_scratch = "/sc/orga/scratch/#{ENV['USER']}"
   ENV['TMP'] ||= Dir.exists?(sc_orga_scratch) ? sc_orga_scratch : "/tmp"
-  ENV['PERL5LIB'] ||= "/usr/bin/perl5.10.1"
-  # Always use our locally bundled (patched) perl modules over anything else
-  ENV['PERL5LIB'] = "#{REPO_DIR}/lib/perl:#{ENV['PERL5LIB']}"
+  # Always use our locally bundled (patched) perl modules
+  ENV['PERL5LIB'] = "#{REPO_DIR}/lib/perl"
 end
 
 file "#{REPO_DIR}/scripts/env.sh" => "#{REPO_DIR}/scripts/example.env.sh" do
