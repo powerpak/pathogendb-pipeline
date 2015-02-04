@@ -10,32 +10,21 @@ Usage:  fect_mslt.py <file.fasta>
 
 from bs4 import BeautifulSoup
 import csv
-from poster.encode import multipart_encode
-from poster.streaminghttp import register_openers
-import urllib2
 import sys
 import re
 import os
 import argparse
 
-register_openers()
 
 
 def fetch_results(file):
     #Fetch the result from the server
-    params = {'fasta_upload': open(file, "rb"), 'db': 'pubmlst_cdifficile_seqdef', "page":"sequenceQuery", "locus":"SCHEME_1", "submit":"submit" }
-    datagen, headers =multipart_encode(params)
-    upload_url = "http://pubmlst.org/perl/bigsdb/bigsdb.pl"
-   
-    #os.environ['http_proxy'] = 'proxy.mgmt.hpc.mssm.edu:8123' 
-    #proxy = urllib2.ProxyHandler({'http': 'proxy.mgmt.hpc.mssm.edu:8123'})    
-    #opener = urllib2.build_opener(proxy)
-    #urllib2.install_opener(opener)
-    
-    request = urllib2.Request(upload_url, datagen, headers)
-    #result = urllib2.urlopen(upload_url)
-    result = urllib2.urlopen(request)
-    html=result.read()
+
+    curl_command = 'curl --proxy proxy.mgmt.hpc.mssm.edu:8123 --form "fasta_upload=@' +file + '" --form "db=pubmlst_cdifficile_seqdef" --form "page=sequenceQuery" --form "locus=SCHEME_1" --form "order=locus" -F "submit=submit" "http://pubmlst.org/perl/bigsdb/bigsdb.pl"'
+
+    stream = stream=os.popen(curl_command)
+    html = stream.read()
+
  
     #load the result into a dom representation and parse the tables
     #there's 3 tables in the result. we are interested in the last 2
