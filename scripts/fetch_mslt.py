@@ -42,8 +42,12 @@ def fetch_results(file):
     dom = BeautifulSoup(html)
     
     tables = dom.find_all("table")
-    alleles = tables[1]
-    MLST = tables[2]
+    if len(tables)>1:
+    	alleles = tables[1]
+    	MLST = tables[2]
+    else:
+	print "No MSLT match found\n"
+	sys.exit(0)
     return (alleles, MLST)
 
 
