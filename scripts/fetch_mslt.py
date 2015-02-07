@@ -31,13 +31,16 @@ def fetch_results(file):
     dom = BeautifulSoup(html)
     
     tables = dom.find_all("table")
-    if len(tables)>1:
+    if len(tables)==3:
     	alleles = tables[1]
-    	MLST = tables[2]
+    	MSLT = tables[2]
+    if len(tables)==2:
+	alleles = tables[1]
+	MSLT=""
     else:
-	print "No MSLT match found\n"
+	print "No match found\n"
 	sys.exit(0)
-    return (alleles, MLST)
+    return (alleles, MSLT)
 
 
 
@@ -48,10 +51,12 @@ def  convertTabl2tsv(allelesTable, mlstTable, output):
     t1 = allelesTable
     t1 = re.sub('\n', '\t', t1.prettify())
     t1_ = BeautifulSoup(t1)
-    
-    t2 = mlstTable
-    t2 = re.sub('\n', '\t', t2.prettify())
-    t2_ = BeautifulSoup(t2)
+   
+    t2_=False
+    if mlstTable!="": 
+    	t2 = mlstTable
+    	t2 = re.sub('\n', '\t', t2.prettify())
+    	t2_ = BeautifulSoup(t2)
     
     with open("out.tmp", "wb") as f:
         writer = csv.writer(f)
@@ -67,15 +72,18 @@ def  convertTabl2tsv(allelesTable, mlstTable, output):
         f.write("\n\n")
         f.write("MLST\n\n")
     
-    
-        for tr in t2_.find_all("tr"):
-            tds = tr.find_all('th')
-            c1 = [elem.text.encode('utf-8') for elem in tds[:4]]
-            tds = tr.find_all('td')
-            c2 = [elem.text.encode('utf-8') for elem in tds[:4]]
-            row = c1 + c2
-            writer.writerow(row)
-    
+        if t2_:
+        	for tr in t2_.find_all("tr"):
+            		tds = tr.find_all('th')
+            		c1 = [elem.text.encode('utf-8') for elem in tds[:4]]
+            		tds = tr.find_all('td')
+            		c2 = [elem.text.encode('utf-8') for elem in tds[:4]]
+            		row = c1 + c2
+            		writer.writerow(row)
+        else:
+		row = ["no match found"]
+		#writer.writerow(row)
+ 		f.write("no_match_found")
     f=open(output, "w")
     f.close()
     with open(output, "wb") as f:
