@@ -34,7 +34,7 @@ def fetch_results(file):
     if len(tables)==3:
     	alleles = tables[1]
     	MSLT = tables[2]
-    if len(tables)==2:
+    elif len(tables)==2:
 	alleles = tables[1]
 	MSLT=""
     else:
