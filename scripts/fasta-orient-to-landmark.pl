@@ -65,7 +65,7 @@ HELP
 ##########
 
 # Check arguments
-die "Error: flank size must be an integer\n"        unless ($nFlankSize =~ /^\d+$/);
+die "Error: flank size must be an integer\n"        unless ($nFlankSize =~ /^-?\d+$/);
 die "Error: file '$sGenomeFile' does not exist\n"   unless (-e $sGenomeFile);
 die "Error: file '$sLandmarkFile' does not exist\n" unless (-e $sLandmarkFile);
 
