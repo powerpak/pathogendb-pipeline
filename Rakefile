@@ -280,13 +280,40 @@ file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circulariz
 end
 
 
+# =======================
+# = reorient_assembly =
+# =======================
+
+desc "Reorients the circularized assembly to a given locus"
+task :reorient_assembly => [:check, "data/#{STRAIN_NAME}_reorient.fasta"]
+file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
+  abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
+  reorient_fasta = ENV['REORIENT_FASTA']
+  reorient_fasta_doesnt_exist = reorient_fasta && !File.exist?(reorient_fasta)
+  abort "FATAL: REORIENT_FASTA is nonempty but does not point to a file" if reorient_fasta_doesnt_exist
+  reorient_flank = (ENV['REORIENT_FLANK'] || 0).to_i
+  
+  if reorient_fasta
+    system <<-SH
+      perl #{REPO_DIR}/scripts/fasta-orient-to-landmark.pl --key circ --flank #{reorient_flank} \
+          --landmark #{Shellwords.escape reorient_fasta} \
+          --genome "data/#{STRAIN_NAME}_consensus.fasta" >"data/#{STRAIN_NAME}_reorient.fasta"
+    SH
+  else
+    # No reorient locus given, simply copy the assembly for the next step
+    cp "data/#{STRAIN_NAME}_consensus.fasta", "data/#{STRAIN_NAME}_reorient.fasta"
+  end
+end
+
+
 # =================
 # = rast_annotate =
 # =================
 
 desc "Submits the circularized assembly to RAST for annotations"
-task :rast_annotate => [:check, "data/#{STRAIN_NAME}_consensus_rast.fna", 
-    "data/#{STRAIN_NAME}_consensus_rast.gbk", "data/#{STRAIN_NAME}_consensus_rast_aa.fa",
+task :rast_annotate => [:check, "data/#{STRAIN_NAME}_reorient_rast.fna", 
+    "data/#{STRAIN_NAME}_reorient_rast.gbk", "data/#{STRAIN_NAME}_reorient_rast_aa.fa",
     "data/rast_job_id"]
 
 def submit_and_retrieve_rast(fasta, gbk_file, job_id_file="rast_job_id", task_name="rast_annotate") 
@@ -319,10 +346,10 @@ def submit_and_retrieve_rast(fasta, gbk_file, job_id_file="rast_job_id", task_na
   end
 end
 
-file "data/#{STRAIN_NAME}_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_consensus.fasta"] do |t|
-  submit_and_retrieve_rast("data/#{STRAIN_NAME}_consensus.fasta", t.name)
+file "data/#{STRAIN_NAME}_reorient_rast.gbk" => ["data/#{STRAIN_NAME}_reorient.fasta"] do |t|
+  submit_and_retrieve_rast("data/#{STRAIN_NAME}_reorient.fasta", t.name)
 end
-file "data/rast_job_id" => "data/#{STRAIN_NAME}_consensus_rast.gbk"
+file "data/rast_job_id" => "data/#{STRAIN_NAME}_reorient_rast.gbk"
 
 def gb_to_fasta(gb, fasta, seq_type=:nt, task_name="rast_annotate")
   abort "FATAL: Task #{task_name} requires specifying STRAIN_NAME" unless STRAIN_NAME
@@ -334,17 +361,18 @@ def gb_to_fasta(gb, fasta, seq_type=:nt, task_name="rast_annotate")
   SH
 end
 
-file "data/#{STRAIN_NAME}_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", "#{OUT}/#{t.name}", :aa
+file "data/#{STRAIN_NAME}_reorient_rast_aa.fa" => "data/#{STRAIN_NAME}_reorient_rast.gbk" do |t|
+  gb_to_fasta "data/#{STRAIN_NAME}_reorient_rast.gbk", "#{OUT}/#{t.name}", :aa
 end
 
-file "data/#{STRAIN_NAME}_consensus_rast.fna" => "data/#{STRAIN_NAME}_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_consensus_rast.gbk", "#{OUT}/#{t.name}", :nt
+file "data/#{STRAIN_NAME}_reorient_rast.fna" => "data/#{STRAIN_NAME}_reorient_rast.gbk" do |t|
+  gb_to_fasta "data/#{STRAIN_NAME}_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt
 end
 
 # ===============
 # = rast_to_igb =
 # ===============
+
 job_id = ENV['SMRT_JOB_ID']
 species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
 strain_igb_dir = "#{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}"
@@ -374,9 +402,9 @@ end
 # ========================
 
 desc "Recalls a new consensus by piling Illumina reads onto a PacBio assembly"
-task :recall_ilm_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_consensus.fasta"]
+task :recall_ilm_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_reorient.fasta"]
 
-file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
+file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
   abort "FATAL: Task recall_ilm_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task recall_ilm_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
   
@@ -384,8 +412,8 @@ file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
   LSF.job_name "ref.aln.sam"
   LSF.bsub_interactive <<-SH or abort
     module load bwa/0.7.8
-    bwa index "data/#{STRAIN_NAME}_consensus.fasta"
-    bwa mem "data/#{STRAIN_NAME}_consensus.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/ref.aln.sam
+    bwa index "data/#{STRAIN_NAME}_reorient.fasta"
+    bwa mem "data/#{STRAIN_NAME}_reorient.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/ref.aln.sam
     
     module load samtools/1.1
     samtools view -bS data/ref.aln.sam > data/ref.aln.bam
@@ -404,7 +432,7 @@ file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
   LSF.bsub_interactive <<-SH
     module load samtools/1.1
     module load bcftools/1.1
-    samtools mpileup -uf "data/#{STRAIN_NAME}_consensus.fasta" data/ref.sort.bam \
+    samtools mpileup -uf "data/#{STRAIN_NAME}_reorient.fasta" data/ref.sort.bam \
         | bcftools call -cv -Ob > "data/#{STRAIN_NAME}_ref_raw.bcf"
   SH
 end
@@ -419,24 +447,24 @@ file "data/#{STRAIN_NAME}_ref_flt.vcf" => "data/#{STRAIN_NAME}_ref_raw.bcf" do |
   SH
 end
 
-file "data/#{STRAIN_NAME}_ilm_consensus.fasta" => 
-    ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_consensus.fasta"] do |t|
+file "data/#{STRAIN_NAME}_ilm_reorient.fasta" => 
+    ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_reorient.fasta"] do |t|
   LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-  LSF.job_name "#{STRAIN_NAME}_ilm_consensus.fasta"
+  LSF.job_name "#{STRAIN_NAME}_ilm_reorient.fasta"
   system <<-SH
     module load vcftools/0.1.12b
     module load tabix/0.2.6 
     
     bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
     tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    cat "data/#{STRAIN_NAME}_consensus.fasta" | vcf-consensus "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
-            > "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+    cat "data/#{STRAIN_NAME}_reorient.fasta" | vcf-consensus "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+            > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
     
     # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
     # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
     # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_consensus.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
-    #    > "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+    # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME_reorient.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+    #    > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
   SH
 end
 
@@ -447,7 +475,7 @@ task :recall_ilm_consensus_fake_prereqs do
   touch "bash5.fofn"                                  and sleep 1
   touch "data/polished_assembly.fasta.gz"             and sleep 1
   touch "data/polished_assembly_circularized.fasta"   and sleep 1
-  touch "data/#{STRAIN_NAME}_consensus.fasta"
+  touch "data/#{STRAIN_NAME}_reorient.fasta"
 end
 
 
@@ -456,20 +484,20 @@ end
 # =====================
 
 desc "Submits the Illumina-fixed consensus to RAST for annotations"
-task :rast_annotate_ilm => [:check, "data/#{STRAIN_NAME}_ilm_consensus_rast.fna", 
-    "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa",
+task :rast_annotate_ilm => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast.fna", 
+    "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa",
     "data/ilm_rast_job_id"]
 
-file "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_consensus.fasta"] do |t|
-  fasta = "data/#{STRAIN_NAME}_ilm_consensus.fasta"
+file "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient.fasta"] do |t|
+  fasta = "data/#{STRAIN_NAME}_ilm_reorient.fasta"
   submit_and_retrieve_rast(fasta, t.name, "data/ilm_rast_job_id", "rast_annotate_ilm")
 end
-file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_consensus_rast.gbk"
+file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_reorient_rast.gbk"
 
-file "data/#{STRAIN_NAME}_ilm_consensus_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "#{OUT}/#{t.name}", :aa, "rast_annotate_ilm"
+file "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
+  gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :aa, "rast_annotate_ilm"
 end
 
-file "data/#{STRAIN_NAME}_ilm_consensus_rast.fna" => "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_ilm_consensus_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
+file "data/#{STRAIN_NAME}_ilm_reorient_rast.fna" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
+  gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
 end
