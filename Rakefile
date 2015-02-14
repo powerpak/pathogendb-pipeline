@@ -463,7 +463,7 @@ file "data/#{STRAIN_NAME}_ilm_reorient.fasta" =>
     # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
     # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
     # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME_reorient.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+    # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_reorient.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
     #    > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
   SH
 end
