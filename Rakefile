@@ -287,7 +287,7 @@ end
 desc "Reorients the circularized assembly to a given locus"
 task :reorient_assembly => [:check, "data/#{STRAIN_NAME}_reorient.fasta"]
 file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
-  abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task reorient_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
   reorient_fasta = ENV['REORIENT_FASTA']
   reorient_fasta_doesnt_exist = reorient_fasta && !File.exist?(reorient_fasta)
@@ -301,6 +301,10 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
           --landmark #{Shellwords.escape reorient_fasta} \
           --genome "data/#{STRAIN_NAME}_consensus.fasta" >"data/#{STRAIN_NAME}_reorient.fasta"
     SH
+    if File.size("data/#{STRAIN_NAME}_reorient.fasta") == 0
+      rm "data/#{STRAIN_NAME}_reorient.fasta"
+      abort "FATAL: Task reorient_assembly failed, exiting"
+    end
   else
     # No reorient locus given, simply copy the assembly for the next step
     cp "data/#{STRAIN_NAME}_consensus.fasta", "data/#{STRAIN_NAME}_reorient.fasta"
