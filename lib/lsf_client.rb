@@ -3,13 +3,12 @@ require 'shellwords'
 class LSFClient
   
   DEFAULT_OPTIONS = {
-    :R => "rusage[mem=4000]",
+    :R => "rusage[mem=4000] span[hosts=1]",
     :m => "manda",
     :P => "acc_PBG",
     :W => "24:00",
     :L => "/bin/bash",
     :q => "premium",
-    :R => "span[hosts=1]",
     :n => 16
   }
   

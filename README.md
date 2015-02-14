@@ -27,7 +27,7 @@ For the rest of the variables, the defaults should work for any Minerva user.  T
     $ source scripts/env.sh
     $ bundle install --deployment
 
-When this is complete, you should be able to run `rake` to kick off the pipeline as follows. However, first read **[Environment variables](#environment-variables)** below, as certain tasks require more variables to be set before being invoked.  A description of the typical sequence for assembling a genome is described below in **[Tasks](#tasks)**.
+When this is complete, you should be able to run `rake` to kick off the pipeline as follows. However, first read **[Environment variables](#required-environment-variables)** below, as certain tasks require more variables to be set before being invoked.  A description of the typical sequence for assembling a genome is described below in **[Tasks](#tasks)**.
 
     $ rake -T                    # list the available tasks
     $ rake $TASK_NAME            # run the task named $TASK_NAME
@@ -35,7 +35,7 @@ When this is complete, you should be able to run `rake` to kick off the pipeline
 
 When firing up the pipeline in a new shell, always remember to `source scripts/env.sh` before running `rake`.
 
-### Environment variables
+### Required environment variables
 
 Certain tasks within the pipeline require you to specify some extra information as an environment variable.  You can do this by either editing them into `scripts/env.sh` and re-running `source scripts/env.sh`, or you can prepend them to the `rake` invocation, e.g.:
 
@@ -51,6 +51,15 @@ Variable             | Required by                           | Default | Purpose
 `SPECIES`            | `rast_annotate` `rast_annotate_ilm` `rast_to_igb` | (none)  | The species for your sample.
 `ILLUMINA_FASTQ`     | `recall_ilm_consensus`                | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
 
+### Optional environment variables
+
+These variables may be provided to configure certain tasks within the pipeline, but are not required.
+
+Variable             | Can be provided for                   | Default | Purpose
+---------------------|---------------------------------------|---------|-----------------------------------
+`REORIENT_FASTA`     | `reorient_assembly`                   | (none)  | A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
+`REORIENT_FLANK`     | `reorient_assembly`                   | 0       | This is the offset from the beginning of the landmark where the origin of the circular chromosome will be set.
+
 ### Tasks
 
 The typical series of tasks used to assemble a strain's genome from PacBio RS reads and then annotate with RAST are:
@@ -59,17 +68,18 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 2. `assemble_raw_reads`
 3. `circularize_assembly`
 4. `resequence_assembly`
-5. `rast_annotate`
-6. `rast_to_igb`
+5. `reorient_assembly`
+6. `rast_annotate`
+7. `rast_to_igb`
 
-With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all required [environment variables](#environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
+With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all [required environment variables](#required-environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
 
 The final task, `rast_to_igb`, creates an [IGB](http://bioviz.org/igb/) Quickload-compatible directory so you can load the genome into IGB. By default, this occurs in `~/www/igb`, although you can override this by setting `IGB_DIR` in your `scripts/env.sh`. To view the genome in IGB, open IGB's preferences and add `https://YOUR_USERNAME.u.hpc.mssm.edu/igb/` as a Quickload data source (replacing `YOUR_USERNAME` with your Minerva username), and then you should be able to find your genome under the Species dropdown in the browser.
 
 Optionally, if Illumina reads are also available the same isolate, they can be used to iron out small errors in the PacBio-produced assembly and then the new consensus can be re-annotated with these two extra steps:
 
-6. `recall_ilm_consensus`
-7. `rast_annotate_ilm`
+1. `recall_ilm_consensus`
+2. `rast_annotate_ilm`
 
 ### Multiple runs within `screen`
 
@@ -87,6 +97,19 @@ If you don't want as many splits, and would like some of the jobs to run in seri
     $ rake multi[/path/to/task/file,3]
 
 You will almost certainly need to run `rake multi` on an interactive node or the process will hit resource limits.
+
+### Running as a `bsub` task
+
+You may also want to run the pipeline as a non-interactive job on the cluster.  For this, the `scripts/example.post-assemble-pathogen` should be copied, modified as appropriate, and then can be submitted with `bsub` as in the following example:
+
+    $ bsub -R 'rusage[mem=4000] span[hosts=1]' -m bode,mothra -P acc_PBG -W "24:00" \
+            -L /bin/bash -q premium -n 16 -J CD00246\
+        post-assemble-pathogen \
+            SMRT_JOB_ID=020486 \
+            STRAIN_NAME=CD00246 \
+            SPECIES=Cdiff \
+            OUT=scratch/out/CD00246_020486 \
+            rast_annotate
 
 ### Dependency graph
 
