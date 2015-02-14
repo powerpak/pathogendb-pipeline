@@ -296,6 +296,7 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
   
   if reorient_fasta
     system <<-SH
+      module load blat/3.0.5
       perl #{REPO_DIR}/scripts/fasta-orient-to-landmark.pl --key circ --flank #{reorient_flank} \
           --landmark #{Shellwords.escape reorient_fasta} \
           --genome "data/#{STRAIN_NAME}_consensus.fasta" >"data/#{STRAIN_NAME}_reorient.fasta"
@@ -368,6 +369,7 @@ end
 file "data/#{STRAIN_NAME}_reorient_rast.fna" => "data/#{STRAIN_NAME}_reorient_rast.gbk" do |t|
   gb_to_fasta "data/#{STRAIN_NAME}_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt
 end
+
 
 # ===============
 # = rast_to_igb =
