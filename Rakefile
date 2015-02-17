@@ -384,7 +384,7 @@ species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, 
 strain_igb_dir = "#{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}"
 
 desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
-task :rast_to_igb => [:check, strain_igb_dir]
+task :rast_to_igb => [:check, :rast_annotate, strain_igb_dir]
 
 directory IGB_DIR
 file strain_igb_dir => [IGB_DIR, "data/rast_job_id"] do |t|

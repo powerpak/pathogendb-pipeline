@@ -58,7 +58,7 @@ These variables may be provided to configure certain tasks within the pipeline, 
 Variable             | Can be provided for                   | Default | Purpose
 ---------------------|---------------------------------------|---------|-----------------------------------
 `REORIENT_FASTA`     | `reorient_assembly`                   | (none)  | A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
-`REORIENT_FLANK`     | `reorient_assembly`                   | 0       | This is the offset from the beginning of the landmark where the origin of the circular chromosome will be set.
+`REORIENT_FLANK`     | `reorient_assembly`                   | 0       | This is the number of nt *before* the beginning of the landmark where the origin of the circular chromosome will be set.
 
 ### Tasks
 
