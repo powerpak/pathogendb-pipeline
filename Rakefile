@@ -496,7 +496,7 @@ task :rast_annotate_ilm => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast.fna",
 
 file "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient.fasta"] do |t|
   fasta = "data/#{STRAIN_NAME}_ilm_reorient.fasta"
-  submit_and_retrieve_rast(fasta, t.name, "data/ilm_rast_job_id", "rast_annotate_ilm")
+  submit_and_retrieve_rast(fasta, t.name, "ilm_rast_job_id", "rast_annotate_ilm")
 end
 file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_reorient_rast.gbk"
 
