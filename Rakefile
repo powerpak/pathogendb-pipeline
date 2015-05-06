@@ -507,3 +507,27 @@ end
 file "data/#{STRAIN_NAME}_ilm_reorient_rast.fna" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
   gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
 end
+
+
+# ===================
+# = rast_to_igb_ilm =
+# ===================
+
+desc "Creates an IGB Quickload-compatible directory for your Illumina-fixed genome in IGB_DIR"
+task :rast_to_igb_ilm => [:check, :rast_annotate_ilm, strain_igb_dir]
+
+directory IGB_DIR
+file strain_igb_dir => [IGB_DIR, "data/ilm_rast_job_id"] do |t|
+  abort "FATAL: Task rast_to_igb_ilm requires specifying SMRT_JOB_ID" unless job_id
+  abort "FATAL: Task rast_to_igb_ilm requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task rast_to_igb_ilm requires specifying SPECIES" unless SPECIES 
+  rast_job = IO.read("data/ilm_rast_job_id").strip
+  
+  system <<-SH
+    module load blat
+    export SAS_DIR=#{SAS_DIR}
+    perl #{REPO_DIR}/scripts/rast2igb.pl -u #{Shellwords.escape ENV['RAST_USER']} \
+        -p #{Shellwords.escape ENV['RAST_PASSWORD']} -j #{rast_job} -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
+        -i #{IGB_DIR}
+  SH
+end
