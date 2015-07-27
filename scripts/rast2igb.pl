@@ -2,6 +2,15 @@
 
 # 08.01.2015 06:07:03 PST
 # Harm van Bakel <hvbakel@gmail.com>
+#
+# Downloads annotations and sequence from a submitted RAST job and converts the output
+# files into an IGB-compatible Quickload directory.
+#
+# For our purposes, we strip all "|" pipe characters from contig IDs (replaced with "_")
+# and create a .2bit file and BED annotation track for each genome.
+#
+# Full specifications for an IGB Quickload directory's conventions can be found at:
+# https://wiki.transvar.org/display/igbman/Creating+QuickLoad+Sites
 
 # MODULES
 use strict;
