@@ -27,7 +27,7 @@ STRAIN_NAME = ENV['STRAIN_NAME']
 SPECIES = ENV['SPECIES']
 ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ']
 TASK_FILE = ENV['TASK_FILE']
-GENBANK_REFERENCES = ENV['GENBANK_REFERENCES']
+GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
 
 #############################################################
 #  IMPORTANT!
@@ -382,11 +382,7 @@ end
 
 def improve_rast_genbank(input_gbk, output_gbk, task_name="improve_rast")
   abort "FATAL: Task #{task_name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  if GENBANK_REFERENCES
-    unless GENBANK_REFERENCES.is_a? Array
-      GENBANK_REFERENCES = GENBANK_REFERENCES.split(':').map{|f| Shellwords.escape f }
-    end
-  else
+  unless GENBANK_REFERENCES
     puts "WARN: No GenBank references for re-annotation provided, skipping this step"
     cp input_gbk, output_gbk
     return
@@ -396,7 +392,7 @@ def improve_rast_genbank(input_gbk, output_gbk, task_name="improve_rast")
   # as improve_rask_gbk.rb supports them
   system <<-SH
     ruby #{REPO_DIR}/scripts/improve_rast_gbk.rb \
-        #{GENBANK_REFERENCES.join(' ')} #{Shellwords.escape input_gbk}\
+        #{GENBANK_REFERENCES.map{|f| Shellwords.escape f }.join(' ')} #{Shellwords.escape input_gbk}\
         > #{Shellwords.escape output_gbk}
   SH
 end
