@@ -5,17 +5,24 @@
 #
 # Downloads annotations and sequence from a submitted RAST job and converts the output
 # files into an IGB-compatible Quickload directory.
+# 
+# Alternatively, you can start from a GenBank file already downloaded from RAST or elsewhere
+# (see the --from option)
 #
 # For our purposes, we strip all "|" pipe characters from contig IDs (replaced with "_")
 # and create a .2bit file and BED annotation track for each genome.
 #
 # Full specifications for an IGB Quickload directory's conventions can be found at:
 # https://wiki.transvar.org/display/igbman/Creating+QuickLoad+Sites
+#
+# Required BioPerl >1.6. (on Minerva, you should `module load bioperl` before running this)
 
 # MODULES
 use strict;
 use warnings;
 use Getopt::Long;
+use Bio::SeqIO;
+use List::MoreUtils qw( minmax );
 
 # GLOBALS
 my $sSvrRetrieveJob = 'svr_retrieve_RAST_job';
@@ -31,12 +38,13 @@ my $sRastPass    = '';
 my $nRastJobID   = '';
 my $sGenomeName  = '';
 my $sIGBdir      = '';
-my $res = GetOptions("help!"    => \$sHelp,
-                     "user=s"   => \$sRastUser,
-                     "pass=s"   => \$sRastPass,
-                     "job=i"    => \$nRastJobID,
-                     "genome=s" => \$sGenomeName,
-                     "igbdir=s" => \$sIGBdir);
+my $res = GetOptions("help!"       => \$sHelp,
+                     "user=s"      => \$sRastUser,
+                     "pass=s"      => \$sRastPass,
+                     "job=i"       => \$nRastJobID,
+                     "from=s"      => \$sFromGenbankFile,
+                     "genome=s"    => \$sGenomeName,
+                     "igbdir=s"    => \$sIGBdir);
 
 # PRINT HELP
 $sHelp = 1 unless ($sRastPass and $sRastUser and $nRastJobID and $sGenomeName and $sIGBdir);
@@ -44,21 +52,25 @@ if (!$res || $sHelp) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
    die <<HELP
 
-   Usage: $sScriptName -u <rastuser> -p <rastpass> -j <rastjob> -g <genomename> -i <igbdir>
+   Usage: 
+       $sScriptName -f <genbankfile> -g <genomename> -i <igbdir>
+       $sScriptName -u <rastuser> -p <rastpass> -j <rastjob> -g <genomename> -i <igbdir>
    
-   Arguments 
-    -u --user <string>
-      RAST server username
-    -p --pass <string>
-      RAST server password
-    -j --job <integer>
-      RAST job ID
-    -g --genome <string>
-      IGB genome name
-    -i --igbdir <string>
-      IGB root directory
-    -help
-      This help message
+   Arguments
+       -f --from <string>
+         GenBank file that will be used as input (overrides -u, -p, and -j)
+       -u --user <string>
+         RAST server username
+       -p --pass <string>
+         RAST server password
+       -j --job <integer>
+         RAST job ID
+       -g --genome <string>
+         IGB genome name
+       -i --igbdir <string>
+         IGB root directory
+       -help
+         This help message
    
 HELP
 }
@@ -70,63 +82,121 @@ HELP
 
 # Check args
 die "Error: IGB directory '$sIGBdir' does not exist\n" unless (-d $sIGBdir);
-die "Error: incorrect job ID format\n" unless ($nRastJobID =~ /^\d+$/);
+die "Error: incorrect job ID format\n" unless ($nRastJobID =~ /^\d+$/) || $sFromGenbankFile;
 $sGenomeName =~ s/ /_/g;
 
 # Create a new Quickload genome dir
 my $sGenomeDir = "$sIGBdir/$sGenomeName";
 mkdir($sGenomeDir) or die "Error: could not create genome dir: $!\n";
 
-# Retrieve gff3 annotations and convert rRNA and tRNA annots to a standard feature type
-open GFFOUT, ">$sGenomeDir/$sGenomeName.gff3" or die "Error: can't open gff3 file '$sGenomeDir/$sGenomeName.gff3' for writing: $!\n";
-open GFFIN, "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID gff3 |" or die "Error: could not retrieve gff file for job '$nRastJobID'\n";
-while (<GFFIN>){
-   next if (/^\s*$/);
-   if (/^ *#/){
-      print GFFOUT $_;
-      next;
+if ($sFromGenbankFile) {
+   # Convert the GenBank file to BED detail format
+   my $inSeq = Bio::SeqIO->new(-file   => "<$sFromGenbankFile",
+                               -format => 'Genbank');
+   open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
+   while (my $nextSeq = $inSeq->next_seq) {
+      my $sLocusID = $nextSeq->display_id();
+      $sLocusID =~ s/^ +//;
+      $sLocusID =~ s/\|/_/g;
+      $sLocusID =~ s/\s+$//;
+      
+      for my $feature ($nextSeq->get_SeqFeatures) {
+         if ($feature->primary_tag =~ /^CDS|tRNA|rRNA$/i) {
+            my $location = $feature->location;
+            my $sStrand = $location->strand > 0 ? '+' : '-';
+            my @anBlockStarts = ();
+            my @anBlockSizes = ();
+            my $nStart, $nEnd, $sBlockStarts, $sBlockSizes, $sID, $sName, $sDescription;
+            if ($location->isa("Bio::Location::SplitLocationI")) {
+               ($nStart, $nEnd) = minmax(map { $_->start } $feature->location->sub_Location);
+               $nStart = $nStart - 1;
+               for my $subLocation ( sort {($a->start cmp $b->start) * $location->strand} $feature->location->sub_Location ) {
+                  push @anBlockStarts, $location->strand > 0 ? $subLocation->start - 1 - $nStart : $nEnd - $subLocation->end;
+                  push @anBlockSizes, $subLocation->end - $subLocation->start + 1;
+               }
+            } else {
+               $nStart = $feature->location->start - 1;
+               $nEnd = $feature->location->end;
+               push @anBlockStarts, 0;
+               push @anBlockSizes, $nEnd - $nStart;
+            }
+            if ($feature->has_tag("db_xref")) {
+               for my $sDbXref ($feature->get_tag_values('db_xref')) {
+                  if ($sDbXref =~ /^SEED:(.+)$/) { $sID = $1; $sName = $1; }
+               }
+            }
+            die "Error: feature '$sID' has no SEED ID\n" unless ($sID);
+            if ($feature->has_tag("gene")) {
+               $sName = ($feature->get_tag_values("gene"))[0];
+            }
+            if ($feature->has_tag("product")) {
+               $sDescription = ($feature->get_tag_values("product"))[0];
+            }
+            if ($feature->primary_tag =~ /^tRNA/i) {
+               $sName = $sDescription;
+            } elsif ($feature->primary_tag =~ /^rRNA/i) {
+               my @asDescParts = split /;\s+/, $sDescription;
+               $sName = $asDescParts[-1];
+            }
+            $sName =~ s/[^\w-]/-/g;
+            print BEDOUT join("\t", ($sLocusID, $nStart, $nEnd, $sName, '0', $sStrand, $nStart, $nEnd, '0,0,0', 0+@anBlockSizes, 
+                              join(',', @anBlockSizes), join(',', @anBlockStarts), $sID, $sDescription)) . "\n";
+         }
+      }
    }
-   my @asLine = split /\t/, $_, -1;
-   $asLine[0] =~ s/\|/_/g;
-   $asLine[2] = 'exon' if ($asLine[2] eq 'rRNA');
-   $asLine[2] = 'exon' if ($asLine[2] eq 'tRNA');
-   print GFFOUT join("\t", @asLine);
-}
-close GFFIN;
-close GFFOUT;
+   close BEDOUT;
+} else {
+   # Retrieve GFF3 annotations from RAST and convert rRNA and tRNA annots to a standard feature type
+   open GFFOUT, ">$sGenomeDir/$sGenomeName.gff3" or die "Error: can't open gff3 file '$sGenomeDir/$sGenomeName.gff3' for writing: $!\n";
+   open GFFIN, "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID gff3 |" or die "Error: could not retrieve gff file for job '$nRastJobID'\n";
+   while (<GFFIN>){
+      next if (/^\s*$/);
+      if (/^ *#/){
+         print GFFOUT $_;
+         next;
+      }
+      my @asLine = split /\t/, $_, -1;
+      $asLine[0] =~ s/\|/_/g;
+      $asLine[2] = 'exon' if ($asLine[2] eq 'rRNA');
+      $asLine[2] = 'exon' if ($asLine[2] eq 'tRNA');
+      print GFFOUT join("\t", @asLine);
+   }
+   close GFFIN;
+   close GFFOUT;
 
-# Convert the gff3 format to bed basic
-my %hFeatures;
-open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
-open GFF, "sort -s -t '\t' -k9,9 $sGenomeDir/$sGenomeName.gff3 |" or die "Error sorting gff file: $!\n";
-while (<GFF>){
-   next if /^\s*$/;
-   next if /^\s*[Tt]rack/;
-   next if /^\s*#/;
-   s/[\n\r]$//g;
-   my ($sChr, $sSource, $sType, $nStart, $nEnd, $nScore, $sStrand, $nFrame, $sID) = split /\t/;
-   $sType = lc($sType);
-   if (exists($hFeatures{$sID})){
-      die "Error: feature '$sID' was found on multiple chromosomes\n" unless($hFeatures{$sID}{'chr'} eq $sChr);
-      die "Error: feature '$sID' was found on multiple strands\n"     unless($hFeatures{$sID}{'strand'} eq $sStrand);
-      $hFeatures{$sID}{$sType}{'start'} ||= $nStart;
-      $hFeatures{$sID}{$sType}{'end'}   ||= $nEnd;
-      $hFeatures{$sID}{$sType}{'start'} = $nStart if ($nStart < $hFeatures{$sID}{$sType}{'start'});
-      $hFeatures{$sID}{$sType}{'end'}   = $nEnd   if ($nEnd   > $hFeatures{$sID}{$sType}{'end'});
-      push @{$hFeatures{$sID}{$sType}{'features'}}, [$nStart, $nEnd];
+   # Convert the GFF3 format to BED detail format
+   my %hFeatures;
+   open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
+   open GFF, "sort -s -t '\t' -k9,9 $sGenomeDir/$sGenomeName.gff3 |" or die "Error sorting gff file: $!\n";
+   while (<GFF>){
+      next if /^\s*$/;
+      next if /^\s*[Tt]rack/;
+      next if /^\s*#/;
+      s/[\n\r]$//g;
+      my ($sChr, $sSource, $sType, $nStart, $nEnd, $nScore, $sStrand, $nFrame, $sID) = split /\t/;
+      $sType = lc($sType);
+      if (exists($hFeatures{$sID})){
+         die "Error: feature '$sID' was found on multiple chromosomes\n" unless($hFeatures{$sID}{'chr'} eq $sChr);
+         die "Error: feature '$sID' was found on multiple strands\n"     unless($hFeatures{$sID}{'strand'} eq $sStrand);
+         $hFeatures{$sID}{$sType}{'start'} ||= $nStart;
+         $hFeatures{$sID}{$sType}{'end'}   ||= $nEnd;
+         $hFeatures{$sID}{$sType}{'start'} = $nStart if ($nStart < $hFeatures{$sID}{$sType}{'start'});
+         $hFeatures{$sID}{$sType}{'end'}   = $nEnd   if ($nEnd   > $hFeatures{$sID}{$sType}{'end'});
+         push @{$hFeatures{$sID}{$sType}{'features'}}, [$nStart, $nEnd];
+      }
+      else{
+         print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
+         %hFeatures = ();
+         $hFeatures{$sID}{'strand'}        = $sStrand;
+         $hFeatures{$sID}{'chr'}           = $sChr;
+         $hFeatures{$sID}{$sType}{'start'} = $nStart;
+         $hFeatures{$sID}{$sType}{'end'}   = $nEnd;
+         push @{$hFeatures{$sID}{$sType}{'features'}}, [$nStart, $nEnd];
+      }   
    }
-   else{
-      print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
-      %hFeatures = ();
-      $hFeatures{$sID}{'strand'}        = $sStrand;
-      $hFeatures{$sID}{'chr'}           = $sChr;
-      $hFeatures{$sID}{$sType}{'start'} = $nStart;
-      $hFeatures{$sID}{$sType}{'end'}   = $nEnd;
-      push @{$hFeatures{$sID}{$sType}{'features'}}, [$nStart, $nEnd];
-   }   
+   print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
+   close BEDOUT;
 }
-print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
-close BEDOUT;
 
 # Create the annots file
 open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
@@ -138,7 +208,7 @@ close ANNOTSOUT;
 # Retrieve the RAST genbank file and extract fasta sequences
 my ($flSeq, $sLocusID) = (0,"");
 open FASTAOUT, ">$sGenomeDir/$sGenomeName.fasta" or die "Error: can't open fasta '$sGenomeDir/$sGenomeName.fasta' for writing: $!\n";
-open FASTAIN, "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID genbank |"
+open FASTAIN, ($sFromGenbankFile || "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID genbank |")
    or die "Error: could not retrieve sequence file for job '$nRastJobID'\n";
 while (<FASTAIN>){
    next if (/^\s*$/);

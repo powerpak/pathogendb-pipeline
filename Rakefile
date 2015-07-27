@@ -27,6 +27,7 @@ STRAIN_NAME = ENV['STRAIN_NAME']
 SPECIES = ENV['SPECIES']
 ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ']
 TASK_FILE = ENV['TASK_FILE']
+GENBANK_REFERENCES = ENV['GENBANK_REFERENCES']
 
 #############################################################
 #  IMPORTANT!
@@ -375,6 +376,39 @@ file "data/#{STRAIN_NAME}_reorient_rast.fna" => "data/#{STRAIN_NAME}_reorient_ra
 end
 
 
+# ================
+# = improve_rast =
+# ================
+
+def improve_rast_genbank(input_gbk, output_gbk, task_name="improve_rast")
+  abort "FATAL: Task #{task_name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  if GENBANK_REFERENCES
+    unless GENBANK_REFERENCES.is_a? Array
+      GENBANK_REFERENCES = GENBANK_REFERENCES.split(':').map{|f| Shellwords.escape f }
+    end
+  else
+    puts "WARN: No GenBank references for re-annotation provided, skipping this step"
+    cp input_gbk, output_gbk
+    return
+  end
+  
+  # Once we want to integrate antibiotic resistance databases, we can start adding those in here
+  # as improve_rask_gbk.rb supports them
+  system <<-SH
+    ruby #{REPO_DIR}/scripts/improve_rast_gbk.rb \
+        #{GENBANK_REFERENCES.join(' ')} #{Shellwords.escape input_gbk}\
+        > #{Shellwords.escape output_gbk}
+  SH
+end
+
+file "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_reorient_rast.gbk"] do |t|
+  improve_rast_genbank("data/#{STRAIN_NAME}_reorient_rast.gbk", t.name)
+end
+
+desc "Improves GenBank output from RAST by re-annotating gene names from better references"
+task :improve_rast => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"]
+
+
 # ===============
 # = rast_to_igb =
 # ===============
@@ -387,7 +421,7 @@ desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
 task :rast_to_igb => [:check, :rast_annotate, strain_igb_dir]
 
 directory IGB_DIR
-file strain_igb_dir => [IGB_DIR, "data/rast_job_id"] do |t|
+file strain_igb_dir => [IGB_DIR, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"] do |t|
   abort "FATAL: Task rast_to_igb requires specifying SMRT_JOB_ID" unless job_id
   abort "FATAL: Task rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task rast_to_igb requires specifying SPECIES" unless SPECIES 
@@ -395,9 +429,11 @@ file strain_igb_dir => [IGB_DIR, "data/rast_job_id"] do |t|
   
   system <<-SH
     module load blat
+    module load bioperl
     export SAS_DIR=#{SAS_DIR}
-    perl #{REPO_DIR}/scripts/rast2igb.pl -u #{Shellwords.escape ENV['RAST_USER']} \
-        -p #{Shellwords.escape ENV['RAST_PASSWORD']} -j #{rast_job} -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
+    perl #{REPO_DIR}/scripts/rast2igb.pl \
+        -f data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk \
+        -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
         -i #{IGB_DIR}
   SH
 end
@@ -498,7 +534,7 @@ file "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_re
   fasta = "data/#{STRAIN_NAME}_ilm_reorient.fasta"
   submit_and_retrieve_rast(fasta, t.name, "ilm_rast_job_id", "rast_annotate_ilm")
 end
-file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_reorient_rast.gbk"
+file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"
 
 file "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
   gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :aa, "rast_annotate_ilm"
@@ -506,6 +542,18 @@ end
 
 file "data/#{STRAIN_NAME}_ilm_reorient_rast.fna" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
   gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
+end
+
+
+# ====================
+# = improve_rast_ilm =
+# ====================
+
+desc "Submits the circularized assembly to RAST for annotations"
+task :improve_rast_ilm => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"]
+
+file "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"] do |t|
+  improve_rast_genbank("data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", t.name)
 end
 
 
@@ -517,7 +565,7 @@ desc "Creates an IGB Quickload-compatible directory for your Illumina-fixed geno
 task :rast_to_igb_ilm => [:check, :rast_annotate_ilm, strain_igb_dir]
 
 directory IGB_DIR
-file strain_igb_dir => [IGB_DIR, "data/ilm_rast_job_id"] do |t|
+file strain_igb_dir => [IGB_DIR, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
   abort "FATAL: Task rast_to_igb_ilm requires specifying SMRT_JOB_ID" unless job_id
   abort "FATAL: Task rast_to_igb_ilm requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task rast_to_igb_ilm requires specifying SPECIES" unless SPECIES 
@@ -525,9 +573,11 @@ file strain_igb_dir => [IGB_DIR, "data/ilm_rast_job_id"] do |t|
   
   system <<-SH
     module load blat
+    module load bioperl
     export SAS_DIR=#{SAS_DIR}
-    perl #{REPO_DIR}/scripts/rast2igb.pl -u #{Shellwords.escape ENV['RAST_USER']} \
-        -p #{Shellwords.escape ENV['RAST_PASSWORD']} -j #{rast_job} -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
+    perl #{REPO_DIR}/scripts/rast2igb.pl \
+        -f data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk \
+        -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
         -i #{IGB_DIR}
   SH
 end

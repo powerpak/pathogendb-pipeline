@@ -246,5 +246,4 @@ if __FILE__ == $0
   iro = ImproveRastOutput.new(ARGV)
   
   iro.run!
-  
 end

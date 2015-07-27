@@ -59,6 +59,7 @@ Variable             | Can be provided for                   | Default | Purpose
 ---------------------|---------------------------------------|---------|-----------------------------------
 `REORIENT_FASTA`     | `reorient_assembly`                   | (none)  | A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
 `REORIENT_FLANK`     | `reorient_assembly`                   | 0       | This is the number of nt *before* the beginning of the landmark where the origin of the circular chromosome will be set.
+`GENBANK_REFERENCES` | `improve_rast`                        | (none)  | Paths to to GenBank files that contain "good" gene names that will be lifted over to your RAST annotations.  Multiple paths should be separated with `:`, as with `PATH`.  If not given, `improve_rast` will be a no-op.
 
 ### Tasks
 
@@ -70,7 +71,8 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 4. `resequence_assembly`
 5. `reorient_assembly`
 6. `rast_annotate`
-7. `rast_to_igb`
+7. `improve_rast`
+8. `rast_to_igb`
 
 With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all [required environment variables](#required-environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
 
@@ -80,7 +82,8 @@ Optionally, if Illumina reads are also available for the same isolate, they can 
 
 1. `recall_ilm_consensus`
 2. `rast_annotate_ilm`
-3. `rast_to_igb_ilm`
+3. `improve_rast_ilm`
+4. `rast_to_igb_ilm`
 
 ### Multiple runs within `screen`
 
