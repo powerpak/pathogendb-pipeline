@@ -391,13 +391,15 @@ def improve_rast_genbank(input_gbk, output_gbk, task_name="improve_rast")
   # Once we want to integrate antibiotic resistance databases, we can start adding those in here
   # as improve_rask_gbk.rb supports them
   system <<-SH
+    module load blast/2.2.26+
     ruby #{REPO_DIR}/scripts/improve_rast_gbk.rb \
         #{GENBANK_REFERENCES.map{|f| Shellwords.escape f }.join(' ')} #{Shellwords.escape input_gbk}\
         > #{Shellwords.escape output_gbk}
   SH
 end
 
-file "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_reorient_rast.gbk"] do |t|
+file "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_reorient_rast.gbk",
+    "data/#{STRAIN_NAME}_reorient_rast_aa.fa", "data/#{STRAIN_NAME}_reorient_rast.fna"] do |t|
   improve_rast_genbank("data/#{STRAIN_NAME}_reorient_rast.gbk", t.name)
 end
 
