@@ -32,12 +32,13 @@ my $sFaToTwoBit     = 'faToTwoBit';
 if ($ENV{'SAS_DIR'}) { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
 
 # GET PARAMETERS
-my $sHelp        = 0;
-my $sRastUser    = '';
-my $sRastPass    = '';
-my $nRastJobID   = '';
-my $sGenomeName  = '';
-my $sIGBdir      = '';
+my $sHelp            = 0;
+my $sRastUser        = '';
+my $sRastPass        = '';
+my $nRastJobID       = '';
+my $sGenomeName      = '';
+my $sIGBdir          = '';
+my $sFromGenbankFile = '';
 my $res = GetOptions("help!"       => \$sHelp,
                      "user=s"      => \$sRastUser,
                      "pass=s"      => \$sRastPass,
@@ -47,7 +48,7 @@ my $res = GetOptions("help!"       => \$sHelp,
                      "igbdir=s"    => \$sIGBdir);
 
 # PRINT HELP
-$sHelp = 1 unless ($sRastPass and $sRastUser and $nRastJobID and $sGenomeName and $sIGBdir);
+$sHelp = 1 unless (($sFromGenbankFile or ($sRastPass and $sRastUser and $nRastJobID)) and $sGenomeName and $sIGBdir);
 if (!$res || $sHelp) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
    die <<HELP
@@ -81,13 +82,16 @@ HELP
 ##########
 
 # Check args
-die "Error: IGB directory '$sIGBdir' does not exist\n" unless (-d $sIGBdir);
-die "Error: incorrect job ID format\n" unless ($nRastJobID =~ /^\d+$/) || $sFromGenbankFile;
+die "FATAL: IGB directory '$sIGBdir' does not exist\n" unless (-d $sIGBdir);
+die "FATAL: incorrect job ID format\n" unless ($nRastJobID =~ /^\d+$/) || $sFromGenbankFile;
 $sGenomeName =~ s/ /_/g;
 
 # Create a new Quickload genome dir
 my $sGenomeDir = "$sIGBdir/$sGenomeName";
-mkdir($sGenomeDir) or die "Error: could not create genome dir: $!\n";
+if (-d $sGenomeDir) {
+   die "FATAL: $sGenomeDir already exists, possibly from a failed run.\n       Please move or delete it before re-running this script.\n";
+}
+mkdir($sGenomeDir) or die "FATAL: could not create $sGenomeDir - $!\n";
 
 if ($sFromGenbankFile) {
    # Convert the GenBank file to BED detail format
@@ -100,13 +104,16 @@ if ($sFromGenbankFile) {
       $sLocusID =~ s/\|/_/g;
       $sLocusID =~ s/\s+$//;
       
+      # Each CDS/RNA feature becomes a line in the BED file
       for my $feature ($nextSeq->get_SeqFeatures) {
          if ($feature->primary_tag =~ /^CDS|tRNA|rRNA$/i) {
             my $location = $feature->location;
             my $sStrand = $location->strand > 0 ? '+' : '-';
             my @anBlockStarts = ();
             my @anBlockSizes = ();
-            my $nStart, $nEnd, $sBlockStarts, $sBlockSizes, $sID, $sName, $sDescription;
+            my ($nStart, $nEnd, $sBlockStarts, $sBlockSizes, $sID, $sName, $sDescription);
+            
+            # Must convert GenBank locations into BED's chromStart, chromEnd, blockStarts and blockSizes.
             if ($location->isa("Bio::Location::SplitLocationI")) {
                ($nStart, $nEnd) = minmax(map { $_->start } $feature->location->sub_Location);
                $nStart = $nStart - 1;
@@ -120,6 +127,8 @@ if ($sFromGenbankFile) {
                push @anBlockStarts, 0;
                push @anBlockSizes, $nEnd - $nStart;
             }
+            
+            # Figure out best names, IDs, and descriptions from feature tags.
             if ($feature->has_tag("db_xref")) {
                for my $sDbXref ($feature->get_tag_values('db_xref')) {
                   if ($sDbXref =~ /^SEED:(.+)$/) { $sID = $1; $sName = $1; }
@@ -138,6 +147,8 @@ if ($sFromGenbankFile) {
                my @asDescParts = split /;\s+/, $sDescription;
                $sName = $asDescParts[-1];
             }
+            
+            # Print the line to the BED file.
             $sName =~ s/[^\w-]/-/g;
             print BEDOUT join("\t", ($sLocusID, $nStart, $nEnd, $sName, '0', $sStrand, $nStart, $nEnd, '0,0,0', 0+@anBlockSizes, 
                               join(',', @anBlockSizes), join(',', @anBlockStarts), $sID, $sDescription)) . "\n";
@@ -213,7 +224,7 @@ open FASTAIN, ($sFromGenbankFile || "$sSvrRetrieveJob $sRastUser $sRastPass $nRa
 while (<FASTAIN>){
    next if (/^\s*$/);
    next if (/^ *#/);
-   if (/^LOCUS(.*)\s+\d+ bp\s+DNA/){
+   if (/^LOCUS(.*)\s+\d+ bp\s+D?NA/){
       $sLocusID = $1;
       $sLocusID =~ s/^ +//;
       $sLocusID =~ s/\|/_/g;

@@ -391,13 +391,15 @@ def improve_rast_genbank(input_gbk, output_gbk, task_name="improve_rast")
   # Once we want to integrate antibiotic resistance databases, we can start adding those in here
   # as improve_rask_gbk.rb supports them
   system <<-SH
+    module load blast/2.2.26+
     ruby #{REPO_DIR}/scripts/improve_rast_gbk.rb \
         #{GENBANK_REFERENCES.map{|f| Shellwords.escape f }.join(' ')} #{Shellwords.escape input_gbk}\
         > #{Shellwords.escape output_gbk}
   SH
 end
 
-file "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_reorient_rast.gbk"] do |t|
+file "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_reorient_rast.gbk",
+    "data/#{STRAIN_NAME}_reorient_rast_aa.fa", "data/#{STRAIN_NAME}_reorient_rast.fna"] do |t|
   improve_rast_genbank("data/#{STRAIN_NAME}_reorient_rast.gbk", t.name)
 end
 
@@ -411,17 +413,14 @@ task :improve_rast => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk
 
 job_id = ENV['SMRT_JOB_ID']
 species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
-strain_igb_dir = "#{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}"
-
-desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
-task :rast_to_igb => [:check, :rast_annotate, strain_igb_dir]
 
 directory IGB_DIR
-file strain_igb_dir => [IGB_DIR, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"] do |t|
+
+desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
+task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"] do |t|
   abort "FATAL: Task rast_to_igb requires specifying SMRT_JOB_ID" unless job_id
   abort "FATAL: Task rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task rast_to_igb requires specifying SPECIES" unless SPECIES 
-  rast_job = IO.read("data/rast_job_id").strip
   
   system <<-SH
     module load blat
@@ -558,14 +557,10 @@ end
 # ===================
 
 desc "Creates an IGB Quickload-compatible directory for your Illumina-fixed genome in IGB_DIR"
-task :rast_to_igb_ilm => [:check, :rast_annotate_ilm, strain_igb_dir]
-
-directory IGB_DIR
-file strain_igb_dir => [IGB_DIR, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
+task :rast_to_igb_ilm => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
   abort "FATAL: Task rast_to_igb_ilm requires specifying SMRT_JOB_ID" unless job_id
   abort "FATAL: Task rast_to_igb_ilm requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: Task rast_to_igb_ilm requires specifying SPECIES" unless SPECIES 
-  rast_job = IO.read("data/ilm_rast_job_id").strip
   
   system <<-SH
     module load blat
