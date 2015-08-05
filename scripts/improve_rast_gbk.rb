@@ -140,7 +140,7 @@ Improves default RAST genbank output by adding to annotated features as follows:
             
             protein_id = protein_id_qualifier && protein_id_qualifier.value
             
-            f.write ">#{gene_qualifier ? gene_qualifier.value || '?'} #{ protein_id } #{File.basename ref.path}\n"
+            f.write ">#{gene_qualifier ? gene_qualifier.value : '?'} #{ protein_id } #{File.basename ref.path}\n"
             f.write translation_qualifier.value
             f.write "\n"
           end
