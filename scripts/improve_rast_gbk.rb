@@ -126,11 +126,11 @@ Improves default RAST genbank output by adding to annotated features as follows:
           
           record.features.each do |feature|
             gene_qualifier = feature.qualifiers.find{|q| q.qualifier == 'gene' }
+            protein_id_qualifier = feature.qualifiers.find{|q| q.qualifier == 'protein_id' }
             
-            next unless feature.feature == "CDS" && gene_qualifier
+            next unless feature.feature == "CDS" && (gene_qualifier || protein_id_qualifier)
             
             translation_qualifier = feature.qualifiers.find{|q| q.qualifier == 'translation' }
-            protein_id_qualifier = feature.qualifiers.find{|q| q.qualifier == 'protein_id' }
             
             unless translation_qualifier
               STDERR.puts "WARN: No translation (AA sequence) given for #{gene_qualifier.value} in #{File.basename ref.path}"
@@ -140,7 +140,7 @@ Improves default RAST genbank output by adding to annotated features as follows:
             
             protein_id = protein_id_qualifier && protein_id_qualifier.value
             
-            f.write ">#{gene_qualifier.value} #{ protein_id } #{File.basename ref.path}\n"
+            f.write ">#{gene_qualifier ? gene_qualifier.value || '?'} #{ protein_id } #{File.basename ref.path}\n"
             f.write translation_qualifier.value
             f.write "\n"
           end
@@ -204,8 +204,9 @@ Improves default RAST genbank output by adding to annotated features as follows:
           top_hit = hits.min_by{|a| a[:evalue] }
           
           if top_hit && meets_threshold(top_hit, aa_query)
-            feature.qualifiers << Bio::Feature::Qualifier.new("gene", top_hit[:gene])
+            feature.qualifiers << Bio::Feature::Qualifier.new("gene", top_hit[:gene]) unless top_hit[:gene] == '?'
             if top_hit[:protein_id]
+              feature.qualifiers << Bio::Feature::Qualifier.new("compare", top_hit[:protein_id])
               protein_id_type = top_hit[:protein_id][2] == '_' ? "RefSeq" : "GenBank"
               inference = "DESCRIPTION:similar to AA sequence (same species):blastp:#{protein_id_type}:#{top_hit[:protein_id]}"
             else
