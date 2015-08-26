@@ -144,7 +144,7 @@ task :graph do
     STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' SMRT_JOB_ID='${SMRT_JOB_ID}' rake -f \
         #{Shellwords.escape(__FILE__)} -P \
         | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with '$REPO_DIR' \
-        | unflatten -f -l5 -c 3 \
+               --narrow-path check,default\
         | dot -Tpng -o pathogendb-pipeline.png
   SH
 end
