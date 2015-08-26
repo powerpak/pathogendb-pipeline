@@ -512,6 +512,7 @@ task :recall_ilm_consensus_fake_prereqs do
   touch "bash5.fofn"                                  and sleep 1
   touch "data/polished_assembly.fasta.gz"             and sleep 1
   touch "data/polished_assembly_circularized.fasta"   and sleep 1
+  touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
   touch "data/#{STRAIN_NAME}_reorient.fasta"
 end
 
