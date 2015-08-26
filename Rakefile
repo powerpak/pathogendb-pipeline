@@ -9,6 +9,7 @@ include Colors
 task :default => :check
 
 LSF = LSFClient.new
+LSF.disable! if ENV['LSF_DISABLED']  # Run everything locally if set (useful for debugging)
 
 REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
