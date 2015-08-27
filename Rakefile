@@ -512,6 +512,7 @@ desc "Fakes the prerequisites for the recall_ilm_consensus task"
 task :recall_ilm_consensus_fake_prereqs do
   abort "FATAL: Task recall_ilm_consensus_fake_prereqs requires specifying STRAIN_NAME" unless STRAIN_NAME 
   mkdir_p "log"
+  mkdir_p "data"
   touch "bash5.fofn"                                  and sleep 1
   touch "data/polished_assembly.fasta.gz"             and sleep 1
   touch "data/polished_assembly_circularized.fasta"   and sleep 1
