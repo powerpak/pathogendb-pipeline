@@ -9,6 +9,7 @@ include Colors
 task :default => :check
 
 LSF = LSFClient.new
+LSF.disable! if ENV['LSF_DISABLED']  # Run everything locally if set (useful for debugging)
 
 REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
@@ -144,7 +145,7 @@ task :graph do
     STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' SMRT_JOB_ID='${SMRT_JOB_ID}' rake -f \
         #{Shellwords.escape(__FILE__)} -P \
         | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with '$REPO_DIR' \
-        | unflatten -f -l5 -c 3 \
+               --narrow-path check,default\
         | dot -Tpng -o pathogendb-pipeline.png
   SH
 end
@@ -464,12 +465,14 @@ end
 file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
   abort "FATAL: Task recall_ilm_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
   # Use mpileup to do the consensus calling.
+  # Note: the -L and -d flags are important; they ensure samtools looks at up to 100k reads per base to call variants.
+  # The default for -L is 250, which would turn off indel calling for deeply resequenced (depth >250) samples.
   LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
   LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
   LSF.bsub_interactive <<-SH
     module load samtools/1.1
     module load bcftools/1.1
-    samtools mpileup -uf "data/#{STRAIN_NAME}_reorient.fasta" data/ref.sort.bam \
+    samtools mpileup -L100000 -d100000 -uf "data/#{STRAIN_NAME}_reorient.fasta" data/ref.sort.bam \
         | bcftools call -cv -Ob > "data/#{STRAIN_NAME}_ref_raw.bcf"
   SH
 end
@@ -512,6 +515,7 @@ task :recall_ilm_consensus_fake_prereqs do
   touch "bash5.fofn"                                  and sleep 1
   touch "data/polished_assembly.fasta.gz"             and sleep 1
   touch "data/polished_assembly_circularized.fasta"   and sleep 1
+  touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
   touch "data/#{STRAIN_NAME}_reorient.fasta"
 end
 

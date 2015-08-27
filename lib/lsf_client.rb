@@ -15,7 +15,11 @@ class LSFClient
   def initialize(options=nil)
     options ||= {}
     @options = DEFAULT_OPTIONS.dup.merge(options)
+    @enabled = true
   end
+  
+  def disable!; @enabled = false; end
+  def enable!; @enabled = true; end
   
   attr_accessor :options
   
@@ -42,8 +46,9 @@ class LSFClient
   end
   
   def bsub(script, options=nil)
+    return system(script) unless @enabled
+    
     cmd = %Q<bsub #{options_to_args(options)}>
-    output = nil
     IO.popen(cmd, 'w+') do |subprocess|
       subprocess.write(script)
       subprocess.close_write
