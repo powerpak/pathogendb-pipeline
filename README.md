@@ -6,7 +6,7 @@ As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modu
 
 Currently, you also need to be in the `pacbioUsers` group on Minerva and have access to the `premium` LSF queue and the `acc_PBG` LSF account.
 
-To avoid hitting resource limits on the login nodes on Minerva, we recommend that you run the pipeline on the interactive1 or interactive2 nodes, which have no such limits.  To do so run `ssh interactive1` or `ssh interactive2` after logging into Minerva normally.
+To avoid hitting resource limits on the login nodes on Minerva, we recommend that you run the pipeline on one of the interactive nodes, which have no such limits.  To do so run `ssh interactive1`, or `ssh interactive2`, or ... up to `ssh interactive6` after logging into Minerva normally. You can also [submit pipeline runs to a bsub queue](#running-as-a-bsub-task), which will deduct resources against your LSF account.
 
 ## Usage
 
@@ -33,12 +33,11 @@ When this is complete, you should be able to run `rake` to kick off the pipeline
     $ rake $TASK_NAME            # run the task named $TASK_NAME
     $ FOO="bar" rake $TASK_NAME  # run $TASK_NAME with FOO set to "bar"
 
-When firing up the pipeline in a new shell, always remember to `source scripts/env.sh` before running `rake`.
+When firing up the pipeline in a new shell, **remember to always `source scripts/env.sh` before running `rake`.**
 
 ### Required environment variables
 
 Certain tasks within the pipeline require you to specify some extra information as an environment variable.  You can do this by either editing them into `scripts/env.sh` and re-running `source scripts/env.sh`, or you can prepend them to the `rake` invocation, e.g.:
-
     $ SMRT_JOB_ID=019194 rake pull_down_raw_reads
 
 If a required environment variable isn't present when a task is run and there is no default value, rake will abort with an error message.
