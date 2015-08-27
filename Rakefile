@@ -27,8 +27,17 @@ OUT = File.expand_path(ENV['OUT'] || "#{REPO_DIR}/out")
 STRAIN_NAME = ENV['STRAIN_NAME']
 SPECIES = ENV['SPECIES']
 ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ']
+ILLUMINA_REFERENCE = ENV['ILLUMINA_REFERENCE']
 TASK_FILE = ENV['TASK_FILE']
 GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
+
+if ENV['ILLUMINA_FASTQ']
+  ILLUMINA_REFERENCE = File.expand_path(ENV['ILLUMINA_FASTQ'])
+end
+
+if ENV['ILLUMINA_REFERENCE']
+  ILLUMINA_REFERENCE = File.expand_path(ENV['ILLUMINA_REFERENCE'])
+end
 
 #############################################################
 #  IMPORTANT!
@@ -516,8 +525,17 @@ task :recall_ilm_consensus_fake_prereqs do
   touch "bash5.fofn"                                  and sleep 1
   touch "data/polished_assembly.fasta.gz"             and sleep 1
   touch "data/polished_assembly_circularized.fasta"   and sleep 1
-  touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
-  touch "data/#{STRAIN_NAME}_reorient.fasta"
+  if ENV['ILLUMINA_REFERENCE']
+    if File.exists?("#{ILLUMINA_REFERENCE}")
+      cp "#{ILLUMINA_REFERENCE}", "data/#{STRAIN_NAME}_consensus.fasta"
+      cp "#{ILLUMINA_REFERENCE}", "data/#{STRAIN_NAME}_reorient.fasta"
+    else
+      abort "FATAL: file '#{ILLUMINA_REFERENCE}' does not exist"
+    end
+  else
+    touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
+    touch "data/#{STRAIN_NAME}_reorient.fasta"
+  end
 end
 
 
