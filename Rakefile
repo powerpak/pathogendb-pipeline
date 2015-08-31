@@ -26,7 +26,8 @@ OUT = File.expand_path(ENV['OUT'] || "#{REPO_DIR}/out")
 #######
 STRAIN_NAME = ENV['STRAIN_NAME']
 SPECIES = ENV['SPECIES']
-ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ']
+ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ'] && File.expand_path(ENV['ILLUMINA_FASTQ'])
+ILLUMINA_REFERENCE = ENV['ILLUMINA_REFERENCE'] && File.expand_path(ENV['ILLUMINA_REFERENCE'])
 TASK_FILE = ENV['TASK_FILE']
 GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
 
@@ -452,11 +453,17 @@ namespace :ilm do
     touch "bash5.fofn"                                  and sleep 1
     touch "data/polished_assembly.fasta.gz"             and sleep 1
     touch "data/polished_assembly_circularized.fasta"   and sleep 1
-    touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
-    touch "data/#{STRAIN_NAME}_reorient.fasta"
-    
-    puts "Replace #{OUT}/data/#{STRAIN_NAME}_reorient.fasta with the reference sequence you are trying to improve."
+    if ILLUMINA_REFERENCE
+      abort "FATAL: file '#{ILLUMINA_REFERENCE}' does not exist" unless File.exists?(ILLUMINA_REFERENCE)
+      cp ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_consensus.fasta"
+      cp ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_reorient.fasta"
+    else
+      touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
+      touch "data/#{STRAIN_NAME}_reorient.fasta"
+      puts "Replace #{OUT}/data/#{STRAIN_NAME}_reorient.fasta with the old reference sequence you are piling new reads onto."
+    end
   end
+    
 
   # ========================
   # = ilm:recall_consensus =
@@ -530,7 +537,6 @@ namespace :ilm do
       #    > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
     SH
   end
-  
 
   # =====================
   # = ilm:rast_annotate =
