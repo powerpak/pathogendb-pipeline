@@ -435,145 +435,158 @@ task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"
 end
 
 
-# ========================
-# = recall_ilm_consensus =
-# ========================
+# ====================================================================================================
+# = The following tasks are for assemblies where we want to incorporate Illumina reads to fix indels =
+# ====================================================================================================
 
-desc "Recalls a new consensus by piling Illumina reads onto a PacBio assembly"
-task :recall_ilm_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_reorient.fasta"]
+namespace :ilm do
 
-file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
-  abort "FATAL: Task recall_ilm_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  abort "FATAL: Task recall_ilm_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
-  
-  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-  LSF.job_name "ref.aln.sam"
-  LSF.bsub_interactive <<-SH or abort
-    module load bwa/0.7.8
-    bwa index "data/#{STRAIN_NAME}_reorient.fasta"
-    bwa mem "data/#{STRAIN_NAME}_reorient.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/ref.aln.sam
+  # ====================
+  # = ilm:fake_prereqs =
+  # ====================
+  desc "Fakes the prerequisites for the Illumina tasks"
+  task :fake_prereqs do
+    abort "FATAL: Task ilm:fake_prereqs requires specifying STRAIN_NAME" unless STRAIN_NAME 
+    mkdir_p "log"
+    mkdir_p "data"
+    touch "bash5.fofn"                                  and sleep 1
+    touch "data/polished_assembly.fasta.gz"             and sleep 1
+    touch "data/polished_assembly_circularized.fasta"   and sleep 1
+    touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
+    touch "data/#{STRAIN_NAME}_reorient.fasta"
     
-    module load samtools/1.1
-    samtools view -bS data/ref.aln.sam > data/ref.aln.bam
-    samtools sort data/ref.aln.bam data/ref.sort
-  SH
+    puts "Replace #{OUT}/data/#{STRAIN_NAME}_reorient.fasta with the reference sequence you are trying to improve."
+  end
+
+  # ========================
+  # = ilm:recall_consensus =
+  # ========================
+
+  desc "Recalls a new consensus by piling Illumina reads onto a PacBio assembly"
+  task :recall_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_reorient.fasta"]
+
+  file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+    abort "FATAL: Task ilm:recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
+    abort "FATAL: Task ilm:recall_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
   
-  # Can remove the SAM as it is huge and the .aln.bam should contain everything in it
-  rm "data/ref.aln.sam"
-end
-
-file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
-  abort "FATAL: Task recall_ilm_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  # Use mpileup to do the consensus calling.
-  # Note: the -L and -d flags are important; they ensure samtools looks at up to 100k reads per base to call variants.
-  # The default for -L is 250, which would turn off indel calling for deeply resequenced (depth >250) samples.
-  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-  LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
-  LSF.bsub_interactive <<-SH
-    module load samtools/1.1
-    module load bcftools/1.1
-    samtools mpileup -L100000 -d100000 -uf "data/#{STRAIN_NAME}_reorient.fasta" data/ref.sort.bam \
-        | bcftools call -cv -Ob > "data/#{STRAIN_NAME}_ref_raw.bcf"
-  SH
-end
-
-file "data/#{STRAIN_NAME}_ref_flt.vcf" => "data/#{STRAIN_NAME}_ref_raw.bcf" do |t|
-  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-  LSF.job_name "#{STRAIN_NAME}_ref_flt.vcf"
-  LSF.bsub_interactive <<-SH
-    module load samtools/1.1
-    module load bcftools/1.1
-    bcftools view "data/#{STRAIN_NAME}_ref_raw.bcf" | vcfutils.pl varFilter > "data/#{STRAIN_NAME}_ref_flt.vcf"
-  SH
-end
-
-file "data/#{STRAIN_NAME}_ilm_reorient.fasta" => 
-    ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_reorient.fasta"] do |t|
-  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-  LSF.job_name "#{STRAIN_NAME}_ilm_reorient.fasta"
-  system <<-SH
-    module load vcftools/0.1.12b
-    module load tabix/0.2.6 
+    LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
+    LSF.job_name "ref.aln.sam"
+    LSF.bsub_interactive <<-SH or abort
+      module load bwa/0.7.8
+      bwa index "data/#{STRAIN_NAME}_reorient.fasta"
+      bwa mem "data/#{STRAIN_NAME}_reorient.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/ref.aln.sam
     
-    bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    cat "data/#{STRAIN_NAME}_reorient.fasta" | vcf-consensus "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
-            > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
-    
-    # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
-    # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-    # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_reorient.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
-    #    > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
-  SH
-end
-
-desc "Fakes the prerequisites for the recall_ilm_consensus task"
-task :recall_ilm_consensus_fake_prereqs do
-  abort "FATAL: Task recall_ilm_consensus_fake_prereqs requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  mkdir_p "log"
-  mkdir_p "data"
-  touch "bash5.fofn"                                  and sleep 1
-  touch "data/polished_assembly.fasta.gz"             and sleep 1
-  touch "data/polished_assembly_circularized.fasta"   and sleep 1
-  touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
-  touch "data/#{STRAIN_NAME}_reorient.fasta"
-end
-
-
-# =====================
-# = rast_annotate_ilm =
-# =====================
-
-desc "Submits the Illumina-fixed consensus to RAST for annotations"
-task :rast_annotate_ilm => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast.fna", 
-    "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa",
-    "data/ilm_rast_job_id"]
-
-file "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient.fasta"] do |t|
-  fasta = "data/#{STRAIN_NAME}_ilm_reorient.fasta"
-  submit_and_retrieve_rast(fasta, t.name, "ilm_rast_job_id", "rast_annotate_ilm")
-end
-file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"
-
-file "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :aa, "rast_annotate_ilm"
-end
-
-file "data/#{STRAIN_NAME}_ilm_reorient_rast.fna" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
-  gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
-end
-
-
-# ====================
-# = improve_rast_ilm =
-# ====================
-
-desc "Submits the circularized assembly to RAST for annotations"
-task :improve_rast_ilm => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"]
-
-file "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"] do |t|
-  improve_rast_genbank("data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", t.name)
-end
-
-
-# ===================
-# = rast_to_igb_ilm =
-# ===================
-
-desc "Creates an IGB Quickload-compatible directory for your Illumina-fixed genome in IGB_DIR"
-task :rast_to_igb_ilm => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
-  abort "FATAL: Task rast_to_igb_ilm requires specifying SMRT_JOB_ID" unless job_id
-  abort "FATAL: Task rast_to_igb_ilm requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  abort "FATAL: Task rast_to_igb_ilm requires specifying SPECIES" unless SPECIES 
+      module load samtools/1.1
+      samtools view -bS data/ref.aln.sam > data/ref.aln.bam
+      samtools sort data/ref.aln.bam data/ref.sort
+    SH
   
-  system <<-SH
-    module load blat
-    module load bioperl
-    export SAS_DIR=#{SAS_DIR}
-    perl #{REPO_DIR}/scripts/rast2igb.pl \
-        -f data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk \
-        -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
-        -i #{IGB_DIR}
-  SH
-end
+    # Can remove the SAM as it is huge and the .aln.bam should contain everything in it
+    rm "data/ref.aln.sam"
+  end
+
+  file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
+    abort "FATAL: Task ilm:recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
+    # Use mpileup to do the consensus calling.
+    # Note: the -L and -d flags are important; they ensure samtools looks at up to 100k reads per base to call variants.
+    # The default for -L is 250, which would turn off indel calling for deeply resequenced (depth >250) samples.
+    LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
+    LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
+    LSF.bsub_interactive <<-SH
+      module load samtools/1.1
+      module load bcftools/1.1
+      samtools mpileup -L100000 -d100000 -uf "data/#{STRAIN_NAME}_reorient.fasta" data/ref.sort.bam \
+          | bcftools call -cv -Ob > "data/#{STRAIN_NAME}_ref_raw.bcf"
+    SH
+  end
+
+  file "data/#{STRAIN_NAME}_ref_flt.vcf" => "data/#{STRAIN_NAME}_ref_raw.bcf" do |t|
+    LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
+    LSF.job_name "#{STRAIN_NAME}_ref_flt.vcf"
+    LSF.bsub_interactive <<-SH
+      module load samtools/1.1
+      module load bcftools/1.1
+      bcftools view "data/#{STRAIN_NAME}_ref_raw.bcf" | vcfutils.pl varFilter > "data/#{STRAIN_NAME}_ref_flt.vcf"
+    SH
+  end
+
+  file "data/#{STRAIN_NAME}_ilm_reorient.fasta" => 
+      ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_reorient.fasta"] do |t|
+    LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
+    LSF.job_name "#{STRAIN_NAME}_ilm_reorient.fasta"
+    system <<-SH
+      module load vcftools/0.1.12b
+      module load tabix/0.2.6 
+    
+      bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+      tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+      cat "data/#{STRAIN_NAME}_reorient.fasta" | vcf-consensus "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+              > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
+    
+      # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
+      # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+      # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
+      # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_reorient.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
+      #    > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
+    SH
+  end
+  
+
+  # =====================
+  # = ilm:rast_annotate =
+  # =====================
+
+  desc "Submits the Illumina-fixed consensus to RAST for annotations"
+  task :rast_annotate => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast.fna", 
+      "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa",
+      "data/ilm_rast_job_id"]
+
+  file "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient.fasta"] do |t|
+    fasta = "data/#{STRAIN_NAME}_ilm_reorient.fasta"
+    submit_and_retrieve_rast(fasta, t.name, "ilm_rast_job_id", "rast_annotate_ilm")
+  end
+  file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"
+
+  file "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
+    gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :aa, "rast_annotate_ilm"
+  end
+
+  file "data/#{STRAIN_NAME}_ilm_reorient_rast.fna" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
+    gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
+  end
+
+
+  # ====================
+  # = ilm:improve_rast =
+  # ====================
+
+  desc "Improves GenBank output from RAST by re-annotating gene names from better references"
+  task :improve_rast => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"]
+
+  file "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"] do |t|
+    improve_rast_genbank("data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", t.name)
+  end
+
+
+  # ===================
+  # = ilm:rast_to_igb =
+  # ===================
+
+  desc "Creates an IGB Quickload-compatible directory for your Illumina-fixed genome in IGB_DIR"
+  task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
+    abort "FATAL: Task ilm:rast_to_igb requires specifying SMRT_JOB_ID" unless job_id
+    abort "FATAL: Task ilm:rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
+    abort "FATAL: Task ilm:rast_to_igb requires specifying SPECIES" unless SPECIES 
+  
+    system <<-SH
+      module load blat
+      module load bioperl
+      export SAS_DIR=#{SAS_DIR}
+      perl #{REPO_DIR}/scripts/rast2igb.pl \
+          -f data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk \
+          -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
+          -i #{IGB_DIR}
+    SH
+  end
+
+end # namespace :ilm
