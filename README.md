@@ -6,7 +6,7 @@ As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modu
 
 Currently, you also need to be in the `pacbioUsers` group on Minerva and have access to the `premium` LSF queue and the `acc_PBG` LSF account.
 
-To avoid hitting resource limits on the login nodes on Minerva, we recommend that you run the pipeline on the interactive1 or interactive2 nodes, which have no such limits.  To do so run `ssh interactive1` or `ssh interactive2` after logging into Minerva normally.
+To avoid hitting resource limits on the login nodes on Minerva, we recommend that you run the pipeline on one of the interactive nodes, which have no such limits.  To do so run `ssh interactive1`, or `ssh interactive2`, or ... up to `ssh interactive6` after logging into Minerva normally. You can also [submit pipeline runs to a bsub queue](#running-as-a-bsub-task), which will deduct resources against your LSF account.
 
 ## Usage
 
@@ -33,12 +33,11 @@ When this is complete, you should be able to run `rake` to kick off the pipeline
     $ rake $TASK_NAME            # run the task named $TASK_NAME
     $ FOO="bar" rake $TASK_NAME  # run $TASK_NAME with FOO set to "bar"
 
-When firing up the pipeline in a new shell, always remember to `source scripts/env.sh` before running `rake`.
+When firing up the pipeline in a new shell, **remember to always `source scripts/env.sh` before running `rake`.**
 
 ### Required environment variables
 
 Certain tasks within the pipeline require you to specify some extra information as an environment variable.  You can do this by either editing them into `scripts/env.sh` and re-running `source scripts/env.sh`, or you can prepend them to the `rake` invocation, e.g.:
-
     $ SMRT_JOB_ID=019194 rake pull_down_raw_reads
 
 If a required environment variable isn't present when a task is run and there is no default value, rake will abort with an error message.
@@ -46,10 +45,10 @@ If a required environment variable isn't present when a task is run and there is
 Variable             | Required by                                             | Default | Purpose
 ---------------------|---------------------------------------------------------|---------|-----------------------------------
 `OUT`                | all tasks                                               | ./out   | This is where your interim and completed files are saved
-`SMRT_JOB_ID`        | `pull_down_raw_reads` `rast_to_igb` `rast_to_igb_ilm`   | (none)  | The ID of the job on the SMRT Portal with your reads.
-`STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `rast_annotate_ilm` `recall_ilm_consensus` `rast_to_igb` `rast_to_igb_ilm` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
-`SPECIES`            | `rast_annotate` `rast_annotate_ilm` `rast_to_igb` `rast_to_igb_ilm` | (none)  | The species for your sample.
-`ILLUMINA_FASTQ`     | `recall_ilm_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
+`SMRT_JOB_ID`        | `pull_down_raw_reads` `rast_to_igb` `ilm:rast_to_igb`   | (none)  | The ID of the job on the SMRT Portal with your reads.
+`STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `ilm:rast_annotate` `ilm:recall_consensus` `ilm:rast_to_igb` `rast_to_igb` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
+`SPECIES`            | `rast_annotate` `ilm:rast_annotate` `rast_to_igb` `ilm:rast_to_igb` | (none)  | The species for your sample.
+`ILLUMINA_FASTQ`     | `ilm:recall_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
 
 ### Optional environment variables
 
@@ -60,6 +59,7 @@ Variable             | Can be provided for                   | Default | Purpose
 `REORIENT_FASTA`     | `reorient_assembly`                   | (none)  | A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
 `REORIENT_FLANK`     | `reorient_assembly`                   | 0       | This is the number of nt *before* the beginning of the landmark where the origin of the circular chromosome will be set.
 `GENBANK_REFERENCES` | `improve_rast`                        | (none)  | Paths to to GenBank files that contain "good" gene names that will be lifted over to your RAST annotations.  Multiple paths should be separated with `:`, as with `PATH`.  If not given, `improve_rast` will be a no-op.
+`ILLUMINA_REFERENCE` | `ilm:fake_prereqs`                    | (none)  | Path to the FASTA file containing the reference sequence that you want to shunt into the Illumina correction branch of the pipeline.
 
 ### Tasks
 
@@ -78,12 +78,14 @@ With some exceptions (for instance, if you need to manually edit interim files) 
 
 The final task, `rast_to_igb`, creates an [IGB](http://bioviz.org/igb/) Quickload-compatible directory so you can load the genome into IGB. By default, this occurs in `~/www/igb`, although you can override this by setting `IGB_DIR` in your `scripts/env.sh`. To view the genome in IGB, open IGB's preferences and add `https://YOUR_USERNAME.u.hpc.mssm.edu/igb/` as a Quickload data source (replacing `YOUR_USERNAME` with your Minerva username), and then you should be able to find your genome under the Species dropdown in the browser.
 
-Optionally, if Illumina reads are also available for the same isolate, they can be used to iron out small errors in the PacBio-produced assembly and then the new consensus can be re-annotated and converted to an IGB quickload directory with these three extra steps:
+Optionally, if Illumina reads are also available for the same isolate (which you provide as the `ILLUMINA_FASTQ` parameter), they can be aligned to correct small (typically indel) errors in the PacBio assembly, and then this new consensus can be re-annotated and converted to an IGB quickload directory with four extra steps:
 
-1. `recall_ilm_consensus`
-2. `rast_annotate_ilm`
-3. `improve_rast_ilm`
-4. `rast_to_igb_ilm`
+1. `ilm:recall_consensus`
+2. `ilm:rast_annotate`
+3. `ilm:improve_rast`
+4. `ilm:rast_to_igb`
+
+If you had discarded the intermediate files for the PacBio-only assembly, you can still shunt its final FASTA sequence into the Illumina branch of the pipeline by using the `ilm:fake_prereqs` task, which takes the `ILLUMINA_REFERENCE` parameter (the path to the FASTA file). This sets up a skeleton job directory so that you may run the four `ilm:` steps listed above on their own.
 
 ### Multiple runs within `screen`
 
