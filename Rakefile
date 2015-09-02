@@ -486,8 +486,6 @@ end
 
 file "data/#{STRAIN_NAME}_ilm_reorient.fasta" => 
     ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_reorient.fasta"] do |t|
-  LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-  LSF.job_name "#{STRAIN_NAME}_ilm_reorient.fasta"
   system <<-SH
     module load vcftools/0.1.12b
     module load tabix/0.2.6 
