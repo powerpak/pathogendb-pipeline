@@ -70,7 +70,7 @@ FOLDER
 my $sExtractID = join('.', $sIsolateID, $sAddID);
 
 # Get the genome stats
-my ($nTotalSize, $nMaxContigLength, $nN50length, $nContigCount) = get_stats_from_genomefile("$sIgbDir/genome.txt");
+my ($nTotalSize, $nMaxContigLength, $sMaxContigID, $nN50length, $nContigCount) = get_stats_from_genomefile("$sIgbDir/genome.txt");
 
 # Get the mlst data if available
 my ($sMLST, $sMLSTclade) = (-e "$sIgbDir/mlst.txt") ? get_mlst_data("$sIgbDir/mlst.txt") : ('', '');
@@ -99,9 +99,9 @@ if ($nCount eq '0E0'){
 }
 
 # Save data into tAssemblies
-$sSQL   = "REPLACE INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_sumlength, mlst_subtype, mlst_clade ) VALUES( ?, ?, ?, ?, ?, ? ,?, ?, ?)";
+$sSQL   = "REPLACE INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_maxID, contig_sumlength, mlst_subtype, mlst_clade ) VALUES( ?, ?, ?, ?, ?, ? ,?, ?, ?, ?)";
 $oQuery = $dbh->prepare($sSQL);
-$nCount = $oQuery->execute($sExtractID, $sRunID, $sFolderName, $nContigCount, $nN50length, $nMaxContigLength, $nTotalSize, $sMLST, $sMLSTclade);
+$nCount = $oQuery->execute($sExtractID, $sRunID, $sFolderName, $nContigCount, $nN50length, $nMaxContigLength, $sMaxContigID, $nTotalSize, $sMLST, $sMLSTclade);
 if ($nCount){
    print "Loaded assembly '$sRunID' for extract '$sExtractID' into pathogenDB\n";
 }
@@ -157,7 +157,7 @@ sub get_stats_from_genomefile {
 
    # Get max length and sum
    my @anContigLengths;
-   my ($nSumContigLength, $nMaxContigLength, $nContigCount) = (0, 0, 0);
+   my ($nSumContigLength, $nMaxContigLength, $sMaxContigID, $nContigCount) = (0, 0, "", 0);
    open GENOME, $sGenome or die "Error: can't open '$sGenome': $!\n";
    while (<GENOME>){
       next if (/^\s*$/);
@@ -165,7 +165,10 @@ sub get_stats_from_genomefile {
       s/[\n\r]+$//;
       my ($sContigID, $nContigLength) = split /\t/;
       die "Error: '$sGenome' contains a non-numeric contig length value on line $.\n" unless ($nContigLength =~ /^\d+$/);
-      $nMaxContigLength = $nContigLength if ($nContigLength > $nMaxContigLength);
+      if ($nContigLength > $nMaxContigLength){
+         $nMaxContigLength = $nContigLength;
+         $sMaxContigID     = $sContigID;
+      }
       push @anContigLengths, $nContigLength;
       $nSumContigLength += $nContigLength;
       $nContigCount++;
@@ -182,7 +185,7 @@ sub get_stats_from_genomefile {
       }
    }
    
-   return($nSumContigLength, $nMaxContigLength, $nN50, $nContigCount);
+   return($nSumContigLength, $nMaxContigLength, $sMaxContigID, $nN50, $nContigCount);
 }
 
 # get_mlst_data
