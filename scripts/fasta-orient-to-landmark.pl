@@ -18,14 +18,18 @@ my $sHelp         = 0;
 my $sGenomeFile   = "";
 my $sLandmarkFile = "";
 my $sHeaderKey    = "";
+my $sSuffix       = "";
 my $nFlankSize    = 0;
 my $nMatchThresh  = 0.95;
-GetOptions("help!"         => \$sHelp,
-           "genome:s"      => \$sGenomeFile,
-           "landmark:s"    => \$sLandmarkFile,
-           "key:s"         => \$sHeaderKey,
-           "flank:n"       => \$nFlankSize,
-           "matchlength:n" => \$nMatchThresh);
+my $flSplit       = 0;
+GetOptions("help!"          => \$sHelp,
+           "genome:s"       => \$sGenomeFile,
+           "landmark:s"     => \$sLandmarkFile,
+           "key:s"          => \$sHeaderKey,
+           "orientsuffix:s" => \$sSuffix, 
+           "flank:n"        => \$nFlankSize,
+           "matchlength:n"  => \$nMatchThresh,
+           "split!"         => \$flSplit);
 
 # PRINT HELP
 $sHelp = 1 unless($sGenomeFile and $sLandmarkFile);
@@ -47,12 +51,16 @@ if ($sHelp) {
       Optional string that should be present in the fasta header
       of the genome sequence, e.g. "circ". Can be used to ensure that
       only circularized genomes are re-oriented.
+    -o --orientsuffix <string>
+      Optional suffix to add to the fasta header of a re-oriented sequence
     -m --matchlength <float>
       Match length threshold as a fraction of the landmark sequence length
       Default: $nMatchThresh;
     -f --flank <integer>
       Length of the flanking sequence beyond the landmark at which the
       breakpoint will be positioned. Default: $nFlankSize
+    -s --split
+      Split rather than reorient contig at landmark
     -help
       This help message
    
@@ -65,7 +73,7 @@ HELP
 ##########
 
 # Check arguments
-die "Error: flank size must be an integer\n"        unless ($nFlankSize =~ /^-?\d+$/);
+die "Error: flank size must be an integer\n"        unless ($nFlankSize =~ /^\d+$/);
 die "Error: file '$sGenomeFile' does not exist\n"   unless (-e $sGenomeFile);
 die "Error: file '$sLandmarkFile' does not exist\n" unless (-e $sLandmarkFile);
 
@@ -79,6 +87,12 @@ die "Error: can't find faToTwoBit binary in path" unless ($sFaToTwoBitBin);
 my $sGenome2bitFile = fasta_to_twobit($sFaToTwoBitBin, $sGenomeFile);
 my ($sLandmarkSeqID, $nLandmarkPos, $flRevComp) = get_landmark_position($sBlatBin, $sGenome2bitFile, $sLandmarkFile, $nFlankSize, $nMatchThresh);
 
+# Make sure the suffix is prefixed with a pipe character
+if ($sSuffix){
+   $sSuffix =~ s/^\s*_*\|*//;
+   $sSuffix = "|${sSuffix}";
+}
+
 # Process genomic fasta file
 if ($sLandmarkSeqID){
    # We got a hit to the landmark sequence, proceed with reorientation
@@ -87,26 +101,46 @@ if ($sLandmarkSeqID){
       my ($sID, $sSeq) = @{$raGenomeSequences->[$i]};
       
       # Reorient sequence if we found the hit ID
+      my $flProceed = 0;
       if ($sID eq $sLandmarkSeqID){
+         # Check the header key if requested
          if ($sHeaderKey){
             if ($sID =~ /$sHeaderKey/){
-               $sSeq = reverse_complement($sSeq) if ($flRevComp);
-               $sSeq = substr($sSeq, $nLandmarkPos) . substr($sSeq, 0, $nLandmarkPos);
-               warn "Reoriented sequence '$sID' to landmark position $nLandmarkPos\n";
-            }
-            else{
-               warn("Warning: skipped reorientation of sequence '$sID' since it did not contain the header key '$sHeaderKey'\n");
+               $flProceed = 1;
             }
          }
          else{
-            $sSeq = reverse_complement($sSeq) if ($flRevComp);
-            $sSeq = substr($sSeq, $nLandmarkPos) . substr($sSeq, 0, $nLandmarkPos);
-            warn "Reoriented sequence '$sID' to landmark position $nLandmarkPos\n";
+            $flProceed = 1;
          }
       }
-      $sSeq =~ s/.{$nFaLineSize}/$&\n/sg;
-      $sSeq =~ s/\n+$//;
-      print ">$sID\n$sSeq\n";
+            
+      # Reorient contig if conditions are met
+      if ($flProceed){
+         $sSeq = reverse_complement($sSeq) if ($flRevComp);
+         if ($flSplit){
+            my $sSeqA = substr($sSeq, $nLandmarkPos);
+            $sSeqA =~ s/.{$nFaLineSize}/$&\n/sg;
+            $sSeqA =~ s/\n+$//;
+            print ">${sID}${sSuffix}_splitA\n${sSeqA}\n";
+            
+            my $sSeqB = substr($sSeq, 0, $nLandmarkPos);
+            $sSeqB =~ s/.{$nFaLineSize}/$&\n/sg;
+            $sSeqB =~ s/\n+$//;
+            print ">${sID}${sSuffix}_splitB\n${sSeqB}\n";
+         }
+         else{
+            $sSeq = substr($sSeq, $nLandmarkPos) . substr($sSeq, 0, $nLandmarkPos);
+            $sSeq =~ s/.{$nFaLineSize}/$&\n/sg;
+            $sSeq =~ s/\n+$//;
+            print ">${sID}${sSuffix}\n${sSeq}\n";
+         }
+         warn "Reoriented sequence '$sID' to landmark position $nLandmarkPos\n";
+      }
+      else{
+         $sSeq =~ s/.{$nFaLineSize}/$&\n/sg;
+         $sSeq =~ s/\n+$//;
+         print ">$sID\n$sSeq\n";
+      }
    }
 }
 else{
