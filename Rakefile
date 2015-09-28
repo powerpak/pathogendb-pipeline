@@ -104,7 +104,7 @@ file "#{SAS_DIR}/modules/lib" => ["#{SAS_DIR}/sas.tgz"] do |t|
   end
 end
 
-# pulls down and compiles MUMmer 3.23, which is used by scripts/circularizeContig.pl and others
+# pulls down and compiles MUMmer 3.23, which is used by scripts/circularizeContigs.pl and others
 # see http://mummer.sourceforge.net/
 task :mummer => [:env, MUMMER_DIR, "#{MUMMER_DIR}/nucmer", "#{MUMMER_DIR}/show-coords"]
 directory MUMMER_DIR
@@ -249,7 +249,7 @@ desc "Circularizes the PacBio assembly"
 task :circularize_assembly => [:check, "data/polished_assembly_circularized.fasta"]
 file "data/polished_assembly_circularized.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system "gunzip -c data/polished_assembly.fasta.gz >data/polished_assembly.fasta" and
-  system "#{REPO_DIR}/scripts/circularizeContigs.pl -i data/polished_assembly.fasta"
+  system "#{REPO_DIR}/scripts/circularizeContigs.pl -i data/polished_assembly.fasta -l 12000 2> polished_assembly_circularized.log"
 end
 
 # =======================
