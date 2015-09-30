@@ -14,17 +14,19 @@ use File::Temp qw/ tempfile tempdir /;
 $ENV{TMPDIR}  ||= "/tmp";
 
 # GET PARAMETERS
-my $sHelp         = 0;
-my $sGenomeFile   = "";
-my $sLandmarkFile = "";
-my $sHeaderKey    = "";
-my $sSuffix       = "";
-my $nFlankSize    = 0;
-my $nMatchThresh  = 0.95;
-my $flSplit       = 0;
+my $sHelp            = 0;
+my $sGenomeFile      = "";
+my $sLandmarkFile    = "";
+my $sLandmarkSeqType = "dna";
+my $sHeaderKey       = "";
+my $sSuffix          = "";
+my $nFlankSize       = 0;
+my $nMatchThresh     = 0.9;
+my $flSplit          = 0;
 GetOptions("help!"          => \$sHelp,
            "genome:s"       => \$sGenomeFile,
            "landmark:s"     => \$sLandmarkFile,
+           "type:s"         => \$sLandmarkSeqType,
            "key:s"          => \$sHeaderKey,
            "orientsuffix:s" => \$sSuffix, 
            "flank:n"        => \$nFlankSize,
@@ -46,7 +48,13 @@ if ($sHelp) {
     -g --genome <string>
       (Multi) fasta file containing the genome sequence to re-orient.
     -l --landmark <string>
-      Fasta file containing the landmark sequence
+      Fasta file containing the landmark sequence(s)
+    -t --type <string>
+      The landmark sequence type Type is one of:
+                 dna - DNA sequence
+                 rna - RNA sequence
+                 prot - protein sequence
+      default: $sLandmarkSeqType
     -k --key <string>
       Optional string that should be present in the fasta header
       of the genome sequence, e.g. "circ". Can be used to ensure that
@@ -73,9 +81,11 @@ HELP
 ##########
 
 # Check arguments
+$sLandmarkSeqType = lc($sLandmarkSeqType);
 die "Error: flank size must be an integer\n"        unless ($nFlankSize =~ /^\d+$/);
 die "Error: file '$sGenomeFile' does not exist\n"   unless (-e $sGenomeFile);
 die "Error: file '$sLandmarkFile' does not exist\n" unless (-e $sLandmarkFile);
+die "Error: unknown landmark sequence type '$sLandmarkSeqType'. Use either 'dna', 'rna', or 'prot'.\n" unless ($sLandmarkSeqType =~ /^(dna|rna|prot)$/);
 
 # Check prerequisites
 my $sBlatBin       = which('blat');
@@ -134,7 +144,7 @@ if ($sLandmarkSeqID){
             $sSeq =~ s/\n+$//;
             print ">${sID}${sSuffix}\n${sSeq}\n";
          }
-         warn "Reoriented sequence '$sID' to landmark position $nLandmarkPos\n";
+         warn "Reoriented sequence '$sID' to landmark position $nLandmarkPos\n\n";
       }
       else{
          $sSeq =~ s/.{$nFaLineSize}/$&\n/sg;
@@ -145,7 +155,7 @@ if ($sLandmarkSeqID){
 }
 else{
    # We didn't get a hit so we just output the original sequence
-   warn("Warning: skipped reorientation of '$sGenomeFile' since it has no hit to landmark sequence.\n");
+   warn("Warning: skipped reorientation of '$sGenomeFile' since it has no hit to landmark sequence.\n\n");
    open FILE, $sGenomeFile or die "Error: can't open '$sGenomeFile'\n";
    while (<FILE>){
       print;
@@ -173,12 +183,21 @@ sub fasta_to_twobit {
 sub get_landmark_position {
    my ($sBlatBin, $sGenome2bitFile, $sLandmarkFile, $nFlankSize, $nMatchThresh) = @_;
    my (undef, $sBlatOutput) = tempfile("blatoutXXXXXXXX", OPEN=>0, DIR=>$ENV{TMPDIR});
-   system("$sBlatBin -t=dna -q=dna -minIdentity=90 -noHead $sGenome2bitFile $sLandmarkFile $sBlatOutput > /dev/null") == 0 or die "Error: blat search failed: $!\n";
+   
+   if ($sLandmarkSeqType eq 'prot'){
+      system("$sBlatBin -t=dnax -q=prot -minIdentity=90 -noHead $sGenome2bitFile $sLandmarkFile $sBlatOutput > /dev/null") == 0 or die "Error: blat search failed: $!\n";
+   }
+   else{
+      system("$sBlatBin -t=dna -q=dna -minIdentity=90 -noHead $sGenome2bitFile $sLandmarkFile $sBlatOutput > /dev/null") == 0 or die "Error: blat search failed: $!\n";
+   }
    
    # Read blat output
-   my ($nTopHitScore, $sTopHitSeqID, $nTopHitPos, $flTopRevComp, $nHitCount) = (0, "", 0, 0, 0);
+   my %hHitPositions;
+   my ($nTopHitScore, $sTopHitSeqID, $nTopHitPos, $flTopRevComp) = (0, "", 0, 0);
+   warn("BLAT HITS FOR LANDMARK(S)\n-------------------------\n");
    open BLAT, "$sBlatOutput" or die "Error: can't open blat output file: $!\n";
    while (<BLAT>){
+      warn($_);
       next if (/^\s*$/);
       next if (/^ *#/);
       s/[\n\r]+$//;
@@ -186,7 +205,7 @@ sub get_landmark_position {
       my $nQsize    = $asLine[10];
       my $nTsize    = $asLine[14];
       my $nHitScore = $asLine[0] - $asLine[1] - $asLine[4] - $asLine[6];
-      my $flRevComp = $asLine[8] eq '+' ? 0 : 1;
+      my $flRevComp = $asLine[8] =~ /\+$/ ? 0 : 1;
       my $sSeqID    = $asLine[13];
       
       # Get start coordinate of hit position, taking into account that we're going
@@ -196,16 +215,27 @@ sub get_landmark_position {
       $nHitPos = $nTsize if ($nHitPos > $nTsize);
       $nHitPos = $nTsize - $nHitPos if ($flRevComp);
       if ($nHitScore/$nQsize >= $nMatchThresh){
+         $hHitPositions{$nHitPos}++;
          if ($nHitScore > $nTopHitScore){
             ($nTopHitScore, $sTopHitSeqID, $nTopHitPos, $flTopRevComp) = ($nHitScore, $sSeqID, $nHitPos, $flRevComp);
-            $nHitCount++;
          }
       }
    }
    close BLAT;
    unlink($sBlatOutput);
    unlink($sGenome2bitFile);
-   warn("Warning: found multiple hits for landmark sequence - picking best hit\n") if ($nHitCount>1);
+   warn("\n");
+   
+   # Check how many distinct hit locations we found and report if those hits are more than 10 nucleotides apart
+   if ($sTopHitSeqID){
+      my $nHitPosOffset  = 0;
+      my @anHitPositions = sort {$a <=> $b} (keys %hHitPositions);
+      if (@anHitPositions){
+         $nHitPosOffset = $anHitPositions[$#anHitPositions] - $anHitPositions[0];
+      }
+      warn("Warning: found multiple hit locations for landmark sequence - picking best hit\n") if ($nHitPosOffset>10);
+   }
+   
    return($sTopHitSeqID, $nTopHitPos, $flTopRevComp);
 }
 

@@ -295,14 +295,14 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
   reorient_fasta = ENV['REORIENT_FASTA']
   reorient_fasta_doesnt_exist = reorient_fasta && !File.exist?(reorient_fasta)
   abort "FATAL: REORIENT_FASTA is nonempty but does not point to a file" if reorient_fasta_doesnt_exist
-  reorient_flank = (ENV['REORIENT_FLANK'] || 0).to_i
+  reorient_flank = (ENV['REORIENT_FLANK'] || 25).to_i
   
   if reorient_fasta
     system <<-SH
-      module load blat/3.0.5
+      module load blat
       perl #{REPO_DIR}/scripts/fasta-orient-to-landmark.pl --key _circ --flank #{reorient_flank} \
-          --landmark #{Shellwords.escape reorient_fasta} --matchlength 0.9 --orientsuffix reorient \
-          --genome "data/#{STRAIN_NAME}_consensus.fasta" >"data/#{STRAIN_NAME}_reorient.fasta"
+          --landmark #{Shellwords.escape reorient_fasta} --type prot --matchlength 0.9 --orientsuffix reorient \
+          --genome "data/#{STRAIN_NAME}_consensus.fasta" 2>"data/#{STRAIN_NAME}_reorient.log >"data/#{STRAIN_NAME}_reorient.fasta"
     SH
     if File.size("data/#{STRAIN_NAME}_reorient.fasta") == 0
       rm "data/#{STRAIN_NAME}_reorient.fasta"
