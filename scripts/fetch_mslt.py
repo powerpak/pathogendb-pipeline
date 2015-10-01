@@ -17,10 +17,10 @@ import argparse
 
 
 
-def fetch_results(file):
+def fetch_results(inputfile, mlstdb):
     #Fetch the result from the server
 
-    curl_command = 'curl --proxy proxy.mgmt.hpc.mssm.edu:8123 --form "fasta_upload=@' +file + '" --form "db=pubmlst_cdifficile_seqdef" --form "page=sequenceQuery" --form "locus=SCHEME_1" --form "order=locus" -F "submit=submit" "http://pubmlst.org/perl/bigsdb/bigsdb.pl"'
+    curl_command = 'curl --proxy proxy.mgmt.hpc.mssm.edu:8123 --form "fasta_upload=@' + inputfile + '" --form "db=pubmlst_' + mlstdb + '_seqdef" --form "page=sequenceQuery" --form "locus=SCHEME_1" --form "order=locus" -F "submit=submit" "http://pubmlst.org/perl/bigsdb/bigsdb.pl"'
 
     stream = stream=os.popen(curl_command)
     html = stream.read()
@@ -103,26 +103,23 @@ def  convertTabl2tsv(allelesTable, mlstTable, output):
 
 def usage():
     print "\n\tScript to get mslt information from pubmlst.org.\n"
-    print "\tRequirement: fasta input file\n" 
-    print "\tUsage: fetch_mslt.py [-h] [--fasta FASTA] [--output OUTPUT]\n\n"
+    print "\tRequirement: fasta input file and MLST database (Examples: 'cdifficile' for C.diff or 'mlst' for MRSA).\n" 
+    print "\tUsage: fetch_mslt.py [-h] [--fasta FASTA] [--output OUTPUT] [--mlst DATABASE]\n\n"
     sys.exit(0)
 
 
 if __name__ == "__main__":
-
-    #if len(sys.argv)!=2:
-    #    usage()
     parser = argparse.ArgumentParser(description='scrap pubmlst.org for mslt')
-    parser.add_argument('--fasta', "-f", help="input fasta file ")
-    parser.add_argument('--output', "-o", help="input fasta file ")
+    parser.add_argument('--fasta', "-f", help="Input fasta file ")
+    parser.add_argument('--output', "-o", help="Output file with MLST info ")
+    parser.add_argument('--mlst', "-m", help="MLST database to use. Examples: 'cdifficile' for C.diff or 'mlst' for MRSA.")
     args = parser.parse_args()
-    if args.fasta==None or args.output==None:
+    if args.fasta==None or args.output==None or args.mlst==None:
     	usage()
-    if args.fasta!=None and args.output!=None:  
+    if args.fasta!=None and args.output!=None and args.mlst!=None:  
     	fastaInput = args.fasta
     	output = args.output
+    	MLSTdb = args.mlst
 
-    	allelesTable, mlstTable = fetch_results(fastaInput)
+    	allelesTable, mlstTable = fetch_results(fastaInput, MLSTdb)
     	convertTabl2tsv(allelesTable, mlstTable, output)
-
-
