@@ -302,7 +302,7 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
       module load blat
       perl #{REPO_DIR}/scripts/fasta-orient-to-landmark.pl --key _circ --flank #{reorient_flank} \
           --landmark #{Shellwords.escape reorient_fasta} --type prot --matchlength 0.9 --orientsuffix reorient \
-          --genome "data/#{STRAIN_NAME}_consensus.fasta" 2>"data/#{STRAIN_NAME}_reorient.log >"data/#{STRAIN_NAME}_reorient.fasta"
+          --genome "data/#{STRAIN_NAME}_consensus.fasta" 2> "data/#{STRAIN_NAME}_reorient.log" >"data/#{STRAIN_NAME}_reorient.fasta"
     SH
     if File.size("data/#{STRAIN_NAME}_reorient.fasta") == 0
       rm "data/#{STRAIN_NAME}_reorient.fasta"
