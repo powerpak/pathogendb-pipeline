@@ -99,9 +99,11 @@ if ($nCount eq '0E0'){
 }
 
 # Save data into tAssemblies
-$sSQL   = "REPLACE INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_maxID, contig_sumlength, mlst_subtype, mlst_clade ) VALUES( ?, ?, ?, ?, ?, ? ,?, ?, ?, ?)";
-$oQuery = $dbh->prepare($sSQL);
-$nCount = $oQuery->execute($sExtractID, $sRunID, $sFolderName, $nContigCount, $nN50length, $nMaxContigLength, $sMaxContigID, $nTotalSize, $sMLST, $sMLSTclade);
+$sSQL   = join(" ",
+               "INSERT INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_maxID, contig_sumlength, mlst_subtype, mlst_clade)",
+               "VALUES('$sExtractID', '$sRunID', '$sFolderName', '$nContigCount', '$nN50length', '$nMaxContigLength', '$sMaxContigID', '$nTotalSize', '$sMLST', '$sMLSTclade')",
+               "ON DUPLICATE KEY UPDATE assembly_data_link='$sFolderName', contig_count='$nContigCount', contig_N50='$nN50length', contig_maxlength='$nMaxContigLength', contig_maxID='$sMaxContigID', contig_sumlength='$nTotalSize', mlst_subtype='$sMLST', mlst_clade='$sMLSTclade'");
+$nCount = $dbh->do($sSQL);
 if ($nCount){
    print "Loaded assembly '$sRunID' for extract '$sExtractID' into pathogenDB\n";
 }
@@ -110,9 +112,11 @@ else{
 }
 
 # Save data into tSequencing_runs
-$sSQL   = "REPLACE INTO tSequencing_runs (extract_ID, sequence_run_ID, sequencing_platform, paired_end, run_data_link) VALUES( ?, ?, ?, ?, ?)";
-$oQuery = $dbh->prepare($sSQL);
-$nCount = $oQuery->execute($sExtractID, $sRunID, 'Pacbio', 'No', "http://smrtportal.hpc.mssm.edu:8080/smrtportal/#/View-Data/Details-of-Job/$sRunID");
+$sSQL   = join(" ",
+               "INSERT INTO tSequencing_runs (extract_ID, sequence_run_ID, sequencing_platform, paired_end, run_data_link)",
+               "VALUES('$sExtractID', '$sRunID', 'Pacbio', 'No', 'http://smrtportal.hpc.mssm.edu:8080/smrtportal/#/View-Data/Details-of-Job/$sRunID')",
+               "ON DUPLICATE KEY UPDATE sequencing_platform='Pacbio', paired_end='No', run_data_link='http://smrtportal.hpc.mssm.edu:8080/smrtportal/#/View-Data/Details-of-Job/$sRunID'");
+$nCount = $dbh->do($sSQL);
 if ($nCount){
    print "Loaded sequencing run '$sRunID' for extract '$sExtractID' into pathogenDB\n";
 }
