@@ -30,6 +30,7 @@ ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ'] && File.expand_path(ENV['ILLUMINA_FASTQ']
 ILLUMINA_REFERENCE = ENV['ILLUMINA_REFERENCE'] && File.expand_path(ENV['ILLUMINA_REFERENCE'])
 TASK_FILE = ENV['TASK_FILE']
 GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
+CLUSTER = ENV['CLUSTER']
 
 #############################################################
 #  IMPORTANT!
@@ -236,7 +237,7 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
   system <<-SH
     module load smrtpipe/2.2.0
     source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
-    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF \
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
         -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml
   SH
 end
@@ -275,7 +276,7 @@ file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circulariz
     module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     samtools faidx circularized_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
-    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=16 -D CLUSTER=LSF \
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
         -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml &&
     gunzip data/consensus.fasta.gz
   SH
