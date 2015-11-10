@@ -97,8 +97,8 @@ If you'd like to run the pipeline multiple times with different parameters place
 
 This takes one required parameter, `$TASK_FILE`, placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
 
-    resequence_assembly OUT=$HOME/Steno/SM_278  SMRT_JOB_ID=017871 STRAIN_NAME=SM_278  SPECIES="Stenotrophomonas"
-    rast_annotate       OUT=$HOME/Steno/SM_5478 SMRT_JOB_ID=019203 STRAIN_NAME=SM_5478 SPECIES="Stenotrophomonas"
+    resequence_assembly OUT=$HOME/SA_pt158_B  SMRT_JOB_ID=020044 STRAIN_NAME=SA_pt158_B SPECIES="Staphylococcus aureus"
+    rast_annotate       OUT=$HOME/SA_pt158_N  SMRT_JOB_ID=020095 STRAIN_NAME=SA_pt158_N SPECIES="Staphylococcus aureus"
 
 When you run `rake multi[$TASK_FILE]`, with the filename of your task file in the brackets, a `screen` session will be created and split vertically into multiple windows, each of which will run `rake` with the various parameters you put on that line.
 
