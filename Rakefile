@@ -238,7 +238,7 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
     module load smrtpipe/2.2.0
     source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
-        -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params example_params.xml xml:bash5.xml
   SH
 end
 
@@ -277,7 +277,7 @@ file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circulariz
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     samtools faidx circularized_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
-        -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml &&
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
     gunzip data/consensus.fasta.gz
   SH
   cp "data/consensus.fasta", "data/#{STRAIN_NAME}_consensus.fasta"
