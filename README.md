@@ -38,6 +38,7 @@ When firing up the pipeline in a new shell, **remember to always `source scripts
 ### Required environment variables
 
 Certain tasks within the pipeline require you to specify some extra information as an environment variable.  You can do this by either editing them into `scripts/env.sh` and re-running `source scripts/env.sh`, or you can prepend them to the `rake` invocation, e.g.:
+
     $ SMRT_JOB_ID=019194 rake pull_down_raw_reads
 
 If a required environment variable isn't present when a task is run and there is no default value, rake will abort with an error message.
