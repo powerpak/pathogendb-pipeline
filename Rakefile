@@ -313,6 +313,34 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
 end
 
 
+# ==================
+# = motif_and_mods =
+# ==================
+
+desc "Reruns SMRTPipe for modifcation and motif analysis on the reoriented assembly"
+task :motif_and_mods => [:check, "data/motif_summary.csv"]
+file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+  abort "FATAL: Task motif_and_mods requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
+  
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    referenceUploader -c -p reoriented_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_reorient.fasta
+  SH
+  cp "#{REPO_DIR}/xml/motif_simple_example_params.xml", OUT
+  system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl motif_simple_example_params.xml " +
+      "#{OUT} reoriented_sequence/#{STRAIN_NAME} > motif_simple_params.xml" and
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    samtools faidx reoriented_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params motif_simple_params.xml xml:bash5.xml &&
+  SH
+end
+
+
 # =================
 # = rast_annotate =
 # =================

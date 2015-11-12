@@ -22,7 +22,7 @@
             <input value="inactive" type="radio"/>
         </param>
         <param name="reference" hidden="true">
-            <value>/sc/orga/scratch/attieo02/VRE/VRE_1/circularized_sequence/VRE_1/</value>
+            <value>{{REFERENCE_DIRECTORY}}</value>
         </param>
         <param name="control" hidden="true">
             <value></value>

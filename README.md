@@ -74,9 +74,10 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 3. `circularize_assembly`
 4. `resequence_assembly`
 5. `reorient_assembly`
-6. `rast_annotate`
-7. `improve_rast`
-8. `rast_to_igb`
+6. 'motifs_and_mods'
+7. `rast_annotate`
+8. `improve_rast`
+9. `rast_to_igb`
 
 With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all [required environment variables](#required-environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
 
