@@ -61,9 +61,6 @@ task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer, :bcftools] do
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
-  unless ENV['SMRTPIPE'] && File.exists?("#{ENV['SMRTPIPE']}/example_params.xml")
-    abort "FATAL: SMRTPIPE must be set to the directory containing example_params.xml for smrtpipe.py.\n#{ENV_ERROR}"
-  end
   unless ENV['SMRTANALYSIS'] && File.exists?("#{ENV['SMRTANALYSIS']}/etc/setup.sh")
     abort <<-ERRMSG
       FATAL: SMRTANALYSIS must be set to the ROOT directory for the SMRT Analysis package, v2.3.0.
@@ -233,7 +230,7 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
     next
   end
   
-  cp "#{ENV['SMRTPIPE']}/example_params.xml", "."
+  cp "#{REPO_DIR}/xml/example_params.xml", "."
   system <<-SH
     module load smrtpipe/2.2.0
     source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
@@ -269,7 +266,7 @@ file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circulariz
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/polished_assembly_circularized.fasta
   SH
-  cp "#{ENV['SMRTPIPE']}/resequence_example_params.xml", OUT
+  cp "#{REPO_DIR}/xml/resequence_example_params.xml", OUT
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
       "#{OUT} circularized_sequence/#{STRAIN_NAME} > resequence_params.xml" and
   system <<-SH or abort
