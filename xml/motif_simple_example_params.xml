@@ -21,7 +21,7 @@
             <input value="inactive" type="radio"/>
         </param>
         <param name="reference" hidden="true" editableInJob="true">
-            <value>REFERENCE_DIRECTORY</value>
+            <value>{{REFERENCE_DIRECTORY}}</value>
         </param>
         <param name="control" hidden="true">
             <value></value>
