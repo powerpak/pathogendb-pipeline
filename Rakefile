@@ -336,7 +336,7 @@ file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     samtools faidx reoriented_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
-        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params motif_simple_params.xml xml:bash5.xml &&
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params motif_simple_params.xml xml:bash5.xml
   SH
 end
 
