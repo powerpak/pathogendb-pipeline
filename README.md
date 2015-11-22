@@ -113,8 +113,9 @@ You will almost certainly need to run `rake multi` on an interactive node or the
 
 You may also want to run the pipeline as a non-interactive job on the cluster.  For this, the `scripts/example.post-assemble-pathogen` should be copied, modified as appropriate, and then can be submitted with `bsub` as in the following example:
 
-    $ bsub -R 'rusage[mem=4000] span[hosts=1]' -m bode,mothra -P acc_PBG -W "24:00" \
-            -L /bin/bash -q premium -n 16 -J CD00246\
+    $ bsub -R 'rusage[mem=4000] span[hosts=1]' -m "bode mothra" -P acc_PBG -W "24:00" \
+            -L /bin/bash -q premium -n 12 -J CD00246 \
+            -o "%J.stdout" -eo "%J.stderr" \
         post-assemble-pathogen \
             SMRT_JOB_ID=020486 \
             STRAIN_NAME=CD00246 \
