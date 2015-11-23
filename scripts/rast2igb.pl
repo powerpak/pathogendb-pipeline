@@ -93,6 +93,7 @@ if (-d $sGenomeDir) {
 }
 mkdir($sGenomeDir) or die "FATAL: could not create $sGenomeDir - $!\n";
 
+# Create a beddetail file for the annotations
 if ($sFromGenbankFile) {
    # Convert the GenBank file to BED detail format
    my $inSeq = Bio::SeqIO->new(-file   => "<$sFromGenbankFile",
@@ -157,7 +158,8 @@ if ($sFromGenbankFile) {
    }
    close BEDOUT;
 } else {
-   # Retrieve GFF3 annotations from RAST and convert rRNA and tRNA annots to a standard feature type
+   
+   # Get a gff3 formatted file from rast
    open GFFOUT, ">$sGenomeDir/$sGenomeName.gff3" or die "Error: can't open gff3 file '$sGenomeDir/$sGenomeName.gff3' for writing: $!\n";
    open GFFIN, "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID gff3 |" or die "Error: could not retrieve gff file for job '$nRastJobID'\n";
    while (<GFFIN>){
@@ -259,7 +261,7 @@ foreach my $rContig (@aaFastaLengths){
 }
 close GENOMEOUT;
 
-# And finally, append the new IGB Quickload dir to the content.txt file
+# Append the new IGB Quickload dir to the content.txt file
 my %hContentIDs;
 open CONTENTOUT, ">$sIGBdir/contents_new.txt" or die "Error: can't open '$sIGBdir/contents_new.txt' for writing: $!\n";
 `touch $sIGBdir/contents.txt`;
@@ -279,6 +281,13 @@ close CONTENTOUT;
 system("mv -f $sIGBdir/contents.txt $sIGBdir/contents.bkp") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
 system("mv -f $sIGBdir/contents_new.txt $sIGBdir/contents.txt") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
 
+# Fetch MLST info
+if ($sGenomeDir =~ /difficile/i){
+   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst mlst --output $sGenomeDir/mlst.txt") == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+}
+else{
+   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst cdifficile --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+}
 
 #################
 ## SUBROUTINES ##
