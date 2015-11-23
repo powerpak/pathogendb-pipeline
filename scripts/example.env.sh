@@ -10,7 +10,6 @@ export RAST_PASSWORD=""
 # Defaults will probably work for these
 export PERL5LIB="/usr/bin/perl5.10.1"
 export TMP="/sc/orga/scratch/$USER/tmp"
-export SMRTPIPE="/sc/orga/projects/InfectiousDisease/smrtpipe"
 export SMRTANALYSIS="/sc/orga/projects/pacbio/modules/smrtanalysis/2.2.0/install/smrtanalysis_2.3.0.140936"
 export SHARED_DIR="/sc/orga/scratch/$USER/shared_dir"
 export IGB_DIR="$HOME/www/igb"

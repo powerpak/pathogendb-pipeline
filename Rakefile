@@ -61,9 +61,6 @@ task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer, :bcftools] do
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
-  unless ENV['SMRTPIPE'] && File.exists?("#{ENV['SMRTPIPE']}/example_params.xml")
-    abort "FATAL: SMRTPIPE must be set to the directory containing example_params.xml for smrtpipe.py.\n#{ENV_ERROR}"
-  end
   unless ENV['SMRTANALYSIS'] && File.exists?("#{ENV['SMRTANALYSIS']}/etc/setup.sh")
     abort <<-ERRMSG
       FATAL: SMRTANALYSIS must be set to the ROOT directory for the SMRT Analysis package, v2.3.0.
@@ -183,7 +180,7 @@ end
 desc "Copies or downloads raw reads from a PacBio job to the OUT directory"
 task :pull_down_raw_reads => [:check, "bash5.fofn"]  # <-- file(s) created by this task
 file "bash5.fofn" do |t, args|                       # <-- implementation for generating each of these files
-  job_id = ENV['SMRT_JOB_ID'] # Examples that work are: 019194, 020266
+  job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   job_id = job_id.rjust(6, '0')
   pacbio_job_dirs = ["/sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..2]}/#{job_id}",
@@ -233,12 +230,12 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
     next
   end
   
-  cp "#{ENV['SMRTPIPE']}/example_params.xml", "."
+  cp "#{REPO_DIR}/xml/example_params.xml", "."
   system <<-SH
     module load smrtpipe/2.2.0
     source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
-        -D MAX_THREADS=16 --distribute --params example_params.xml xml:bash5.xml
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params example_params.xml xml:bash5.xml
   SH
 end
 
@@ -269,7 +266,7 @@ file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circulariz
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/polished_assembly_circularized.fasta
   SH
-  cp "#{ENV['SMRTPIPE']}/resequence_example_params.xml", OUT
+  cp "#{REPO_DIR}/xml/resequence_example_params.xml", OUT
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
       "#{OUT} circularized_sequence/#{STRAIN_NAME} > resequence_params.xml" and
   system <<-SH or abort
@@ -277,7 +274,7 @@ file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circulariz
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     samtools faidx circularized_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
-        -D MAX_THREADS=16 --distribute --params resequence_params.xml xml:bash5.xml &&
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
     gunzip data/consensus.fasta.gz
   SH
   cp "data/consensus.fasta", "data/#{STRAIN_NAME}_consensus.fasta"
@@ -313,6 +310,34 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
     # No reorient locus given, simply copy the assembly for the next step
     cp "data/#{STRAIN_NAME}_consensus.fasta", "data/#{STRAIN_NAME}_reorient.fasta"
   end
+end
+
+
+# ==================
+# = motif_and_mods =
+# ==================
+
+desc "Reruns SMRTPipe for modifcation and motif analysis on the reoriented assembly"
+task :motif_and_mods => [:check, "data/motif_summary.csv"]
+file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+  abort "FATAL: Task motif_and_mods requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
+  
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    referenceUploader -c -p reoriented_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_reorient.fasta
+  SH
+  cp "#{REPO_DIR}/xml/motif_simple_example_params.xml", OUT
+  system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl motif_simple_example_params.xml " +
+      "#{OUT} reoriented_sequence/#{STRAIN_NAME} > motif_simple_params.xml" and
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    samtools faidx reoriented_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params motif_simple_params.xml xml:bash5.xml
+  SH
 end
 
 

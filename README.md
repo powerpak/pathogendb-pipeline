@@ -38,6 +38,7 @@ When firing up the pipeline in a new shell, **remember to always `source scripts
 ### Required environment variables
 
 Certain tasks within the pipeline require you to specify some extra information as an environment variable.  You can do this by either editing them into `scripts/env.sh` and re-running `source scripts/env.sh`, or you can prepend them to the `rake` invocation, e.g.:
+
     $ SMRT_JOB_ID=019194 rake pull_down_raw_reads
 
 If a required environment variable isn't present when a task is run and there is no default value, rake will abort with an error message.
@@ -60,6 +61,9 @@ Variable             | Can be provided for                   | Default | Purpose
 `REORIENT_FLANK`     | `reorient_assembly`                   | 0       | This is the number of nt *before* the beginning of the landmark where the origin of the circular chromosome will be set.
 `GENBANK_REFERENCES` | `improve_rast`                        | (none)  | Paths to to GenBank files that contain "good" gene names that will be lifted over to your RAST annotations.  Multiple paths should be separated with `:`, as with `PATH`.  If not given, `improve_rast` will be a no-op.
 `ILLUMINA_REFERENCE` | `ilm:fake_prereqs`                    | (none)  | Path to the FASTA file containing the reference sequence that you want to shunt into the Illumina correction branch of the pipeline.
+`CLUSTER`            | `assemble_raw_reads` `resequence_assembly` | LSF_PSP | Sets the `-D CLUSTER=` option for [`smrtpipe.py`][smrtpipe], which controls which job submission wrapper scripts are used. Set to `BASH` to disable job submissions by SMRT Pipe (all steps run local to the current node).
+
+[smrtpipe]: http://www.pacb.com/wp-content/uploads/2015/09/SMRT-Pipe-Reference-Guide.pdf
 
 ### Tasks
 
@@ -70,9 +74,10 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 3. `circularize_assembly`
 4. `resequence_assembly`
 5. `reorient_assembly`
-6. `rast_annotate`
-7. `improve_rast`
-8. `rast_to_igb`
+6. 'motifs_and_mods'
+7. `rast_annotate`
+8. `improve_rast`
+9. `rast_to_igb`
 
 With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all [required environment variables](#required-environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
 
@@ -93,8 +98,8 @@ If you'd like to run the pipeline multiple times with different parameters place
 
 This takes one required parameter, `$TASK_FILE`, placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
 
-    resequence_assembly OUT=$HOME/Steno/SM_278  SMRT_JOB_ID=017871 STRAIN_NAME=SM_278  SPECIES="Stenotrophomonas"
-    rast_annotate       OUT=$HOME/Steno/SM_5478 SMRT_JOB_ID=019203 STRAIN_NAME=SM_5478 SPECIES="Stenotrophomonas"
+    resequence_assembly OUT=$HOME/SA_pt158_B  SMRT_JOB_ID=020044 STRAIN_NAME=SA_pt158_B SPECIES="Staphylococcus aureus"
+    rast_annotate       OUT=$HOME/SA_pt158_N  SMRT_JOB_ID=020095 STRAIN_NAME=SA_pt158_N SPECIES="Staphylococcus aureus"
 
 When you run `rake multi[$TASK_FILE]`, with the filename of your task file in the brackets, a `screen` session will be created and split vertically into multiple windows, each of which will run `rake` with the various parameters you put on that line.
 
@@ -108,8 +113,9 @@ You will almost certainly need to run `rake multi` on an interactive node or the
 
 You may also want to run the pipeline as a non-interactive job on the cluster.  For this, the `scripts/example.post-assemble-pathogen` should be copied, modified as appropriate, and then can be submitted with `bsub` as in the following example:
 
-    $ bsub -R 'rusage[mem=4000] span[hosts=1]' -m bode,mothra -P acc_PBG -W "24:00" \
-            -L /bin/bash -q premium -n 16 -J CD00246\
+    $ bsub -R 'rusage[mem=4000] span[hosts=1]' -m "bode mothra" -P acc_PBG -W "24:00" \
+            -L /bin/bash -q premium -n 12 -J CD00246 \
+            -o "%J.stdout" -eo "%J.stderr" \
         post-assemble-pathogen \
             SMRT_JOB_ID=020486 \
             STRAIN_NAME=CD00246 \
