@@ -283,10 +283,10 @@ system("mv -f $sIGBdir/contents_new.txt $sIGBdir/contents.txt") == 0 or die "Err
 
 # Fetch MLST info
 if ($sGenomeDir =~ /difficile/i){
-   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst mlst --output $sGenomeDir/mlst.txt") == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst cdifficile --output $sGenomeDir/mlst.txt") == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
 }
 else{
-   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst cdifficile --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst mlst --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
 }
 
 #################
