@@ -74,7 +74,7 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 3. `circularize_assembly`
 4. `resequence_assembly`
 5. `reorient_assembly`
-6. 'motifs_and_mods'
+6. `motifs_and_mods`
 7. `rast_annotate`
 8. `improve_rast`
 9. `rast_to_igb`
