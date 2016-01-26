@@ -136,6 +136,7 @@ file "#{HTSLIB_DIR}/bgzip" => "#{BCFTOOLS_DIR}/bcftools" do
 end
 file "#{HTSLIB_DIR}/tabix" => "#{HTSLIB_DIR}/bgzip"
 
+
 file "pathogendb-pipeline.png" => [:graph]
 desc "Generates a graph of tasks, intermediate files and their dependencies from this Rakefile"
 task :graph do
@@ -310,6 +311,40 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
     # No reorient locus given, simply copy the assembly for the next step
     cp "data/#{STRAIN_NAME}_consensus.fasta", "data/#{STRAIN_NAME}_reorient.fasta"
   end
+end
+
+
+# ===================
+# = prokka_rename =
+# ===================
+
+desc "Renames the reoriented assembly contigs using a shortened scheme"
+task :prokka_rename => [:check, "data/#{STRAIN_NAME}_prokka.fasta"]
+file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+  system <<-SH
+    # call script to rename contigs
+    
+    
+  SH
+end
+
+
+# ===================
+# = prokka_annotate =
+# ===================
+
+desc "Annotates the reoriented assembly with prokka"
+task :prokka_annotate => [:check, "data/#{STRAIN_NAME}_prokka.gbk"]
+file "data/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
+  system <<-SH
+    module load prokka  
+    module load barrnap
+    module unload rnammer
+    module load minced
+    module load signalp
+        
+    prokka --outdir data --prefix #{STRAIN_NAME}_prokka data/#{STRAIN_NAME}_reorient.fasta
+  SH
 end
 
 
@@ -543,11 +578,11 @@ namespace :ilm do
     SH
   end
 
-file "data/#{STRAIN_NAME}_ilm_reorient.fasta" => 
-    ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_reorient.fasta"] do |t|
-  system <<-SH
-    module load vcftools/0.1.12b
-    module load tabix/0.2.6 
+  file "data/#{STRAIN_NAME}_ilm_reorient.fasta" => 
+      ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_reorient.fasta"] do |t|
+    system <<-SH
+      module load vcftools/0.1.12b
+      module load tabix/0.2.6 
     
       bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
       tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
