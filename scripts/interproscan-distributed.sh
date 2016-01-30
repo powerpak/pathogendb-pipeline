@@ -48,18 +48,10 @@ else
    exit 1
 fi
 
-# Set path to interpro
-INTERPRODIR=/hpc/users/vanbah01/projects/opt/interproscan/current/
-if [ -d "$INTERPRODIR" ]; then
-   export PATH="$INTERPRODIR:$PATH"
-else
-   echo "Could not find an interpro installation at '$INTERPRODIR'."
-   exit 1
-fi
-
 # Load required modules
 module load python/2.7.6
 module load java
+module load interproscan
 
 # Set output filename
 OUT=`basename $1 .fa`
@@ -77,7 +69,7 @@ for i in ${JOBNAME}_*.fa
 do
    name=`basename $i .fa`
    $GIT_REPODIR/minerva-queue-lsf/bin/submitjob 12 -c 8 -A $3 -q premium -J $JOBNAME \
-     $INTERPRODIR/interproscan.sh \
+     interproscan.sh \
      -dp -i $i -goterms \> $name.out
 done
 
