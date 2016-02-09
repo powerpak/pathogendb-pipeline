@@ -497,6 +497,15 @@ task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"
 end
 
 
+# ===================
+# = all =
+# ===================
+
+desc "Runs entire pipeline from top to bottom"
+task :all => [:rast_to_igb, :motif_and_mods]
+file "bash5.fofn" do |t|
+end
+
 # ====================================================================================================
 # = The following tasks are for assemblies where we want to incorporate Illumina reads to fix indels =
 # ====================================================================================================
