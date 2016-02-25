@@ -194,6 +194,10 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
     mkdir_p "data"
     if File.exist? "#{found_fofn_dir}/data/polished_assembly.fasta.gz"
       ln_s "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
+      ln_s "#{found_fofn_dir}/data/corrected.fastq", "data/corrected.fastq"
+      ln_s "#{found_fofn_dir}/data/celera-assembler.gkpStore", "data/celera-assembler.gkpStore"
+      ln_s "#{found_fofn_dir}/data/celera-assembler.tigStore", "data/celera-assembler.tigStore"
+      ln_s "#{found_fofn_dir}/data/4-unitigger/best.edges", "data/best.edges"
     end
   else
     url = URI.parse(smrtpipe_log_url)
@@ -313,20 +317,88 @@ file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fast
   end
 end
 
+# =================
+# = run_circlator =
+# =================
 
-# ===================
-# = prokka_rename =
-# ===================
-
-desc "Renames the reoriented assembly contigs using a shortened scheme"
-task :prokka_rename => [:check, "data/#{STRAIN_NAME}_prokka.fasta"]
-file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+desc "Runs circlator on smrtpipe output."
+task :run_circlator => [:check, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"]
+file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system <<-SH
-    # call script to rename contigs
-    
-    
+    module load prodigal
+    module load samtools
+    module load spades
+    module load python/3.5.0  py_packages/3.5
+    module load gcc
+    module load mummer
+    module load bwa/0.7.12
+    cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
+    gunzip data/circ_input.fasta.gz
+    circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
   SH
 end
+
+
+# ==================
+# = post_circlator =
+# ==================
+
+desc "Renames the reoriented assembly contigs using a shortened scheme. If reorientated start too near contig start reorientate to middle of contig."
+task :post_circlator => [:check, "data/#{STRAIN_NAME}_postcirc.fasta"]
+file "data/#{STRAIN_NAME}_postcirc.fasta" => ["data/corrected.fastq", "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"] do |t|
+  job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
+  abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
+  job_id = job_id.rjust(6, '0')
+  system <<-SH
+    # call script to rename contigs
+    #{REPO_DIR}/scripts/post_circlator_contig_rename.py data/#{STRAIN_NAME}_circlator/ data/#{STRAIN_NAME}_postcirc.fasta data/#{STRAIN_NAME}_postcirc2.fasta #{job_id}
+  SH
+end
+
+
+# =========================
+# = resequence_assembly_2 =
+# =========================
+
+desc "Resequences the circularized assembly"
+task :resequence_assembly_2 => [:check, "data/#{STRAIN_NAME}_consensus_circ.fasta"]
+file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc.fasta" do |t|
+  abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
+  
+  mkdir_p "circularized_sequence"
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_postcirc.fasta
+  SH
+  cp "#{REPO_DIR}/xml/resequence_example_params.xml", OUT
+  system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
+      "#{OUT} circularized_sequence/#{STRAIN_NAME} > resequence_params.xml" and
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    samtools faidx circularized_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
+    gunzip data/consensus.fasta.gz
+  SH
+  cp "data/consensus.fasta", "data/#{STRAIN_NAME}_consensus_circ.fasta"
+end
+
+# ==============================
+# = post_quiver_orient_correct =
+# ==============================
+
+desc "Renames the reoriented assembly contigs using a shortened scheme"
+task :post_quiver_orient_correct => [:check, "data/#{STRAIN_NAME}_prokka.fasta"]
+file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_consensus_circ.fasta" do |t|
+  system <<-SH
+    module load blast
+    #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.fasta data/#{STRAIN_NAME}_prokka.fasta data/pq_dir
+  SH
+end
+
 
 
 # ===================
@@ -334,8 +406,8 @@ end
 # ===================
 
 desc "Annotates the reoriented assembly with prokka"
-task :prokka_annotate => [:check, "data/#{STRAIN_NAME}_prokka.gbk"]
-file "data/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
+task :prokka_annotate => [:check, "data/prokka/#{STRAIN_NAME}_prokka.gbk"]
+file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   system <<-SH
     module load prokka  
     module load barrnap
@@ -343,10 +415,33 @@ file "data/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fasta" do |
     module load minced
     module load signalp
         
-    prokka --outdir data --prefix #{STRAIN_NAME}_prokka data/#{STRAIN_NAME}_reorient.fasta
+    prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_prokka data/#{STRAIN_NAME}_prokka.fasta
   SH
 end
 
+# =====================
+# = create_QC_webpage =
+# =====================
+
+desc "Creates the QC webpage"
+task :create_QC_webpage => [:check, "data/www/index.html"]
+file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
+  system <<-SH
+    module load blast
+    module load bwa/0.7.12
+    module load celera
+    module load python/2.7.3
+    module load py_packages/2.7-gpu
+    module load ucsc-utils
+    #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta -g data -r data/corrected.fastq -a #{STRAIN_NAME}
+  SH
+end
+
+# =====================
+# = Run QC and prokka =
+# =====================
+
+task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage]
 
 # ==================
 # = motif_and_mods =
@@ -496,7 +591,6 @@ task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"
   SH
 end
 
-
 # ===================
 # = all =
 # ===================
@@ -505,6 +599,7 @@ desc "Runs entire pipeline from top to bottom"
 task :all => [:rast_to_igb, :motif_and_mods]
 file "bash5.fofn" do |t|
 end
+
 
 # ====================================================================================================
 # = The following tasks are for assemblies where we want to incorporate Illumina reads to fix indels =
