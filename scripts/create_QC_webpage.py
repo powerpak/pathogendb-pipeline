@@ -1305,23 +1305,18 @@ def write_index(options, header, footer, coverage, flags):
         for q in contig_names:
             assign_dict[q] = 'none'
     for q in contig_names:
-        z = q.split('_')
-        if q.endswith('quiver_circ_quiver_reorient'):
-            trimmed = 'y'
-            ends_corrected = 'y'
-            reorientated = 'y'
-        elif q.endswith('quiver_circ_quiver'):
-            trimmed = 'y'
-            ends_corrected = 'y'
-            reorientated = 'n'
-        elif q.endswith('quiver_quiver'):
+        if q[6] == 'x':
             trimmed = 'n'
-            ends_corrected = 'n'
+        else:
+            trimmed = 'y'
+        if q[7] == 'x':
             reorientated = 'n'
         else:
-            trimmed = 'na'
-            ends_corrected = 'na'
-            reorientated = 'na'
+            reorientated = 'y'
+        if q[8] == 'x':
+            ends_corrected = 'n'
+        else:
+            ends_corrected = 'y'
         contigs.append((q, assign_dict[q], contig_lengths[q], sum(coverage[q.split('_')[1]]) * 1.0 / len(coverage[q.split('_')[1]]), trimmed, ends_corrected, reorientated, flags[q.split('_')[1]][0], flags[q.split('_')[1]][1], flags[q.split('_')[1]][2]))
     html_out = open(options.output_folder + '/index.html', 'w')
     html_out.write(header)
@@ -1334,8 +1329,8 @@ def write_index(options, header, footer, coverage, flags):
             <th>Designation</th>
             <th>Length</th>
             <th>Mean coverage</th>
-            <th>Trimmed</th>
-            <th>ends corrected</th>
+            <th>Circularised</th>
+            <th>Polished</th>
             <th>Reorientated</th>
             <th>Clipped read flagged</th>
             <th>Unclipped flagged</th>
@@ -1437,19 +1432,6 @@ def copy_bedgraph(options):
     # Any error saying that the directory doesn't exist
     except OSError as e:
         sys.sterr.write('Directory not copied. Error: %s' % e)
-
-    outstring = ''
-    # with open(options.html_loc + '/annots.xml') as annots:
-    #     for line in annots:
-    #         if not line.startswith('</files>') and not line.startswith('<file name="wiggle/'):
-    #             outstring += line
-    # shutil.copy2(options.html_loc + '/annots.xml', options.output_folder + '/annots.xml.backup')
-    # out_annot = open(options.html_loc + '/annots.xml', 'w')
-    # out_annot.write(outstring)
-    # for i in os.listdir(options.html_loc + '/wiggle/'):
-    #     out_annot.write('<file name="wiggle/' + i + '" title="' + i[:-4].replace('_', ' ') + '" url="https://vanbah01.u.hpc.mssm.edu/igb/' + options.html_loc.split('/')[5] + '/wiggle/' + i + '"  />\n')
-    # out_annot.write('</files>')
-    # out_annot.close()
 
 
 parser = OptionParser()

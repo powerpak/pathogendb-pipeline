@@ -12,7 +12,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
     min_dist = 5000
     seqDict = {}
     name = None
-    with open(circ_direct + '/06.fixstart.fasta') as f:
+    with open(circ_direct + '/06.fixstart.fasta') as f: # get the final output of circlator
         for line in f:
             if line.startswith('>'):
                 name = line.rstrip()[1:]
@@ -20,7 +20,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             else:
                 seqDict[name] += line.rstrip()
     seqDictOri = {}
-    with open(circ_direct + '/00.input_assembly.fasta') as f:
+    with open(circ_direct + '/00.input_assembly.fasta') as f: # get the initial input for circlator - this is done so we can readd unitigs thrown out by circlator
         for line in f:
             if line.startswith('>'):
                 name = line.rstrip()[1:]
@@ -28,37 +28,31 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             else:
                 seqDictOri[name] += line.rstrip()
     circ_set = set()
-    with open(circ_direct + '/04.merge.circularise.log') as f:
+    with open(circ_direct + '/04.merge.circularise.log') as f: # determine whether circlator has circularised the unitig
         first = True
         for line in f:
             if first:
                 first = False
             else:
                 mc1, mc2, name, one, two, three, circed = line.split()
-                print line.split()
-                print circed
                 if circed == '1':
                     circ_set.add(name)
     reorient_dict = set()
-    with open(circ_direct + '/06.fixstart.log') as f:
+    with open(circ_direct + '/06.fixstart.log') as f: # determine whether circlator has reorientated the unitig
         first = True
         for line in f:
             if first:
                 first = False
             else:
                 cbf1, cbf2, cbf3, name, break_point, gn, gr, nn, skipped = line.split()
-                print line.split()
-                print break_point
                 if break_point == '-':
                     pass
                 else:
                     reorient_dict[name] = int(break_point)
-    print reorient_dict
-    print circ_set
     out = open(outname, 'w')
     out_log = open(seqlog, 'w')
     at_least_one = False
-    for i in seqDictOri:
+    for i in seqDictOri: # build new name for contig
         contig_name = '>u' + i.split('|')[0].split('_')[1].zfill(5)
         if i in circ_set:
             contig_name += 'c'
@@ -96,7 +90,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
         out.write(contig_name + '\n')
         for j in range(0, len(seq), 60):
             out.write(seq[j:j+60] + '\n')
-    if not at_least_one:
+    if not at_least_one: # if no contigs needed to be reorientated write all good to file - post quiver will check this and then not bother running BLAST to change files back
         out_log.write('all_good')
     out_log.close()
     out.close()

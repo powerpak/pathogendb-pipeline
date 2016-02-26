@@ -441,7 +441,10 @@ end
 # = Run QC and prokka =
 # =====================
 
+desc "Run prokka and create the QC website"
 task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage]
+file "data/www/index.html" do |t|
+end
 
 # ==================
 # = motif_and_mods =
