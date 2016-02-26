@@ -345,7 +345,7 @@ end
 
 desc "Renames the reoriented assembly contigs using a shortened scheme. If reorientated start too near contig start reorientate to middle of contig."
 task :post_circlator => [:check, "data/#{STRAIN_NAME}_postcirc.fasta"]
-file "data/#{STRAIN_NAME}_postcirc.fasta" => ["data/corrected.fastq", "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"] do |t|
+file "data/#{STRAIN_NAME}_postcirc.fasta" => "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" do |t|
   job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   job_id = job_id.rjust(6, '0')
@@ -426,6 +426,9 @@ end
 desc "Creates the QC webpage"
 task :create_QC_webpage => [:check, "data/www/index.html"]
 file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
+
+  job_id = ENV['SMRT_JOB_ID']
+  species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
   system <<-SH
     module load blast
     module load bwa/0.7.12
@@ -433,7 +436,8 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
     module load python/2.7.3
     module load py_packages/2.7-gpu
     module load ucsc-utils
-    #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta -g data -r data/corrected.fastq -a #{STRAIN_NAME}
+    #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
+     -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
   SH
 end
 

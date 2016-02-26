@@ -37,8 +37,8 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
                 mc1, mc2, name, one, two, three, circed = line.split()
                 if circed == '1':
                     circ_set.add(name)
-    reorient_dict = set()
-    with open(circ_direct + '/06.fixstart.log') as f: # determine whether circlator has reorientated the unitig
+    reorient_dict = {}
+    with open(circ_direct + '/06.fixstart.log') as f: # determine whether circlator has reorientated the unitig, keep track of breakpoint
         first = True
         for line in f:
             if first:
@@ -64,8 +64,8 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             contig_name += 'x'
         contig_name += 'xx_'
         if not i in seqDict:
-            contig_name += 'g'
-        elif len(seqDictOri[i]) >= 1000000 and i in circ_set:
+            contig_name += 'g' # recover tossed out contigs (and label them as "g" for garbage)
+        elif len(seqDictOri[i]) >= 1000000 and i in circ_set: # assign contig to class (circularised and large = chromosome, circularised and small = plasmid, not circularised = other)
             contig_name += 'c'
         elif i in circ_set:
             contig_name += 'p'
@@ -73,15 +73,17 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             contig_name += 'o'
         if not i in seqDict:
             seq = seqDictOri[i]
-        elif not i in circ_set:
+        elif not i in circ_set: # if contig was not circularised do not reorientate
             seq = seqDict[i]
-        elif not i in reorient_dict:
+        elif not i in reorient_dict: # if contig was not reorientated, re-reorientate for quiver
             seq = seqDict[i][len(seq)/2:] + seqDict[i][:len(seq)/2]
+        # if the contig was reorientated far enough away from the initial contig start do not re-reorientate
         elif i in reorient_dict and reorient_dict[i] >= min_dist and reorient_dict[i] <= len(seqDict[i]) - min_dist:
             seq = seqDict[i]
+        # if the contig is short and was reorientated roughly in the middle do no re-reorientate
         elif i in reorient_dict and reorient_dict[i] >= len(seqDict[i]) /4 and reorient_dict[i] <= len(seqDict[i]) * 3 / 4:
             seq = seqDict[i]
-        else:
+        else: # If the contig has been reorientated near the start, re-reorienate and keep a record of inital position so that it can be orientated back to DNAA after quiver
             at_least_one = True
             out_log.write(contig_name + '\n')
             out_log.write(seqDict[i])

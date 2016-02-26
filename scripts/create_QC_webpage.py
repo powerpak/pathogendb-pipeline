@@ -12,9 +12,11 @@ import shlex
 import shutil
 
 
+# takes RGB values and returns a colour string
 def colorstr(rgb):
     return "#%02x%02x%02x" % (rgb[0],rgb[1], rgb[2])
 
+# takes hue, saturation and lightness values and returns a color string
 def hsl_to_colorstr(h, s, l):
     c = (1 - abs(2*l - 1)) * s
     x = c * (1 - abs(h *1.0 / 60 % 2 - 1))
@@ -36,7 +38,7 @@ def hsl_to_colorstr(h, s, l):
     b = int(b * 255)
     return "#%02x%02x%02x" % (r,g,b)
 
-
+# This script needs this CSS template to create the website -- just put it here for safekeeping
 css_template = '''body{
 margin: 0;
 padding: 0;
@@ -140,7 +142,7 @@ tbody {
     overflow: auto;'''
 
 
-
+# class for creating scalable vector graphics
 class scalableVectorGraphics:
 
     def __init__(self, height, width):
@@ -399,7 +401,7 @@ class scalableVectorGraphics:
             self.out += '\nstyle="font-style:normal;font-weight:bold"'
         self.out += '>' + thestring + '</tspan></text>\n'
 
-
+# class for reading sam files - emulates pysam - except runs on windows/doesn't need a library
 class readSam:
     def __init__(self, sam_file):
         self.header = ''
@@ -483,7 +485,7 @@ class readSam:
 
 
 
-
+# create the graph webpages - also create a bigwig file of the graphs
 def draw_graph(options, header, footer):
     sam_filename = options.output_folder + '/alignment.sam'
     sam = readSam(sam_filename)
@@ -678,8 +680,10 @@ def draw_graph(options, header, footer):
             if refnum == 0:
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'w')
                 bgt_out = open(options.output_folder + '/bigwig/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.bwt', 'w')
-                bgt_out.write('track type=bigwig bigDataUrl=' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower()
-                              + '.bw name=test color=0,0,200 altColor=0,200,0 autoScale=on alwaysZero=on graphType=bar yLineMark=10 yLineOnOff=on\n')
+                bgt_out.write('track type=bigwig bigDataUrl=https://vanbah01.u.hpc.mssm.edu/igb/' + options.assembly_name +'/'
+                              + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower()
+                              + '.bw name=' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() +
+                              'color=0,0,200 altColor=0,200,0 autoScale=on alwaysZero=on graphType=bar yLineMark=10 yLineOnOff=on\n')
                 bgt_out.close()
             else:
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'a')
@@ -904,7 +908,7 @@ for (var i = 0; i < zoomButtons.length; i++) {
     return out_cov, out_flag
 
 
-
+# runs BWA on the reference - extends the reference by <max_read_length> on either side to check if contig has been circularised properly
 def runBWA(reference, reads, out_dir, num_threads='1', max_read_length=100000):
     if os.path.exists(out_dir) and not os.path.isdir(out_dir):
         sys.stderr.write('Out folder is already a file, please choose another path.')
@@ -933,6 +937,8 @@ def runBWA(reference, reads, out_dir, num_threads='1', max_read_length=100000):
     subprocess.Popen('bwa index ' + out_dir + '/extended_references.fa', shell=True).wait()
     subprocess.Popen('bwa mem -t ' + num_threads + ' -k 16 -a ' + out_dir + '/extended_references.fa ' + reads + ' > ' + out_dir + '/alignment.sam', shell=True).wait()
 
+
+# Create an SVG of blast htis between contigs - also plots coverage on the blast hits
 def do_blast(options, header, footer, coverage):
     reference = options.assembly_FASTA
     out_dir = options.output_folder
@@ -1099,7 +1105,7 @@ def do_blast(options, header, footer, coverage):
 
 
 
-
+# creates the header/footer sidebar for each page so they have a consistent theme
 def get_page_bookends(options):
     reference = options.assembly_FASTA
     ass_name = options.assembly_name
@@ -1165,6 +1171,8 @@ def get_page_bookends(options):
 </html>'''
     return header, footer
 
+
+# Creates a SVG of the assembly graph file
 def create_graph(options):
     gkp_store = options.gkp_location
     tig_store = options.tig_location
@@ -1221,6 +1229,7 @@ def create_graph(options):
         n.attr['fillcolor']=color
     Agraph.draw(output, prog='neato', format='svg')
 
+# creates a dot plot of the assembly
 def create_dot_plot(options):
     reference = options.assembly_FASTA
     header_names = []
@@ -1278,7 +1287,7 @@ def create_dot_plot(options):
 
 
 
-
+# create the index page - contains table of information, dotplot and graph
 def write_index(options, header, footer, coverage, flags):
     contigs = []
     contig_names = []
@@ -1386,6 +1395,8 @@ def write_index(options, header, footer, coverage, flags):
 
     html_out.write(footer)
 
+
+# Initially this was going to be a way to log manual changes to the assembly - may implement at some stage..
 def log_change(options):
     out_html = ''
     time = str(datetime.datetime.now()).split('.')[0]
@@ -1406,6 +1417,7 @@ def log_change(options):
     out = open(options.output_folder + '/index.html', 'w')
     out.write(out_html)
 
+# copy all the required html files to html_loc
 def copy_html(options):
     if not os.path.exists(options.html_loc):
         os.makedirs(options.html_loc)
@@ -1420,7 +1432,7 @@ def copy_html(options):
     # Any error saying that the directory doesn't exist
     except OSError as e:
         sys.sterr.write('Directory not copied. Error: %s' % e)
-
+# copy the bedgraph files to html_loc
 def copy_bedgraph(options):
     if os.path.exists(options.html_loc + '/wiggle/'):
         shutil.rmtree(options.html_loc + '/wiggle/')
