@@ -11,7 +11,7 @@ def reorientate_fasta(fasta_file, log_file, out_file, working_dir):
         else:
             need_reorient = True
             subprocess.Popen('makeblastdb -dbtype nucl -in ' + log_file + ' -out ' + working_dir + '/tempdb', shell=True).wait()
-            subprocess.Popen('blastn -query ' + fasta_file + ' -db ' + working_dir + '/tempdb -outfmt 6 -out ' + working_dir + '/blast_temp.out')
+            subprocess.Popen('blastn -query ' + fasta_file + ' -db ' + working_dir + '/tempdb -outfmt 6 -out ' + working_dir + '/blast_temp.out', shell=True).wait()
     seqDict = {}
     first = {}
     second = {}
@@ -27,12 +27,12 @@ def reorientate_fasta(fasta_file, log_file, out_file, working_dir):
     if need_reorient:
         with open(working_dir + '/blast_temp.out') as f:
             for line in f:
-                query, subject, mm, indel, qstart, qstop, rstart, rstop, evalue, bitscore = line.split()
+                query, subject, length, ident, mm, indel, qstart, qstop, rstart, rstop, evalue, bitscore = line.split()
                 if query == subject:
                     if first[query] is None:
-                        first[query] = (qstart, qstop, rstart, rstop)
+                        first[query] = map(int, (qstart, qstop, rstart, rstop))
                     elif second[query] is None:
-                        second[query] = (qstart, qstop, rstart, rstop)
+                        second[query] = map(int, (qstart, qstop, rstart, rstop))
     out = open(out_file, 'w')
     for i in seqDict:
         if second[i] is None:
