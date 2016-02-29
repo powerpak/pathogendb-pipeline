@@ -335,6 +335,8 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
     gunzip data/circ_input.fasta.gz
     circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
+    module unload python
+    module unload py_packages
   SH
 end
 
