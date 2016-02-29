@@ -325,6 +325,8 @@ desc "Runs circlator on smrtpipe output."
 task :run_circlator => [:check, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"]
 file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system <<-SH
+    module unload python
+    module unload py_packages
     module load prodigal
     module load samtools
     module load spades
@@ -335,8 +337,6 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
     gunzip data/circ_input.fasta.gz
     circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
-    module unload python
-    module unload py_packages
   SH
 end
 
@@ -432,6 +432,8 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   job_id = ENV['SMRT_JOB_ID']
   species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
   system <<-SH
+    module unload python
+    module unload py_packages
     module load blast
     module load bwa/0.7.12
     module load celera
