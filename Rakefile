@@ -437,8 +437,8 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
     module load blast
     module load bwa/0.7.12
     module load celera
-    module load python/2.7.3
-    module load py_packages/2.7-gpu
+    module load python/2.7.6
+    module load py_packages/2.7
     module load ucsc-utils
     #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
      -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
