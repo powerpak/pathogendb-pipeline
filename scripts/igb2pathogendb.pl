@@ -204,8 +204,9 @@ sub get_mlst_data {
       next if (/^\s*$/);
       next if (/^ *#/);
       s/[\n\r]+$//;
-      my (@asLine) = split /\t/;
-      $sMLST  = $asLine[2] if ($asLine[0] eq "ST");
+      my (@asLine) = split /\t+/;
+      $sMLST  = $asLine[1] if ($asLine[0] eq "ST");
+      $sClade = $asLine[1] if ($asLine[0] eq "clonalcomplex");
       $sClade = $asLine[1] if ($asLine[0] eq "mlstclade");
    }
    close MLST;
