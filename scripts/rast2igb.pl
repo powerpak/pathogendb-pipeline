@@ -173,9 +173,11 @@ foreach my $sBigWigFile (@asBigWigFiles){
 # Add a bam file
 if ($sBamFile){
    my $sBamBasename = basename($sBamFile);
+   my $sBamTrackName = $sBamBasename;
    copy($sBamFile, "$sGenomeDir/$sBamBasename") or die "FATAL: could not copy '$sBigWigDir/$sBamFile' to '$sGenomeDir/$sBamBasename' - $!\n";
-   copy("$sBamFile.bai", "$sGenomeDir/$sBamBasename.bai") or die "FATAL: could not copy '$sBigWigDir/$sBamFile.bai' to '$sGenomeDir/$sBamBasename.bai' - $!\n";  
-   print ANNOTSOUT "   <file name=\"$sBamBasename\" title=\"$sBamBasename\" description=\"$sBamBasename\"/>\r\n";
+   copy("$sBamFile.bai", "$sGenomeDir/$sBamBasename.bai") or die "FATAL: could not copy '$sBigWigDir/$sBamFile.bai' to '$sGenomeDir/$sBamBasename.bai' - $!\n";
+   $sBamTrackName =~ s/\./_/g;
+   print ANNOTSOUT "   <file name=\"$sBamBasename\" title=\"$sBamTrackName\" description=\"$sBamTrackName\"/>\r\n";
 }
 
 # Close annots file

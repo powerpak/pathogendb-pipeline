@@ -680,7 +680,7 @@ def draw_graph(options, header, footer):
             if refnum == 0:
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'w')
                 bgt_out = open(options.output_folder + '/bigwig/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.bwt', 'w')
-                bgt_out.write('track type=bigwig bigDataUrl=/igb/' + options.assembly_name +'/'
+                bgt_out.write('track type=bigwig bigDataUrl=https://vanbah01.u.hpc.mssm.edu/igb/' + options.assembly_name +'/'
                               + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower()
                               + '.bw name=' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() +
                               'color=0,0,200 altColor=0,200,0 autoScale=on alwaysZero=on graphType=bar yLineMark=10 yLineOnOff=on\n')
