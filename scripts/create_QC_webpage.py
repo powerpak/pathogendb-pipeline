@@ -680,7 +680,7 @@ def draw_graph(options, header, footer):
             if refnum == 0:
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'w')
                 bgt_out = open(options.output_folder + '/bigwig/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.bwt', 'w')
-                bgt_out.write('track type=bigwig bigDataUrl=https://vanbah01.u.hpc.mssm.edu/igb/' + options.assembly_name +'/'
+                bgt_out.write('track type=bigwig bigDataUrl=/igb/' + options.assembly_name +'/'
                               + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower()
                               + '.bw name=' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() +
                               'color=0,0,200 altColor=0,200,0 autoScale=on alwaysZero=on graphType=bar yLineMark=10 yLineOnOff=on\n')
@@ -838,7 +838,7 @@ for (var i = 0; i < zoomButtons.length; i++) {
     };
   }
   </script>
- <script type="text/javascript" src="https://vanbah01.u.hpc.mssm.edu/igb/webpage_css_js/canvasjs.min.js"></script></head>
+ <script type="text/javascript" src="/igb/webpage_css_js/canvasjs.min.js"></script></head>
   <h1> Unitig ''' + str(html_name) + ''' graphs </h1>
   <div id="chartContainer1" style="height: 400px; width: 100%;">
   </div>
@@ -1092,7 +1092,7 @@ def do_blast(options, header, footer, coverage):
                 svg.drawLine(width+2*margin, height*5/8, width+2*margin+40, height*5/8, hit_thick, (125, 22, 36))
                 svg.writeString('Inverted hit', width+2*margin + 50, height*5/8+ genome_line_thickness/4, 30)
                 svg.writesvg(out_dir + '/qc_website/blast/' + i + '_' + j + '.svg')
-                svgs_made.append('https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name +  '/qc_website/blast/' + i + '_' + j + '.svg')
+                svgs_made.append('/igb/' + ass_name +  '/qc_website/blast/' + i + '_' + j + '.svg')
     for i in header_names:
         html_name = i.split('_')[1]
         html_out = open(out_dir + '/qc_website/blast/Unitig_' + html_name + '_blast.html', 'w')
@@ -1122,8 +1122,8 @@ def get_page_bookends(options):
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
 <title>Pacbio assembly QC</title>
-<link rel="stylesheet" type="text/css" href="https://vanbah01.u.hpc.mssm.edu/igb/webpage_css_js/template.css" />
-<script src="https://vanbah01.u.hpc.mssm.edu/igb/webpage_css_js/svg-pan-zoom.js"></script>
+<link rel="stylesheet" type="text/css" href="/igb/webpage_css_js/template.css" />
+<script src="/igb/webpage_css_js/svg-pan-zoom.js"></script>
 </head>
 
 <body>
@@ -1135,19 +1135,19 @@ def get_page_bookends(options):
         header += '<h1>Assembly ' + ass_name.split('_')[2] + ' TOC</h1>\n'
     except IndexError:
         header += '<h1>Assembly ' + ass_name + ' TOC</h1>\n'
-    header += '<h3><a href="https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/index.html">Overview</a></h3>\n'
+    header += '<h3><a href="/igb/' + ass_name + '/index.html">Overview</a></h3>\n'
     for i in namelist:
         num = i.split('_')[1]
         header += '<h3> Unitig ' + num + '</h3>\n'
-        header += '<p><a href="https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/qc_website/graphs/Unitig_' + num + '_graphs.html">Graphs</a></p>\n'
-        header += '<p><a href="https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/qc_website/blast/Unitig_' + num + '_blast.html">BLAST</a></p>\n'
+        header += '<p><a href="/igb/' + ass_name + '/qc_website/graphs/Unitig_' + num + '_graphs.html">Graphs</a></p>\n'
+        header += '<p><a href="/igb/' + ass_name + '/qc_website/blast/Unitig_' + num + '_blast.html">BLAST</a></p>\n'
     header += '<h3>Downloads</h3>\n'
-    header += '<p><a href=https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/' + ass_name + '.fasta> FASTA </ a></p>\n'
-    header += '<p><a href=https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/' + ass_name + '.bed> bed </a></p>\n'
-    header += '<p><a href=https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/' + ass_name + '.2bit> 2bit </a></p>\n'
-    header += '<p><a href=https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/annots.xml> Annotation </a></p>\n'
-    header += '<p><a href=https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/genome.txt> Genome </a></p>\n'
-    header += '<p><a href=https://vanbah01.u.hpc.mssm.edu/igb/' + ass_name + '/mlst.txt> MLST </a></p>\n'
+    header += '<p><a href="/igb/' + ass_name + '/' + ass_name + '.fasta"> FASTA </ a></p>\n'
+    header += '<p><a href="/igb/' + ass_name + '/' + ass_name + '.bed"> bed </a></p>\n'
+    header += '<p><a href="/igb/' + ass_name + '/' + ass_name + '.2bit"> 2bit </a></p>\n'
+    header += '<p><a href="/igb/' + ass_name + '/annots.xml"> Annotation </a></p>\n'
+    header += '<p><a href="/igb/' + ass_name + '/genome.txt"> Genome </a></p>\n'
+    header += '<p><a href="/igb/' + ass_name + '/mlst.txt"> MLST </a></p>\n'
     header += '''
 
 </div>
