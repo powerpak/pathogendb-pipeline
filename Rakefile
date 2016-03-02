@@ -471,6 +471,10 @@ task :prokka_to_igb => [:check, :prokka_and_QC ] do |t|
   abort "FATAL: Task rast_to_igb requires specifying SPECIES" unless SPECIES 
   
   system <<-SH
+    module unload python
+    module unload py_packages
+    module load python/2.7.6
+    module load py_packages/2.7
     module load blat
     module load bioperl
     export SAS_DIR=#{SAS_DIR}
