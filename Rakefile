@@ -454,6 +454,35 @@ task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage]
 file "data/www/index.html" do |t|
 end
 
+# =================
+# = prokka_to_igb =
+# =================
+
+job_id = ENV['SMRT_JOB_ID']
+species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
+
+directory IGB_DIR
+
+desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
+task :prokka_to_igb => [:check, :prokka_and_QC ] do |t|
+  abort "FATAL: Task rast_to_igb requires specifying SMRT_JOB_ID" unless job_id
+  abort "FATAL: Task rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task rast_to_igb requires specifying SPECIES" unless SPECIES 
+  
+  system <<-SH
+    module load blat
+    module load bioperl
+    export SAS_DIR=#{SAS_DIR}
+    perl #{REPO_DIR}/scripts/rast2igb.pl \
+        -f data/prokka/#{STRAIN_NAME}_prokka.gbk \
+        -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
+        -q data/www/ \
+        -w data/qc_wd/bigwig/ \
+        -i #{IGB_DIR}
+  SH
+end
+
+
 # ==================
 # = motif_and_mods =
 # ==================
