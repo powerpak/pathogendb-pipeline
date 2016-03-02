@@ -268,13 +268,21 @@ if ($sQcDir){
 #---------------------------------------#
 
 # Fetch MLST info
-if ($sGenomeDir =~ /difficile/i){
-   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst cdifficile --output $sGenomeDir/mlst.txt") == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+my ($sGenus, $sSpecies, $sIsolate, $sExtract, $sSMRTid) = split /_/, $sGenomeName;
+if ($sGenus and $sSpecies){
+   $sGenus   = lc ($sGenus);
+   $sSpecies = lc($sSpecies);
+   if ( (length($sGenus) == 1) and ($sSpecies =~ /^[a-z]+$/) ){
+      my $sMLSTdb = join('', lc($sGenus), lc($sSpecies));
+      system("fetch_mlst.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst $sMLSTdb --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+   }
+   else{
+      warn("Warning: skipped MLST database search because genus and/or species were incorrectly formatted in the genome name\n");
+   }
 }
 else{
-   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst mlst --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+   warn("Warning: skipped MLST database search because genus and/or species info is missing in the genome name\n");
 }
-
 
 #################
 ## SUBROUTINES ##
