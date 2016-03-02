@@ -23,10 +23,25 @@ use warnings;
 use Getopt::Long;
 use Bio::SeqIO;
 use List::MoreUtils qw( minmax );
+use File::Copy;
+use File::Basename;
 
 # GLOBALS
 my $sSvrRetrieveJob = 'svr_retrieve_RAST_job';
 my $sFaToTwoBit     = 'faToTwoBit';
+my %hTrackColors    = (read_spans_bin_forward => "369EAD",
+                       read_spans_bin_reverse => "C24642",
+                       read_starts_in_bin_f => "7F6084",
+                       read_starts_in_bin_r => "86B402",
+                       read_terminates_in_bin_f => "A2D1CF",
+                       read_terminates_in_bin_r => "C8B631",
+                       read_start_clipped_in_bin_f => "6DBCEB",
+                       read_start_clipped_in_bin_r => "52514E",
+                       read_end_clipped_in_bin_f => "4F81BC",
+                       read_end_clipped_in_bin_r => "A064A1",
+                       deletions_in_read => "369EAD",
+                       insertions_in_read => "C24642",
+                       total_reads => "000000");
 
 # If SAS_DIR is set in the environment, use perl to interpret the plbins directly (preserving the environment)
 if ($ENV{'SAS_DIR'}) { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
@@ -39,11 +54,17 @@ my $nRastJobID       = '';
 my $sGenomeName      = '';
 my $sIGBdir          = '';
 my $sFromGenbankFile = '';
+my $sBigWigDir       = '';
+my $sQcDir           = '';
+my $sBamFile         = '';
 my $res = GetOptions("help!"       => \$sHelp,
                      "user=s"      => \$sRastUser,
                      "pass=s"      => \$sRastPass,
                      "job=i"       => \$nRastJobID,
                      "from=s"      => \$sFromGenbankFile,
+                     "wigdir=s"    => \$sBigWigDir,
+                     "qcdir=s"     => \$sQcDir,
+                     "bam=s"       => \$sBamFile,
                      "genome=s"    => \$sGenomeName,
                      "igbdir=s"    => \$sIGBdir);
 
@@ -54,8 +75,8 @@ if (!$res || $sHelp) {
    die <<HELP
 
    Usage: 
-       $sScriptName -f <genbankfile> -g <genomename> -i <igbdir>
-       $sScriptName -u <rastuser> -p <rastpass> -j <rastjob> -g <genomename> -i <igbdir>
+       $sScriptName -f <genbankfile> -g <genomename> -i <igbdir> [ -b <bigwigdir> -q <qcdir> -b <bamfile> ]
+       $sScriptName -u <rastuser> -p <rastpass> -j <rastjob> -g <genomename> -i <igbdir> [ -b <bigwigdir> -q <qcdir> -b <bamfile> ]
    
    Arguments
        -f --from <string>
@@ -70,6 +91,12 @@ if (!$res || $sHelp) {
          IGB genome name
        -i --igbdir <string>
          IGB root directory
+       -w --wigdir <string>
+         Optional directory containing bigwig track files to add to annots file
+       -q --qcdir <string>
+         Optional directory with assembly QC data
+       -b --bamfile <string>
+         Optional bam file with aligned reads
        -help
          This help message
    
@@ -83,6 +110,16 @@ HELP
 
 # Check args
 die "FATAL: IGB directory '$sIGBdir' does not exist\n" unless (-d $sIGBdir);
+if ($sBigWigDir){
+   die "FATAL: BigWig track directory '$sBigWigDir' does not exist\n" unless (-d $sBigWigDir);
+}
+if ($sQcDir){
+   die "FATAL: Assembly QC directory '$sQcDir' does not exist\n" unless (-d $sQcDir);
+}
+if ($sBamFile){
+   die "FATAL: Bam file '$sBamFile' does not exist\n" unless (-e $sBamFile);
+   die "FATAL: Bam file '$sBamFile' does not have a matching index file\n" unless (-e "$sBamFile.bai");
+}
 die "FATAL: incorrect job ID format\n" unless ($nRastJobID =~ /^\d+$/) || $sFromGenbankFile;
 $sGenomeName =~ s/ /_/g;
 
@@ -93,9 +130,198 @@ if (-d $sGenomeDir) {
 }
 mkdir($sGenomeDir) or die "FATAL: could not create $sGenomeDir - $!\n";
 
+
+#--------------------------------------------#
+# Create annotation file in beddetail format #
+#--------------------------------------------#
+
 # Create a beddetail file for the annotations
 if ($sFromGenbankFile) {
-   # Convert the GenBank file to BED detail format
+   genbank_to_beddetail($sFromGenbankFile, $sGenomeDir, $sGenomeName);
+} 
+else {
+   rast_to_beddetail($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName);
+}
+
+
+#--------------------------------------------------------------#
+# Create the annots.xml file with annotation and bigwig tracks #
+#--------------------------------------------------------------#
+
+# Write annotations track to annots.xml file
+open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
+print ANNOTSOUT "<files>\r\n";
+print ANNOTSOUT "   <file name=\"$sGenomeName.bed\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\"/>\r\n";
+
+# Gather list of bigwig track files and create a bigwig track dir if any are found
+my @asBigWigFiles = ();
+if ($sBigWigDir){
+   opendir my($dir), $sBigWigDir or die "Can't open $sBigWigDir : $!\n";
+   @asBigWigFiles = grep { /^.*bw$/ } readdir $dir;
+   mkdir("$sGenomeDir/bigwig") or die "FATAL: could not create $sGenomeDir/bigwig - $!\n";
+}
+
+# Copy the bigwig track files and add entries to annots file
+foreach my $sBigWigFile (@asBigWigFiles){
+   $sBigWigFile =~ s/.bw$//;
+   copy("$sBigWigDir/$sBigWigFile.bw", "$sGenomeDir/bigwig/$sBigWigFile.bw") or die "FATAL: could not copy '$sBigWigDir/$sBigWigFile.bw' to '$sGenomeDir/bigwig/$sBigWigFile.bw' - $!\n";
+   copy("$sBigWigDir/$sBigWigFile.bwt", "$sGenomeDir/bigwig/$sBigWigFile.bwt") or die "FATAL: could not copy '$sBigWigDir/$sBigWigFile.bwt' to '$sGenomeDir/bigwig/$sBigWigFile.bwt' - $!\n";
+   my $sForeground = exists($hTrackColors{$sBigWigFile}) ? $hTrackColors{$sBigWigFile} : "008000";
+   print ANNOTSOUT "   <file name=\"bigwig/$sBigWigFile.bw\" title=\"$sBigWigFile\" description=\"$sBigWigFile\" background=\"FFFFFF\" foreground=\"$sForeground\"/>\r\n";
+}
+
+# Add a bam file
+if ($sBamFile){
+   my $sBamBasename = basename($sBamFile);
+   copy($sBamFile, "$sGenomeDir/$sBamBasename") or die "FATAL: could not copy '$sBigWigDir/$sBamFile' to '$sGenomeDir/$sBamBasename' - $!\n";
+   copy("$sBamFile.bai", "$sGenomeDir/$sBamBasename.bai") or die "FATAL: could not copy '$sBigWigDir/$sBamFile.bai' to '$sGenomeDir/$sBamBasename.bai' - $!\n";  
+   print ANNOTSOUT "   <file name=\"$sBamBasename\" title=\"$sBamBasename\" description=\"$sBamBasename\"/>\r\n";
+}
+
+# Close annots file
+print ANNOTSOUT "</files>\r\n";
+close ANNOTSOUT;
+
+
+#----------------------------------------------------------------------------------------#
+# Get genome fasta sequence, convert to 2bit format and create the IGB 'genome.txt' file #
+#----------------------------------------------------------------------------------------#
+
+# Retrieve the RAST genbank file and extract fasta sequences
+my ($flSeq, $sLocusID) = (0,"");
+open FASTAOUT, ">$sGenomeDir/$sGenomeName.fasta" or die "Error: can't open fasta '$sGenomeDir/$sGenomeName.fasta' for writing: $!\n";
+open FASTAIN, ($sFromGenbankFile || "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID genbank |")
+   or die "Error: could not retrieve sequence file for job '$nRastJobID'\n";
+while (<FASTAIN>){
+   next if (/^\s*$/);
+   next if (/^ *#/);
+   if (/^LOCUS(.*)\s+\d+ bp\s+D?NA/){
+      $sLocusID = $1;
+      $sLocusID =~ s/^ +//;
+      $sLocusID =~ s/\|/_/g;
+      $sLocusID =~ s/\s+$//;
+      print FASTAOUT ">$sLocusID\n";
+   }
+   if (/^ORIGIN/){
+      $flSeq = 1;
+      next;
+   }
+   if (/^\/\//){
+      $flSeq = 0;
+   }
+   if ($flSeq){
+      s/ //g;
+      s/^\d+//;
+      print FASTAOUT $_;
+   }
+}
+close FASTAIN;
+close FASTAOUT;
+
+# Convert fasta sequences to twobit format
+system("$sFaToTwoBit -noMask $sGenomeDir/$sGenomeName.fasta $sGenomeDir/$sGenomeName.2bit") == 0
+   or die "Error: conversion of fasta to twobit format failed for job '$nRastJobID': $!\n";
+
+# Create the genome file
+my @aaFastaLengths = get_fasta_lengths("$sGenomeDir/$sGenomeName.fasta");
+open GENOMEOUT, ">$sGenomeDir/genome.txt" or die "Error: can't open genome.txt file '$sGenomeDir/genome.txt' for writing: $!\n";
+foreach my $rContig (@aaFastaLengths){
+   print GENOMEOUT join("\t", $rContig->[0], $rContig->[1]), "\r\n";
+}
+close GENOMEOUT;
+
+
+#-------------------------------------------------------------#
+# Add the IGB Quickload dir to the top-level content.txt file #
+#-------------------------------------------------------------#
+
+# Append the new IGB Quickload dir to the content.txt file
+my %hContentIDs;
+open CONTENTOUT, ">$sIGBdir/contents_new.txt" or die "Error: can't open '$sIGBdir/contents_new.txt' for writing: $!\n";
+`touch $sIGBdir/contents.txt`;
+open CONTENT, "$sIGBdir/contents.txt" or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
+while (<CONTENT>){
+   next if (/^\s*$/);
+   next if (/^ *#/);
+   print CONTENTOUT $_;
+   my @asLine = split /\t/;
+   $hContentIDs{$asLine[0]}++;
+}
+close CONTENT;
+unless(exists $hContentIDs{$sGenomeName}){
+   print CONTENTOUT "$sGenomeName\t$sGenomeName\r\n";
+}
+close CONTENTOUT;
+system("mv -f $sIGBdir/contents.txt $sIGBdir/contents.bkp") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
+system("mv -f $sIGBdir/contents_new.txt $sIGBdir/contents.txt") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
+
+#----------------------------------------------#
+# Stash QC data in the IGB folder if available #
+#----------------------------------------------#
+
+if ($sQcDir){
+   system("cp -R $sQcDir/* $sGenomeDir") == 0 or die "FATAL: Could not copy assembly QC data to '$sGenomeDir' - $!\n";
+}
+
+#---------------------------------------#
+# Try to get MLST data for this genome  #
+#---------------------------------------#
+
+# Fetch MLST info
+if ($sGenomeDir =~ /difficile/i){
+   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst cdifficile --output $sGenomeDir/mlst.txt") == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+}
+else{
+   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst mlst --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+}
+
+
+#################
+## SUBROUTINES ##
+#################
+
+# get_fasta_lengths
+#
+# Return lengths of sequences in a multi-fasta file
+sub get_fasta_lengths {
+   my ($sInput) = @_;
+   my @aaReturn;
+   my $sFastaHeader = '';
+   my $sFastaSeq    = '';
+   open INPUT, "<$sInput" or die "Error: can't read the fasta file\n";
+   while (<INPUT>){
+      if (/^>/ or eof){
+         if (eof){
+            die "Error: file ends in fasta header without sequence\n" if (/^>/);
+            $sFastaSeq .= $_;
+         }
+         if ($sFastaHeader){
+            $sFastaHeader =~ s/^>//;
+            $sFastaHeader =~ s/\s+$//;
+            $sFastaHeader =~ s/[\n\r]+//g;
+            $sFastaSeq    =~ s/\s//g;
+            $sFastaSeq    =~ s/[\n\r]+//g;
+            push @aaReturn, [($sFastaHeader, length($sFastaSeq))];
+         }
+         $sFastaHeader = $_;
+         $sFastaSeq    = "";
+      }
+      else{
+         next if (/^\s*$/);
+         next if (/^ *#/);
+         $sFastaSeq .= $_ if ($sFastaHeader);
+      }
+   }
+   close INPUT;
+   return(@aaReturn);
+}
+
+# genbank_to_beddetail
+#
+# Convert genbank file to beddetail format
+sub genbank_to_beddetail {
+   my ($sFromGenbankFile, $sGenomeDir, $sGenomeName) = @_;
+
    my $inSeq = Bio::SeqIO->new(-file   => "<$sFromGenbankFile",
                                -format => 'Genbank');
    open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
@@ -135,7 +361,16 @@ if ($sFromGenbankFile) {
                   if ($sDbXref =~ /^SEED:(.+)$/) { $sID = $1; $sName = $1; }
                }
             }
-            die "Error: feature '$sID' has no SEED ID\n" unless ($sID);
+            
+            if ($feature->has_tag("gene")) {
+               ($sID) = ($feature->get_tag_values('gene'));
+            }
+            if ($feature->has_tag("locus_tag")) {
+               ($sName) = ($feature->get_tag_values('locus_tag'));
+               ($sID)   = ($feature->get_tag_values('locus_tag')) unless ($sID);
+            }
+            
+            die "Error: feature '$sID $sName' has no SEED ID\n" unless ($sID);
             if ($feature->has_tag("gene")) {
                $sName = ($feature->get_tag_values("gene"))[0];
             }
@@ -157,8 +392,15 @@ if ($sFromGenbankFile) {
       }
    }
    close BEDOUT;
-} else {
-   
+}
+
+
+# rast_to_beddetail
+#
+# Convert rast gff3 output to bedbasic format
+sub rast_to_beddetail {
+   my ($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName) = @_;
+
    # Get a gff3 formatted file from rast
    open GFFOUT, ">$sGenomeDir/$sGenomeName.gff3" or die "Error: can't open gff3 file '$sGenomeDir/$sGenomeName.gff3' for writing: $!\n";
    open GFFIN, "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID gff3 |" or die "Error: could not retrieve gff file for job '$nRastJobID'\n";
@@ -211,123 +453,6 @@ if ($sFromGenbankFile) {
    close BEDOUT;
 }
 
-# Create the annots file
-open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
-print ANNOTSOUT "<files>\r\n";
-print ANNOTSOUT "<file name=\"$sGenomeName.bed\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\"/>\r\n";
-print ANNOTSOUT "</files>\r\n";
-close ANNOTSOUT;
-
-# Retrieve the RAST genbank file and extract fasta sequences
-my ($flSeq, $sLocusID) = (0,"");
-open FASTAOUT, ">$sGenomeDir/$sGenomeName.fasta" or die "Error: can't open fasta '$sGenomeDir/$sGenomeName.fasta' for writing: $!\n";
-open FASTAIN, ($sFromGenbankFile || "$sSvrRetrieveJob $sRastUser $sRastPass $nRastJobID genbank |")
-   or die "Error: could not retrieve sequence file for job '$nRastJobID'\n";
-while (<FASTAIN>){
-   next if (/^\s*$/);
-   next if (/^ *#/);
-   if (/^LOCUS(.*)\s+\d+ bp\s+D?NA/){
-      $sLocusID = $1;
-      $sLocusID =~ s/^ +//;
-      $sLocusID =~ s/\|/_/g;
-      $sLocusID =~ s/\s+$//;
-      print FASTAOUT ">$sLocusID\n";
-   }
-   if (/^ORIGIN/){
-      $flSeq = 1;
-      next;
-   }
-   if (/^\/\//){
-      $flSeq = 0;
-   }
-   if ($flSeq){
-      s/ //g;
-      s/^\d+//;
-      print FASTAOUT $_;
-   }
-}
-close FASTAIN;
-close FASTAOUT;
-
-# Convert fasta sequences to twobit format
-system("$sFaToTwoBit -noMask $sGenomeDir/$sGenomeName.fasta $sGenomeDir/$sGenomeName.2bit") == 0
-   or die "Error: conversion of fasta to twobit format failed for job '$nRastJobID': $!\n";
-
-# Create the genome file
-my @aaFastaLengths = get_fasta_lengths("$sGenomeDir/$sGenomeName.fasta");
-open GENOMEOUT, ">$sGenomeDir/genome.txt" or die "Error: can't open genome.txt file '$sGenomeDir/genome.txt' for writing: $!\n";
-foreach my $rContig (@aaFastaLengths){
-   print GENOMEOUT join("\t", $rContig->[0], $rContig->[1]), "\r\n";
-}
-close GENOMEOUT;
-
-# Append the new IGB Quickload dir to the content.txt file
-my %hContentIDs;
-open CONTENTOUT, ">$sIGBdir/contents_new.txt" or die "Error: can't open '$sIGBdir/contents_new.txt' for writing: $!\n";
-`touch $sIGBdir/contents.txt`;
-open CONTENT, "$sIGBdir/contents.txt" or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
-while (<CONTENT>){
-   next if (/^\s*$/);
-   next if (/^ *#/);
-   print CONTENTOUT $_;
-   my @asLine = split /\t/;
-   $hContentIDs{$asLine[0]}++;
-}
-close CONTENT;
-unless(exists $hContentIDs{$sGenomeName}){
-   print CONTENTOUT "$sGenomeName\t$sGenomeName\r\n";
-}
-close CONTENTOUT;
-system("mv -f $sIGBdir/contents.txt $sIGBdir/contents.bkp") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
-system("mv -f $sIGBdir/contents_new.txt $sIGBdir/contents.txt") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
-
-# Fetch MLST info
-if ($sGenomeDir =~ /difficile/i){
-   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst cdifficile --output $sGenomeDir/mlst.txt") == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
-}
-else{
-   system("fetch_mslt.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst mlst --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
-}
-
-#################
-## SUBROUTINES ##
-#################
-
-# get_fasta_lengths
-#
-# Return lengths of sequences in a multi-fasta file
-sub get_fasta_lengths {
-   my ($sInput) = @_;
-   my @aaReturn;
-   my $sFastaHeader = '';
-   my $sFastaSeq    = '';
-   open INPUT, "<$sInput" or die "Error: can't read the fasta file\n";
-   while (<INPUT>){
-      if (/^>/ or eof){
-         if (eof){
-            die "Error: file ends in fasta header without sequence\n" if (/^>/);
-            $sFastaSeq .= $_;
-         }
-         if ($sFastaHeader){
-            $sFastaHeader =~ s/^>//;
-            $sFastaHeader =~ s/\s+$//;
-            $sFastaHeader =~ s/[\n\r]+//g;
-            $sFastaSeq    =~ s/\s//g;
-            $sFastaSeq    =~ s/[\n\r]+//g;
-            push @aaReturn, [($sFastaHeader, length($sFastaSeq))];
-         }
-         $sFastaHeader = $_;
-         $sFastaSeq    = "";
-      }
-      else{
-         next if (/^\s*$/);
-         next if (/^ *#/);
-         $sFastaSeq .= $_ if ($sFastaHeader);
-      }
-   }
-   close INPUT;
-   return(@aaReturn);
-}
 
 # get_bedline
 #
@@ -405,3 +530,5 @@ sub get_blocks {
       return join("\t", scalar(@aaBlocks), "$sBlockSizes,","$sBlockStarts,");
    }
 }
+
+
