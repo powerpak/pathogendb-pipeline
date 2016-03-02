@@ -936,6 +936,11 @@ def runBWA(reference, reads, out_dir, num_threads='1', max_read_length=100000):
     out.close()
     subprocess.Popen('bwa index ' + out_dir + '/extended_references.fa', shell=True).wait()
     subprocess.Popen('bwa mem -t ' + num_threads + ' -k 16 -a ' + out_dir + '/extended_references.fa ' + reads + ' > ' + out_dir + '/alignment.sam', shell=True).wait()
+    subprocess.Popen('bwa index ' + reference, shell=True).wait()
+    subprocess.Popen('bwa mem -t ' + num_threadS + ' -k 16 -a ' + reference + ' ' + reads + ' > ' + out_dir + '/alignment2.sam', shell=True).wait()
+    subprocess.Popen('samtools view -b ' + out_dir + '/alignment2.sam > ' + out_dir + '/alignment.bam', shell=True).wait()
+    subprocess.Popen('samtools sort ' + out_dir + '/alignment.bam > ' + out_dir + '/alignment.sorted.bam', shell=True).wait()
+    subprocess.Popen('samtools index ' + out_dir + '/alignment.sorted.bam', shell=True).wait()
 
 
 # Create an SVG of blast htis between contigs - also plots coverage on the blast hits

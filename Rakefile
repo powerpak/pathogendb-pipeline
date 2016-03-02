@@ -440,6 +440,7 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
     module load python/2.7.6
     module load py_packages/2.7
     module load ucsc-utils
+    module load samtools/1.2
     #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
      -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
   SH
