@@ -483,6 +483,7 @@ task :prokka_to_igb => [:check, :prokka_and_QC ] do |t|
         -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
         -q data/www/ \
         -w data/qc_wd/bigwig/ \
+        -b data/qc_wd/alignment.sorted.bam \
         -i #{IGB_DIR}
   SH
 end
