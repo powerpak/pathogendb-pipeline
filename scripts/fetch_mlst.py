@@ -39,7 +39,7 @@ def fetch_results(inputfile, mlstdb):
 	MSLT=""
     else:
 	print "No match found\n"
-	sys.exit(0)
+        sys.exit(0)
     return (alleles, MSLT)
 
 
