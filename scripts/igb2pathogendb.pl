@@ -203,6 +203,11 @@ sub get_mlst_data {
    while (<MLST>){
       next if (/^\s*$/);
       next if (/^ *#/);
+      if (/^no_match_found/){
+         $sMLST  = "No_match";
+         $sClade = "Not_defined";
+         last;
+      }
       s/[\n\r]+$//;
       my (@asLine) = split /\t+/;
       $sMLST  = $asLine[1] if ($asLine[0] eq "ST");
@@ -210,5 +215,6 @@ sub get_mlst_data {
       $sClade = $asLine[1] if ($asLine[0] eq "mlstclade");
    }
    close MLST;
+   $sClade =~ s/Notdefined/Not_defined/;
    return($sMLST, $sClade);
 }
