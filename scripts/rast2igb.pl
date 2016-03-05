@@ -240,20 +240,14 @@ close GENOMEOUT;
 # Read the content.txt file for the Quickload genome into an array
 my %hContentIDs;
 my @asFile;
-if (-e "$sIGBdir/contents.txt"){
-   open CONTENT, "$sIGBdir/contents.txt" or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
-   flock(CONTENT, 1);
-   while (<CONTENT>){
-      next if (/^\s*$/);
-      next if (/^ *#/);
-      push @asFile, $_;
-      my @asLine = split /\t/;
-      $hContentIDs{$asLine[0]}++;
-   }
-   close CONTENT;
-}
-else{
-   system("touch $sIGBdir/contents.txt") == 0 or die "FATAL: Could not create 'contents.txt' file - $!\n";
+open(CONTENT, "+< $sIGBdir/contents.txt") or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
+flock(CONTENT, 2);
+while (<CONTENT>){
+   next if (/^\s*$/);
+   next if (/^ *#/);
+   push @asFile, $_;
+   my @asLine = split /\t/;
+   $hContentIDs{$asLine[0]}++;
 }
 
 # Append new entry
@@ -261,10 +255,9 @@ unless(exists $hContentIDs{$sGenomeName}){
    push @asFile, "$sGenomeName\t$sGenomeName\r\n";
 }
 
-# Rewrite the content file
-open(CONTENT, "+< $sIGBdir/contents.txt") or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
-flock(CONTENT, 2);
-seek(CONTENT, 0, 0); truncate(CONTENT, 0);
+# Now clear and rewrite the content file
+seek(CONTENT, 0, 0); 
+truncate(CONTENT, 0);
 print CONTENT @asFile;
 close(CONTENT);
 
