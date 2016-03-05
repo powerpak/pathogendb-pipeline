@@ -237,25 +237,36 @@ close GENOMEOUT;
 # Add the IGB Quickload dir to the top-level content.txt file #
 #-------------------------------------------------------------#
 
-# Append the new IGB Quickload dir to the content.txt file
+# Read the content.txt file for the Quickload genome into an array
 my %hContentIDs;
-open CONTENTOUT, ">$sIGBdir/contents_new.txt" or die "Error: can't open '$sIGBdir/contents_new.txt' for writing: $!\n";
-`touch $sIGBdir/contents.txt`;
-open CONTENT, "$sIGBdir/contents.txt" or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
-while (<CONTENT>){
-   next if (/^\s*$/);
-   next if (/^ *#/);
-   print CONTENTOUT $_;
-   my @asLine = split /\t/;
-   $hContentIDs{$asLine[0]}++;
+my @asFile;
+if (-e "$sIGBdir/contents.txt"){
+   open CONTENT, "$sIGBdir/contents.txt" or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
+   flock(CONTENT, 1);
+   while (<CONTENT>){
+      next if (/^\s*$/);
+      next if (/^ *#/);
+      push @asFile, $_;
+      my @asLine = split /\t/;
+      $hContentIDs{$asLine[0]}++;
+   }
+   close CONTENT;
 }
-close CONTENT;
+else{
+   system("touch $sIGBdir/contents.txt") == 0 or die "FATAL: Could not create 'contents.txt' file - $!\n";
+}
+
+# Append new entry
 unless(exists $hContentIDs{$sGenomeName}){
-   print CONTENTOUT "$sGenomeName\t$sGenomeName\r\n";
+   push @asFile, "$sGenomeName\t$sGenomeName\r\n";
 }
-close CONTENTOUT;
-system("mv -f $sIGBdir/contents.txt $sIGBdir/contents.bkp") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
-system("mv -f $sIGBdir/contents_new.txt $sIGBdir/contents.txt") == 0 or die "Error: can't replace contents.txt file for job '$nRastJobID'\n";
+
+# Rewrite the content file
+open(CONTENT, "+< $sIGBdir/contents.txt") or die "Error: can't open '$sIGBdir/contents.txt': $!\n";
+flock(CONTENT, 2);
+seek(CONTENT, 0, 0); truncate(CONTENT, 0);
+print CONTENT @asFile;
+close(CONTENT);
 
 #----------------------------------------------#
 # Stash QC data in the IGB folder if available #
@@ -395,6 +406,8 @@ sub genbank_to_beddetail {
             }
             
             # Print the line to the BED file.
+            $sName        ||= $sID;
+            $sDescription ||= $sID;
             $sName =~ s/[^\w-]/-/g;
             print BEDOUT join("\t", ($sLocusID, $nStart, $nEnd, $sName, '0', $sStrand, $nStart, $nEnd, '0,0,0', 0+@anBlockSizes, 
                               join(',', @anBlockSizes), join(',', @anBlockStarts), $sID, $sDescription)) . "\n";
