@@ -466,10 +466,11 @@ directory IGB_DIR
 
 desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
 task :prokka_to_igb => [:check, :prokka_and_QC ] do |t|
-  abort "FATAL: Task rast_to_igb requires specifying SMRT_JOB_ID" unless job_id
-  abort "FATAL: Task rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
-  abort "FATAL: Task rast_to_igb requires specifying SPECIES" unless SPECIES 
-  
+  abort "FATAL: Task prokka_to_igb requires specifying SMRT_JOB_ID" unless job_id
+  abort "FATAL: Task prokka_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task prokka_to_igb requires specifying SPECIES" unless SPECIES 
+  abort "FATAL: Task prokka_to_igb requires specifying IGB_DIR" unless IGB_DIR 
+    
   system <<-SH
     module unload python
     module unload py_packages
@@ -487,6 +488,31 @@ task :prokka_to_igb => [:check, :prokka_and_QC ] do |t|
         -i #{IGB_DIR}
   SH
 end
+
+
+# =====================
+# = igb_to_pathogendb =
+# =====================
+
+job_id = ENV['SMRT_JOB_ID']
+species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
+
+directory IGB_DIR
+
+desc "Adds a new genome assembly to pathogendb from an IGB genome dir"
+task :igb_to_pathogendb => [:check, :prokka_to_igb ] do |t|
+  abort "FATAL: Task igb_to_pathogendb requires specifying SMRT_JOB_ID" unless job_id
+  abort "FATAL: Task igb_to_pathogendb requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task igb_to_pathogendb requires specifying SPECIES" unless SPECIES 
+  abort "FATAL: Task igb_to_pathogendb requires specifying IGB_DIR" unless IGB_DIR 
+  
+  system <<-SH
+    export SAS_DIR=#{SAS_DIR}
+    perl #{REPO_DIR}/scripts/igb2pathogendb.pl \
+        -i #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}
+  SH
+end
+
 
 
 # ==================
