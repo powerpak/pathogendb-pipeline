@@ -497,7 +497,7 @@ def draw_graph(options, header, footer):
     out_flag = {}
     chrom_size = {}
     for refnum, reference in enumerate(sam.references):
-        html_name = reference.split('_')[1]
+        html_name = reference[:7]
         sam = readSam(sam_filename)
         bin_num = sam.lengths[refnum] / bin_step + 1
         forward_start = numpy.zeros(bin_num, dtype=numpy.int)
@@ -611,7 +611,7 @@ def draw_graph(options, header, footer):
                                             'Greater than ' + str(int(flag_ratio * 100)) + ' % of reads have an indel > ' + str(large_gap_min)))
                      flag_start_indel = count
                      flag_end_indel = count
-        html_out = open(out_directory + '/qc_website/graphs/Unitig_' + str(html_name) + '_graphs.html', 'w')
+        html_out = open(out_directory + '/qc_website/graphs/' + str(html_name) + '_graphs.html', 'w')
         html_out.write(header)
         html_out.write('  <script type="text/javascript">\n'
                        '  window.onload = function () {\n'
@@ -839,7 +839,7 @@ for (var i = 0; i < zoomButtons.length; i++) {
   }
   </script>
  <script type="text/javascript" src="/igb/webpage_css_js/canvasjs.min.js"></script></head>
-  <h1> Unitig ''' + str(html_name) + ''' graphs </h1>
+  <h1> ''' + str(html_name) + ''' graphs </h1>
   <div id="chartContainer1" style="height: 400px; width: 100%;">
   </div>
   <br />
@@ -1099,10 +1099,10 @@ def do_blast(options, header, footer, coverage):
                 svg.writesvg(out_dir + '/qc_website/blast/' + i + '_' + j + '.svg')
                 svgs_made.append('/igb/' + ass_name +  '/qc_website/blast/' + i + '_' + j + '.svg')
     for i in header_names:
-        html_name = i.split('_')[1]
-        html_out = open(out_dir + '/qc_website/blast/Unitig_' + html_name + '_blast.html', 'w')
+        html_name = i[:7]
+        html_out = open(out_dir + '/qc_website/blast/' + html_name + '_blast.html', 'w')
         html_out.write(header)
-        html_out.write('<h1> ' + 'Unitig ' + html_name + ' blast results </h1>\n')
+        html_out.write('<h1> ' + html_name + ' blast results </h1>\n')
         for j in svgs_made:
             if i in j:
                 html_out.write('<img src="' + j + '" alt="" width="100%" />')
@@ -1142,10 +1142,10 @@ def get_page_bookends(options):
         header += '<h1>Assembly ' + ass_name + ' TOC</h1>\n'
     header += '<h3><a href="/igb/' + ass_name + '/index.html">Overview</a></h3>\n'
     for i in namelist:
-        num = i.split('_')[1]
-        header += '<h3> Unitig ' + num + '</h3>\n'
-        header += '<p><a href="/igb/' + ass_name + '/qc_website/graphs/Unitig_' + num + '_graphs.html">Graphs</a></p>\n'
-        header += '<p><a href="/igb/' + ass_name + '/qc_website/blast/Unitig_' + num + '_blast.html">BLAST</a></p>\n'
+        num = i[:7]
+        header += '<h3> ' + num + '</h3>\n'
+        header += '<p><a href="/igb/' + ass_name + '/qc_website/graphs/' + num + '_graphs.html">Graphs</a></p>\n'
+        header += '<p><a href="/igb/' + ass_name + '/qc_website/blast/' + num + '_blast.html">BLAST</a></p>\n'
     header += '<h3>Downloads</h3>\n'
     header += '<p><a href="/igb/' + ass_name + '/' + ass_name + '.fasta"> FASTA </ a></p>\n'
     header += '<p><a href="/igb/' + ass_name + '/' + ass_name + '.bed"> bed </a></p>\n'
