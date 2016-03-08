@@ -52,7 +52,18 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
     out = open(outname, 'w')
     out_log = open(seqlog, 'w')
     at_least_one = False
-    for i in seqDictOri: # build new name for contig
+    for q in seqDictOri: # build new name for contig
+        gotit = False
+        merged = False
+        for j in seqDict:
+            if j.startswith(q):
+                i = j
+                gotit = True
+                break
+            elif q in j:
+                merged = True
+        if not gotit:
+            i = q
         contig_name = '>u' + i.split('|')[0].split('_')[1].zfill(5)
         if i in circ_set:
             contig_name += 'c'
@@ -64,7 +75,10 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             contig_name += 'x'
         contig_name += 'xx_'
         if not i in seqDict:
-            contig_name += 'g' # recover tossed out contigs (and label them as "g" for garbage)
+            if merged:
+                contig_name += 'm' # label contig as merged into larger contig
+            else:
+                contig_name += 'g' # recover tossed out contigs (and label them as "g" for garbage)
         elif len(seqDictOri[i]) >= 1000000 and i in circ_set: # assign contig to class (circularised and large = chromosome, circularised and small = plasmid, not circularised = other)
             contig_name += 'c'
         elif i in circ_set:
