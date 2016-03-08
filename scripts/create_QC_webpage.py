@@ -1056,15 +1056,15 @@ def do_blast(options, header, footer, coverage):
                     svg.drawLine(k[0], height-k[1], k[2], height-k[3], k[4], k[5], 0.7)
                 for k in out_lines3:
                     svg.drawLine(k[0], height-k[1], k[2], k[3], k[4], k[5], 0.7)
-                x_interval = float(width) / (len(coverage[i.split('_')[1]]) -1)
+                x_interval = float(width) / (len(coverage[i[:7]]) -1)
                 x_coords = [margin]
                 y_coords = [y_offset-genome_line_thickness/2]
                 cov_height = 80.0
                 cov_max = 1
-                for l in coverage[i.split('_')[1]]:
+                for l in coverage[i[:7]]:
                     if l >= cov_max:
                         cov_max = l
-                for k,l in enumerate(coverage[i.split('_')[1]]):
+                for k,l in enumerate(coverage[i[:7]]):
                     x_coords.append(int(margin + k * x_interval))
                     y_coords.append(y_offset-genome_line_thickness/2-l*1.0/cov_max*cov_height)
                 x_coords.append(margin + width)
@@ -1072,15 +1072,15 @@ def do_blast(options, header, footer, coverage):
                 svg.drawPolygon(x_coords, y_coords)
                 svg.writeString('Max. coverage', width+2*margin, height/6, 30)
                 svg.writeString(str(cov_max), width+2*margin, height/4, 30)
-                x_interval = float(width) / (len(coverage[j.split('_')[1]]) -1)
+                x_interval = float(width) / (len(coverage[j[:7]]) -1)
                 x_coords = [margin]
                 y_coords = [height-y_offset+genome_line_thickness/2]
                 cov_height = 80.0
                 cov_max = 1
-                for l in coverage[j.split('_')[1]]:
+                for l in coverage[j[:7]]:
                     if l >= cov_max:
                         cov_max = l
-                for k,l in enumerate(coverage[j.split('_')[1]]):
+                for k,l in enumerate(coverage[j[:7]]):
                     x_coords.append(int(margin + k * x_interval))
                     y_coords.append(height - y_offset + genome_line_thickness/2+l*1.0/cov_max*cov_height)
                 x_coords.append(margin + width)
@@ -1331,7 +1331,7 @@ def write_index(options, header, footer, coverage, flags):
             ends_corrected = 'n'
         else:
             ends_corrected = 'y'
-        contigs.append((q, assign_dict[q], contig_lengths[q], sum(coverage[q.split('_')[1]]) * 1.0 / len(coverage[q.split('_')[1]]), trimmed, ends_corrected, reorientated, flags[q.split('_')[1]][0], flags[q.split('_')[1]][1], flags[q.split('_')[1]][2]))
+        contigs.append((q, assign_dict[q], contig_lengths[q], sum(coverage[q[:7]]) * 1.0 / len(coverage[q[:7]]), trimmed, ends_corrected, reorientated, flags[q[:7]][0], flags[q[:7]][1], flags[q[:7]][2]))
     html_out = open(options.output_folder + '/index.html', 'w')
     html_out.write(header)
     html_out.write('''
