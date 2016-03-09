@@ -79,7 +79,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
                 contig_name += 'm' # label contig as merged into larger contig
             else:
                 contig_name += 'g' # recover tossed out contigs (and label them as "g" for garbage)
-        elif len(seqDictOri[i]) >= 1000000 and i in circ_set: # assign contig to class (circularised and large = chromosome, circularised and small = plasmid, not circularised = other)
+        elif i in seqDict and len(seqDict[i]) >= 1000000 and i in circ_set: # assign contig to class (circularised and large = chromosome, circularised and small = plasmid, not circularised = other)
             contig_name += 'c'
         elif i in circ_set:
             contig_name += 'p'
