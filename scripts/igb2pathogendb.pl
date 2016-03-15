@@ -169,13 +169,15 @@ sub get_stats_from_genomefile {
       s/[\n\r]+$//;
       my ($sContigID, $nContigLength) = split /\t/;
       die "Error: '$sGenome' contains a non-numeric contig length value on line $.\n" unless ($nContigLength =~ /^\d+$/);
-      if ($nContigLength > $nMaxContigLength){
-         $nMaxContigLength = $nContigLength;
-         $sMaxContigID     = $sContigID;
+      unless ($sContigID =~ /_m_\d+$/){
+         if ($nContigLength > $nMaxContigLength){
+            $nMaxContigLength = $nContigLength;
+            $sMaxContigID     = $sContigID;
+         }
+         push @anContigLengths, $nContigLength;
+         $nSumContigLength += $nContigLength;
+         $nContigCount++;
       }
-      push @anContigLengths, $nContigLength;
-      $nSumContigLength += $nContigLength;
-      $nContigCount++;
    }
    close GENOME;
    
