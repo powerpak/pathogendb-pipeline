@@ -22,8 +22,6 @@ for line in fh:
     if(line.rstrip().split("\t")[0]=="</Reads>"):
         Reads_flag=0
     data_list=line.rstrip().split(",")
-    print data_list
-    print BioProject_flag
     if(BioProject_flag==1):
         bp.append(data_list)
     if(BioSample_flag):
@@ -110,28 +108,32 @@ print "</AddData>"
 print "</Action>"
 print "<Action>"
 print "\t<AddFiles target_db=\"SRA\">"
-print "\t\t<File file_path=\""+reads[1][0]+"\">"
-print "\t\t<DataType>generic-data</DataType>"
-print "\t\t</File>"
-print "\t\t<Attribute name=\"instrument_model\">"+reads[1][1]+"</Attribute>"
-print "\t\t<Attribute name=\"library_name\">"+reads[1][2]+"</Attribute>"
-print "\t\t<Attribute name=\"library_strategy\">WGS</Attribute>"
-print "\t\t<Attribute name=\"library_source\">GENOMIC</Attribute>"
-print "\t\t<Attribute name=\"library_selection\">RANDOM</Attribute>"
-print "\t\t<Attribute name=\"library_layout\">FRAGMENTED</Attribute>"
-print "\t\t<AttributeRefId name=\"BioProject\">"
-print "\t\t<RefId>"
-print "\t\t<SPUID spuid_namespace=\"ISMMS_PSP\">"+bs[1][0]+"</SPUID>"
-print "\t\t</RefId>"
-print "\t</AttributeRefId>"
-print "\t<AttributeRefId name=\"BioSample\">"
-print "\t\t<RefId>"
-print "\t\t\t<SPUID spuid_namespace=\"ISMMS_PSP\">"+bs[1][0]+"</SPUID>"
-print "\t\t</RefId>"
-print "\t</AttributeRefId>"
-print "\t<Identifier>"
-print "\t\t<SPUID spuid_namespace=\"ISMMS_PSP\">"+reads[1][3]+"</SPUID>"
-print "\t</Identifier>"
-print "</AddFiles>"
+#print reads
+#print len(reads)
+for i in range(1,len(reads)):
+    if i%2==1:
+        print "\t\t<File file_path=\""+reads[i][0]+"\">"
+        print "\t\t<DataType>generic-data</DataType>"
+        print "\t\t</File>"
+        print "\t\t<Attribute name=\"instrument_model\">"+reads[i][1]+"</Attribute>"
+        print "\t\t<Attribute name=\"library_name\">"+reads[i][2]+"</Attribute>"
+        print "\t\t<Attribute name=\"library_strategy\">WGS</Attribute>"
+        print "\t\t<Attribute name=\"library_source\">GENOMIC</Attribute>"
+        print "\t\t<Attribute name=\"library_selection\">RANDOM</Attribute>"
+        print "\t\t<Attribute name=\"library_layout\">FRAGMENTED</Attribute>"
+        print "\t\t<AttributeRefId name=\"BioProject\">"
+        print "\t\t<RefId>"
+        print "\t\t<SPUID spuid_namespace=\"ISMMS_PSP\">"+bs[1][0]+"</SPUID>"
+        print "\t\t</RefId>"
+        print "\t</AttributeRefId>"
+        print "\t<AttributeRefId name=\"BioSample\">"
+        print "\t\t<RefId>"
+        print "\t\t\t<SPUID spuid_namespace=\"ISMMS_PSP\">"+bs[1][0]+"</SPUID>"
+        print "\t\t</RefId>"
+        print "\t</AttributeRefId>"
+        print "\t<Identifier>"
+        print "\t\t<SPUID spuid_namespace=\"ISMMS_PSP\">"+reads[i][3]+"</SPUID>"
+        print "\t</Identifier>"
+        print "</AddFiles>"
 print "</Action>"
 print "</Submission>"
