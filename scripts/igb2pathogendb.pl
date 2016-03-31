@@ -70,7 +70,7 @@ FOLDER
 my $sExtractID = join('.', $sIsolateID, $sAddID);
 
 # Get the genome stats
-my ($nTotalSize, $nMaxContigLength, $nN50length, $nContigCount) = get_stats_from_genomefile("$sIgbDir/genome.txt");
+my ($nTotalSize, $nMaxContigLength, $sMaxContigID, $nN50length, $nContigCount) = get_stats_from_genomefile("$sIgbDir/genome.txt");
 
 # Get the mlst data if available
 my ($sMLST, $sMLSTclade) = (-e "$sIgbDir/mlst.txt") ? get_mlst_data("$sIgbDir/mlst.txt") : ('', '');
@@ -99,9 +99,11 @@ if ($nCount eq '0E0'){
 }
 
 # Save data into tAssemblies
-$sSQL   = "REPLACE INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_sumlength, mlst_subtype, mlst_clade ) VALUES( ?, ?, ?, ?, ?, ? ,?, ?, ?)";
-$oQuery = $dbh->prepare($sSQL);
-$nCount = $oQuery->execute($sExtractID, $sRunID, $sFolderName, $nContigCount, $nN50length, $nMaxContigLength, $nTotalSize, $sMLST, $sMLSTclade);
+$sSQL   = join(" ",
+               "INSERT INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_maxID, contig_sumlength, mlst_subtype, mlst_clade)",
+               "VALUES('$sExtractID', '$sRunID', '$sFolderName', '$nContigCount', '$nN50length', '$nMaxContigLength', '$sMaxContigID', '$nTotalSize', '$sMLST', '$sMLSTclade')",
+               "ON DUPLICATE KEY UPDATE assembly_data_link='$sFolderName', contig_count='$nContigCount', contig_N50='$nN50length', contig_maxlength='$nMaxContigLength', contig_maxID='$sMaxContigID', contig_sumlength='$nTotalSize', mlst_subtype='$sMLST', mlst_clade='$sMLSTclade'");
+$nCount = $dbh->do($sSQL);
 if ($nCount){
    print "Loaded assembly '$sRunID' for extract '$sExtractID' into pathogenDB\n";
 }
@@ -110,9 +112,11 @@ else{
 }
 
 # Save data into tSequencing_runs
-$sSQL   = "REPLACE INTO tSequencing_runs (extract_ID, sequence_run_ID, sequencing_platform, paired_end, run_data_link) VALUES( ?, ?, ?, ?, ?)";
-$oQuery = $dbh->prepare($sSQL);
-$nCount = $oQuery->execute($sExtractID, $sRunID, 'Pacbio', 'No', "http://smrtportal.hpc.mssm.edu:8080/smrtportal/#/View-Data/Details-of-Job/$sRunID");
+$sSQL   = join(" ",
+               "INSERT INTO tSequencing_runs (extract_ID, sequence_run_ID, sequencing_platform, paired_end, run_data_link)",
+               "VALUES('$sExtractID', '$sRunID', 'Pacbio', 'No', 'http://smrtportal.hpc.mssm.edu:8080/smrtportal/#/View-Data/Details-of-Job/$sRunID')",
+               "ON DUPLICATE KEY UPDATE sequencing_platform='Pacbio', paired_end='No', run_data_link='http://smrtportal.hpc.mssm.edu:8080/smrtportal/#/View-Data/Details-of-Job/$sRunID'");
+$nCount = $dbh->do($sSQL);
 if ($nCount){
    print "Loaded sequencing run '$sRunID' for extract '$sExtractID' into pathogenDB\n";
 }
@@ -157,7 +161,7 @@ sub get_stats_from_genomefile {
 
    # Get max length and sum
    my @anContigLengths;
-   my ($nSumContigLength, $nMaxContigLength, $nContigCount) = (0, 0, 0);
+   my ($nSumContigLength, $nMaxContigLength, $sMaxContigID, $nContigCount) = (0, 0, "", 0);
    open GENOME, $sGenome or die "Error: can't open '$sGenome': $!\n";
    while (<GENOME>){
       next if (/^\s*$/);
@@ -165,10 +169,15 @@ sub get_stats_from_genomefile {
       s/[\n\r]+$//;
       my ($sContigID, $nContigLength) = split /\t/;
       die "Error: '$sGenome' contains a non-numeric contig length value on line $.\n" unless ($nContigLength =~ /^\d+$/);
-      $nMaxContigLength = $nContigLength if ($nContigLength > $nMaxContigLength);
-      push @anContigLengths, $nContigLength;
-      $nSumContigLength += $nContigLength;
-      $nContigCount++;
+      unless ($sContigID =~ /_m_\d+$/){
+         if ($nContigLength > $nMaxContigLength){
+            $nMaxContigLength = $nContigLength;
+            $sMaxContigID     = $sContigID;
+         }
+         push @anContigLengths, $nContigLength;
+         $nSumContigLength += $nContigLength;
+         $nContigCount++;
+      }
    }
    close GENOME;
    
@@ -182,7 +191,7 @@ sub get_stats_from_genomefile {
       }
    }
    
-   return($nSumContigLength, $nMaxContigLength, $nN50, $nContigCount);
+   return($nSumContigLength, $nMaxContigLength, $sMaxContigID, $nN50, $nContigCount);
 }
 
 # get_mlst_data
@@ -196,11 +205,18 @@ sub get_mlst_data {
    while (<MLST>){
       next if (/^\s*$/);
       next if (/^ *#/);
+      if (/^no_match_found/){
+         $sMLST  = "No_match";
+         $sClade = "Not_defined";
+         last;
+      }
       s/[\n\r]+$//;
-      my (@asLine) = split /\t/;
-      $sMLST  = $asLine[2] if ($asLine[0] eq "ST");
+      my (@asLine) = split /\t+/;
+      $sMLST  = $asLine[1] if ($asLine[0] eq "ST");
+      $sClade = $asLine[1] if ($asLine[0] eq "clonalcomplex");
       $sClade = $asLine[1] if ($asLine[0] eq "mlstclade");
    }
    close MLST;
+   $sClade =~ s/Notdefined/Not_defined/;
    return($sMLST, $sClade);
 }

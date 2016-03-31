@@ -6,7 +6,7 @@ As of now, this only runs on [Minerva](http://hpc.mssm.edu) because it uses modu
 
 Currently, you also need to be in the `pacbioUsers` group on Minerva and have access to the `premium` LSF queue and the `acc_PBG` LSF account.
 
-To avoid hitting resource limits on the login nodes on Minerva, we recommend that you run the pipeline on the interactive1 or interactive2 nodes, which have no such limits.  To do so run `ssh interactive1` or `ssh interactive2` after logging into Minerva normally.
+To avoid hitting resource limits on the login nodes on Minerva, we recommend that you run the pipeline on one of the interactive nodes, which have no such limits.  To do so run `ssh interactive1`, or `ssh interactive2`, or ... up to `ssh interactive6` after logging into Minerva normally. You can also [submit pipeline runs to a bsub queue](#running-as-a-bsub-task), which will deduct resources against your LSF account.
 
 ## Usage
 
@@ -33,7 +33,7 @@ When this is complete, you should be able to run `rake` to kick off the pipeline
     $ rake $TASK_NAME            # run the task named $TASK_NAME
     $ FOO="bar" rake $TASK_NAME  # run $TASK_NAME with FOO set to "bar"
 
-When firing up the pipeline in a new shell, always remember to `source scripts/env.sh` before running `rake`.
+When firing up the pipeline in a new shell, **remember to always `source scripts/env.sh` before running `rake`.**
 
 ### Required environment variables
 
@@ -46,10 +46,10 @@ If a required environment variable isn't present when a task is run and there is
 Variable             | Required by                                             | Default | Purpose
 ---------------------|---------------------------------------------------------|---------|-----------------------------------
 `OUT`                | all tasks                                               | ./out   | This is where your interim and completed files are saved
-`SMRT_JOB_ID`        | `pull_down_raw_reads` `rast_to_igb` `rast_to_igb_ilm`   | (none)  | The ID of the job on the SMRT Portal with your reads.
-`STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `rast_annotate_ilm` `recall_ilm_consensus` `rast_to_igb` `rast_to_igb_ilm` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
-`SPECIES`            | `rast_annotate` `rast_annotate_ilm` `rast_to_igb` `rast_to_igb_ilm` | (none)  | The species for your sample.
-`ILLUMINA_FASTQ`     | `recall_ilm_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
+`SMRT_JOB_ID`        | `pull_down_raw_reads` `rast_to_igb` `ilm:rast_to_igb`   | (none)  | The ID of the job on the SMRT Portal with your reads.
+`STRAIN_NAME`        | `resequence_assembly` `rast_annotate` `ilm:rast_annotate` `ilm:recall_consensus` `ilm:rast_to_igb` `rast_to_igb` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
+`SPECIES`            | `rast_annotate` `ilm:rast_annotate` `rast_to_igb` `ilm:rast_to_igb` | (none)  | The species for your sample.
+`ILLUMINA_FASTQ`     | `ilm:recall_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
 
 ### Optional environment variables
 
@@ -60,6 +60,10 @@ Variable             | Can be provided for                   | Default | Purpose
 `REORIENT_FASTA`     | `reorient_assembly`                   | (none)  | A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
 `REORIENT_FLANK`     | `reorient_assembly`                   | 0       | This is the number of nt *before* the beginning of the landmark where the origin of the circular chromosome will be set.
 `GENBANK_REFERENCES` | `improve_rast`                        | (none)  | Paths to to GenBank files that contain "good" gene names that will be lifted over to your RAST annotations.  Multiple paths should be separated with `:`, as with `PATH`.  If not given, `improve_rast` will be a no-op.
+`ILLUMINA_REFERENCE` | `ilm:fake_prereqs`                    | (none)  | Path to the FASTA file containing the reference sequence that you want to shunt into the Illumina correction branch of the pipeline.
+`CLUSTER`            | `assemble_raw_reads` `resequence_assembly` | LSF_PSP | Sets the `-D CLUSTER=` option for [`smrtpipe.py`][smrtpipe], which controls which job submission wrapper scripts are used. Set to `BASH` to disable job submissions by SMRT Pipe (all steps run local to the current node).
+
+[smrtpipe]: http://www.pacb.com/wp-content/uploads/2015/09/SMRT-Pipe-Reference-Guide.pdf
 
 ### Tasks
 
@@ -70,20 +74,23 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 3. `circularize_assembly`
 4. `resequence_assembly`
 5. `reorient_assembly`
-6. `rast_annotate`
-7. `improve_rast`
-8. `rast_to_igb`
+6. `motifs_and_mods`
+7. `rast_annotate`
+8. `improve_rast`
+9. `rast_to_igb`
 
 With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all [required environment variables](#required-environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
 
 The final task, `rast_to_igb`, creates an [IGB](http://bioviz.org/igb/) Quickload-compatible directory so you can load the genome into IGB. By default, this occurs in `~/www/igb`, although you can override this by setting `IGB_DIR` in your `scripts/env.sh`. To view the genome in IGB, open IGB's preferences and add `https://YOUR_USERNAME.u.hpc.mssm.edu/igb/` as a Quickload data source (replacing `YOUR_USERNAME` with your Minerva username), and then you should be able to find your genome under the Species dropdown in the browser.
 
-Optionally, if Illumina reads are also available for the same isolate, they can be used to iron out small errors in the PacBio-produced assembly and then the new consensus can be re-annotated and converted to an IGB quickload directory with these three extra steps:
+Optionally, if Illumina reads are also available for the same isolate (which you provide as the `ILLUMINA_FASTQ` parameter), they can be aligned to correct small (typically indel) errors in the PacBio assembly, and then this new consensus can be re-annotated and converted to an IGB quickload directory with four extra steps:
 
-1. `recall_ilm_consensus`
-2. `rast_annotate_ilm`
-3. `improve_rast_ilm`
-4. `rast_to_igb_ilm`
+1. `ilm:recall_consensus`
+2. `ilm:rast_annotate`
+3. `ilm:improve_rast`
+4. `ilm:rast_to_igb`
+
+If you had discarded the intermediate files for the PacBio-only assembly, you can still shunt its final FASTA sequence into the Illumina branch of the pipeline by using the `ilm:fake_prereqs` task, which takes the `ILLUMINA_REFERENCE` parameter (the path to the FASTA file). This sets up a skeleton job directory so that you may run the four `ilm:` steps listed above on their own.
 
 ### Multiple runs within `screen`
 
@@ -91,8 +98,8 @@ If you'd like to run the pipeline multiple times with different parameters place
 
 This takes one required parameter, `$TASK_FILE`, placed in the brackets. It should be a file that lists, one per line, the separate task names and environment variables you'd like to use.  Here's an example with two tasks:
 
-    resequence_assembly OUT=$HOME/Steno/SM_278  SMRT_JOB_ID=017871 STRAIN_NAME=SM_278  SPECIES="Stenotrophomonas"
-    rast_annotate       OUT=$HOME/Steno/SM_5478 SMRT_JOB_ID=019203 STRAIN_NAME=SM_5478 SPECIES="Stenotrophomonas"
+    resequence_assembly OUT=$HOME/SA_pt158_B  SMRT_JOB_ID=020044 STRAIN_NAME=SA_pt158_B SPECIES="Staphylococcus aureus"
+    rast_annotate       OUT=$HOME/SA_pt158_N  SMRT_JOB_ID=020095 STRAIN_NAME=SA_pt158_N SPECIES="Staphylococcus aureus"
 
 When you run `rake multi[$TASK_FILE]`, with the filename of your task file in the brackets, a `screen` session will be created and split vertically into multiple windows, each of which will run `rake` with the various parameters you put on that line.
 
@@ -106,8 +113,9 @@ You will almost certainly need to run `rake multi` on an interactive node or the
 
 You may also want to run the pipeline as a non-interactive job on the cluster.  For this, the `scripts/example.post-assemble-pathogen` should be copied, modified as appropriate, and then can be submitted with `bsub` as in the following example:
 
-    $ bsub -R 'rusage[mem=4000] span[hosts=1]' -m bode,mothra -P acc_PBG -W "24:00" \
-            -L /bin/bash -q premium -n 16 -J CD00246\
+    $ bsub -R 'rusage[mem=4000] span[hosts=1]' -m "bode mothra" -P acc_PBG -W "24:00" \
+            -L /bin/bash -q premium -n 12 -J CD00246 \
+            -o "%J.stdout" -eo "%J.stderr" \
         post-assemble-pathogen \
             SMRT_JOB_ID=020486 \
             STRAIN_NAME=CD00246 \
@@ -117,7 +125,7 @@ You may also want to run the pipeline as a non-interactive job on the cluster.  
 
 ### Dependency graph
 
-This Rakefile is able to build a dependency graph of its intermediate files from itself.  Use the `rake graph` task for this; it will be generated at `$OUT/pathogendb-pipeline.png`.
+This Rakefile is able to build a dependency graph of its intermediate files from itself.  Use the `rake graph` task for this; it will be generated at `$OUT/pathogendb-pipeline.png`. Paths through the `check` task are filtered out of the diagram for clarity, since almost every task depends on it.
 
 ![Dependency graph](https://pakt01.u.hpc.mssm.edu/pathogendb-pipeline.png)
 
