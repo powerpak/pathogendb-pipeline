@@ -1,0 +1,16 @@
+<BioProject>
+2017-03-24,Burkholderia_Outbreak,Burkholderia outbreak in the Surgical Intensive Care Unit,Burkholderia cenocepacia,Burkholderia_Outbreak
+</BioProject>
+<BioSample>
+BKHD_PT5,Burkholderia sputum sample from patient 5,Burkholderia cenocepacia,2014-11-01,sputum
+</BioSample>
+<Reads>
+m141002_183357_42156_c100679982550000001823135702221533_s1_p0.1.bax.h5,PacBio RSII,Burkholderia PT5,BKHD
+</Reads>
+<Reads>
+m141002_183357_42156_c100679982550000001823135702221533_s1_p0.2.bax.h5,PacBio RSII,Burkholderia PT5,BKHD
+</Reads>
+<Reads>
+m141002_183357_42156_c100679982550000001823135702221533_s1_p0.3.bax.h5,PacBio RSII,Burkholderia PT5,BKHD
+</Reads>
+
