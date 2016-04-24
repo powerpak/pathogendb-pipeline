@@ -124,6 +124,23 @@ else{
    warn "Error: Could not load sequencing run '$sRunID' for extract '$sExtractID' into pathogenDB\n";
 }
 
+# Update the sequencing core sample tracking system
+$sSQL   = "SELECT C.extract_ID FROM tPacbioCoreSubmissions C WHERE E.extract_ID=\"$sExtractID\" AND request_type=\"WGS\"";
+$oQuery = $dbh->prepare($sSQL);
+$nCount = $oQuery->execute();
+$oQuery->finish();
+unless ($nCount eq '0E0'){
+   $sSQL   = "UPDATE tPacbioCoreSubmissions SET sequencing_status=\"Prep complete\" WHERE E.extract_ID=\"$sExtractID\" AND request_type=\"WGS\"";
+   $nCount = $dbh->do($sSQL);
+   if ($nCount){
+      print "Updated the WGS status for '$sExtractID' in the pathogenDB sequencing core sample tracking system\n";
+   }
+   else{
+      warn "Error: Could not update sequencing core tracking system for '$sExtractID'\n";
+   }
+}
+
+
 # Disconnect from database
 $dbh->disconnect();
 
