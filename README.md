@@ -141,7 +141,7 @@ You may also want to run the pipeline as a non-interactive job on the cluster.  
 
 This Rakefile is able to build a dependency graph of its intermediate files from itself.  Use the `rake graph` task for this; it will be generated at `$OUT/pathogendb-pipeline.png`. Paths through the `check` task are filtered out of the diagram for clarity, since almost every task depends on it.
 
-![Dependency graph](https://pakt01.u.hpc.mssm.edu/pathogendb-pipeline.png)
+![Dependency graph](https://pakt01.u.hpc.mssm.edu/pathogendb-pipeline.png?)
 
 ## Other notes
 
