@@ -15,7 +15,7 @@ First, clone this repository to a directory and `cd` into it.  You'll want to co
     $ cp scripts/example.env.sh scripts/env.sh
     $ $EDITOR scripts/env.sh    
 
-All the default variables should work for any Minerva user (given appropriate permissions).  (You previously needed to configure your [RAST][rast] login details in this script, but this is no longer necessary now that we use [prokka][].)  Then, you can source the script into your shell and install required gems locally into the `vendor/bundle` directory as follows:
+All the default variables should work for any Minerva user with appropriate permissions.  (You previously needed to configure your [RAST][rast] login details in this script, but this is no longer necessary now that we use [prokka][].)  Then, you can source the script into your shell and install required gems locally into the `vendor/bundle` directory as follows:
 
     $ source scripts/env.sh
     $ bundle install --deployment
@@ -54,8 +54,8 @@ Variable             | Can be provided for                   | Default | Purpose
 ---------------------|---------------------------------------|---------|-----------------------------------
 `CLUSTER`            | `assemble_raw_reads` `resequence_assembly` | LSF_PSP | Sets the `-D CLUSTER=` option for [`smrtpipe.py`][smrtpipe], which controls which job submission wrapper scripts are used. Set to `BASH` to disable job submissions by SMRT Pipe (all steps run local to the current node).
 `ILLUMINA_REFERENCE` | `ilm:fake_prereqs`                    | (none)  | Path to the FASTA file containing the reference sequence that you want to shunt into the Illumina correction branch of the pipeline.
-`REORIENT_FASTA`     | `old:reorient_assembly`                   | (none)  | *This option is deprecated in favor of using circlator.* A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
-`REORIENT_FLANK`     | `old:reorient_assembly`                   | 0       | *This option is deprecated in favor of using circlator.* This is the number of nt *before* the beginning of the landmark where the origin of the circular chromosome will be set.
+`REORIENT_FASTA`     | `old:reorient_assembly`                   | (none)  | *This option is deprecated in favor of using [circlator][].* A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
+`REORIENT_FLANK`     | `old:reorient_assembly`                   | 0       | *This option is deprecated in favor of using [circlator][].* This is the number of nt *before* the beginning of the landmark where the origin of the circular chromosome will be set.
 `GENBANK_REFERENCES` | `old:improve_rast`                        | (none)  | *This option is deprecated in favor of using [prokka][].* Paths to to GenBank files that contain "good" gene names that will be lifted over to your RAST annotations.  Multiple paths should be separated with `:`, as with `PATH`.  If not given, `improve_rast` will be a no-op.
 
 [smrtpipe]: http://www.pacb.com/wp-content/uploads/2015/09/SMRT-Pipe-Reference-Guide.pdf
@@ -83,7 +83,7 @@ The final task, `prokka_to_igb`, creates an [IGB](http://bioviz.org/igb/) Quickl
 
 #### Deprecated tasks
 
-Prior versions of the pipeline utilized custom scripts for circularization based on [MUMmer][] output, and RAST for annotation of finished assemblies. These processes are now handled by the more mature tools [circlator][] and [prokka][], respectively, but we have preserved the old steps under the `old:` namespace within `deprecated.rake`.
+Prior versions of the pipeline utilized custom scripts for circularization based on [MUMmer][] output, and [RAST][rast] for annotation of finished assemblies. These processes are now handled by the more mature tools [circlator][] and [prokka][], respectively, but we have preserved the old steps under the `old:` namespace within `deprecated.rake`.
 
 [MUMmer]: (http://mummer.sourceforge.net/)
 [circlator]: http://sanger-pathogens.github.io/circlator/
@@ -145,4 +145,4 @@ This Rakefile is able to build a dependency graph of its intermediate files from
 
 ## Other notes
 
-This pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included executables and the Perl API are also on that page.  Within this package, we are overriding `RASTserver.pm` with our own version in `lib/perl`, because we need to support setting use of a proxy via the `HTTP_PROXY` environment variable.
+Although all [RAST][rast]-related tasks are now deprecated, this pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included executables and the Perl API are also on that page.  Within this package, we are overriding `RASTserver.pm` with our own version in `lib/perl`, because we need to support setting use of a proxy via the `HTTP_PROXY` environment variable.
