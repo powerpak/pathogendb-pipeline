@@ -64,7 +64,12 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
                 merged = True
         if not gotit:
             i = q
-        contig_name = '>u' + i.split('|')[0].split('_')[1].zfill(5)
+        if i.startswith('unitig'):
+            contig_name = '>u' + i.split('|')[0].split('_')[1].zfill(5)
+            manual = False
+        else:
+            contig_name = i[:6]
+            manual = True
         if i in circ_set:
             contig_name += 'c'
         else:
@@ -73,7 +78,10 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             contig_name += 'r'
         else:
             contig_name += 'x'
-        contig_name += 'xx_'
+        if manual:
+            contig_name += 'xm_'
+        else:
+            contig_name += 'xx_'
         if not i in seqDict:
             if merged:
                 contig_name += 'm' # label contig as merged into larger contig
