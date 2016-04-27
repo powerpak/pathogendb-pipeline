@@ -68,7 +68,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             contig_name = '>u' + i.split('|')[0].split('_')[1].zfill(5)
             manual = False
         else:
-            contig_name = i[:6]
+            contig_name = '>' + i[:6]
             manual = True
         if i in circ_set:
             contig_name += 'c'
