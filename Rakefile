@@ -482,8 +482,8 @@ end
 # = all =
 # =======
 
-desc "Runs entire pipeline (NOTE: uses deprecated RAST/non-circlator pipeline)"
-task :all => ['old:rast_to_igb', :motif_and_mods]
+desc "Runs entire pipeline for PacBio-only data (up to prokka_to_IGB and motif_and_mods)"
+task :all => [:prokka_to_igb, :motif_and_mods]
 
 
 # ====================================================================================================

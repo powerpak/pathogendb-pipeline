@@ -3,7 +3,7 @@
 module unload ruby
 module load ruby
 
-# Must be configured by the end user
+# Deprecated, only needed if you are running RAST.
 export RAST_USER=""
 export RAST_PASSWORD=""
 
