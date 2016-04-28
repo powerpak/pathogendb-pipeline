@@ -185,7 +185,7 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   job_id = job_id.rjust(6, '0')
   pacbio_job_dirs = ["/sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..2]}/#{job_id}",
-                     "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}"]
+                     "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}","/sc/orga/scratch/attieo02/#{job_id}"]
   smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
   
   found_fofn_dir = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
