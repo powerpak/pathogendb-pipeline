@@ -11,12 +11,6 @@ unset MODULEPATH
 source /etc/profile.d/modules.sh
 
 # Load required modules
-module load intel/parallel_studio_xe_2015
-module load python/2.7.6
-module load py_packages
-module load openmpi/1.6.5
-module load boost/1.55.0-gcc
-module load java/1.7.0_60
 module load ruby/2.2.0
 
 # Defaults will probably work for these
