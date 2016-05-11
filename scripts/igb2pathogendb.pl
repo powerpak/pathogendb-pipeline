@@ -125,12 +125,12 @@ else{
 }
 
 # Update the sequencing core sample tracking system
-$sSQL   = "SELECT C.extract_ID FROM tPacbioCoreSubmissions C WHERE E.extract_ID=\"$sExtractID\" AND request_type=\"WGS\"";
+$sSQL   = "SELECT C.extract_ID FROM tPacbioCoreSubmissions C WHERE C.extract_ID=\"$sExtractID\" AND request_type=\"WGS\"";
 $oQuery = $dbh->prepare($sSQL);
 $nCount = $oQuery->execute();
 $oQuery->finish();
 unless ($nCount eq '0E0'){
-   $sSQL   = "UPDATE tPacbioCoreSubmissions SET sequencing_status=\"Prep complete\" WHERE E.extract_ID=\"$sExtractID\" AND request_type=\"WGS\"";
+   $sSQL   = "UPDATE tPacbioCoreSubmissions C SET sequencing_status=\"Prep complete\" WHERE C.extract_ID=\"$sExtractID\" AND C.request_type=\"WGS\"";
    $nCount = $dbh->do($sSQL);
    if ($nCount){
       print "Updated the WGS status for '$sExtractID' in the pathogenDB sequencing core sample tracking system\n";
