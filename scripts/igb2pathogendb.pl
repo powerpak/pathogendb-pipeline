@@ -130,7 +130,7 @@ $oQuery = $dbh->prepare($sSQL);
 $nCount = $oQuery->execute();
 $oQuery->finish();
 unless ($nCount eq '0E0'){
-   $sSQL   = "UPDATE tPacbioCoreSubmissions C SET sequencing_status=\"Prep complete\" WHERE C.extract_ID=\"$sExtractID\" AND C.request_type=\"WGS\"";
+   $sSQL   = "UPDATE tPacbioCoreSubmissions C SET sequencing_status=\"3 - Prep complete\" WHERE C.extract_ID=\"$sExtractID\" AND C.request_type=\"WGS\"";
    $nCount = $dbh->do($sSQL);
    if ($nCount){
       print "Updated the WGS status for '$sExtractID' in the pathogenDB sequencing core sample tracking system\n";
