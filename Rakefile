@@ -267,15 +267,13 @@ desc "Runs circlator on smrtpipe output."
 task :run_circlator => [:check, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"]
 file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system <<-SH
-    module unload python
-    module unload py_packages
-    module load prodigal
-    module load samtools
-    module load spades
+    module purge
+    module load bwa
+    module load prodigal/2.6.2
+    module load samtools/1.1
+    module load spades/3.6.0
     module load python/3.5.0  py_packages/3.5
-    module load gcc
-    module load mummer
-    module load bwa/0.7.12
+    module load mummer/3.23
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
     gunzip data/circ_input.fasta.gz
     circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
@@ -341,7 +339,7 @@ file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_consensus_circ.f
   abort "FATAL: Task post_quiver_orient_correct requires specifying STRAIN_NAME" unless STRAIN_NAME 
   
   system <<-SH
-    module load blast
+    module load blast/2.2.26+
     #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.fasta data/#{STRAIN_NAME}_prokka.fasta data/pq_dir
   SH
 end
@@ -357,11 +355,12 @@ file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fast
   abort "FATAL: Task prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
   
   system <<-SH
-    module load prokka  
-    module load barrnap
-    module unload rnammer
-    module load minced
-    module load signalp
+    module purge
+    module load prokka/1.11  
+    module load barrnap/0.6
+    module unload rnammer/1.2
+    module load minced/0.2.0
+    module load signalp/4.1
         
     prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_prokka data/#{STRAIN_NAME}_prokka.fasta
   SH
@@ -382,14 +381,13 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
   
   system <<-SH
-    module unload python
-    module unload py_packages
-    module load blast
+    module purge
+    module load blast/2.2.26+
     module load bwa/0.7.12
-    module load celera
+    module load celera/8.1
     module load python/2.7.6
     module load py_packages/2.7
-    module load ucsc-utils
+    module load ucsc-utils/2015-04-07
     module load samtools/1.2
     #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
      -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
@@ -421,8 +419,7 @@ task :prokka_to_igb => [:check, :prokka_and_QC] do |t|
   species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
     
   system <<-SH
-    module unload python
-    module unload py_packages
+    module purge
     module load python/2.7.6
     module load py_packages/2.7
     module load blat
