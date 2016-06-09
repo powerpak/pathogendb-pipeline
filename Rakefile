@@ -511,10 +511,9 @@ namespace :ilm do
   task :fake_prereqs do |t|
     abort "FATAL: Task #{t.name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
     mkdir_p "log"
-    mkdir_p "data"
+    mkdir_p "data/#{STRAIN_NAME}_circlator"
     touch "bash5.fofn"                                        and sleep 1
     touch "data/polished_assembly.fasta.gz"                   and sleep 1
-    touch "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"   and sleep 1
     if ILLUMINA_REFERENCE
       abort "FATAL: file '#{ILLUMINA_REFERENCE}' does not exist" unless File.exists?(ILLUMINA_REFERENCE)
       cp(ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta") and sleep 1
