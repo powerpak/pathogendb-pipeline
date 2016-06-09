@@ -59,7 +59,7 @@ end
 ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
 
 desc "Checks environment variables and requirements before running tasks"
-task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer, :bcftools] do
+task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools] do
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
@@ -74,35 +74,6 @@ task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :sas, :mummer, :bcftools] do
   mkdir_p ENV['SHARED_DIR'] or abort "FATAL: set SHARED_DIR to a directory that can store scratch files"
 end
 
-# pulls down http://blog.theseed.org/downloads/sas.tgz --> ./vendor/sas
-#   then it adds SAS libs to PERL5LIB
-#   then it adds SAS bins to PATH
-task :sas => [:env, "#{SAS_DIR}/sas.tgz", "#{SAS_DIR}/modules/lib"] do
-  ENV['PERL5LIB'] = "#{ENV['PERL5LIB']}:#{SAS_DIR}/lib:#{SAS_DIR}/modules/lib"
-  ENV['PATH'] = "#{SAS_DIR}/bin:#{ENV['PATH']}"
-  
-  unless ENV['RAST_USER'] && ENV['RAST_USER'] != ''
-    abort "FATAL: RAST_USER must be set to your username for http://rast.nmpdr.org/\n#{ENV_ERROR}"
-  end
-  unless ENV['RAST_PASSWORD'] && ENV['RAST_PASSWORD'] != ''
-    abort "FATAL: RAST_PASSWORD must be set to your password for http://rast.nmpdr.org/\n#{ENV_ERROR}"
-  end
-end
-
-directory SAS_DIR
-file "#{SAS_DIR}/sas.tgz" => [SAS_DIR] do |t|
-  Dir.chdir(File.dirname(t.name)) do
-    system "curl -L -O 'http://blog.theseed.org/downloads/sas.tgz'" and
-    system "tar xvzf sas.tgz"
-  end
-end
-
-directory "#{SAS_DIR}/modules/lib"
-file "#{SAS_DIR}/modules/lib" => ["#{SAS_DIR}/sas.tgz"] do |t|
-  Dir.chdir("#{SAS_DIR}/modules") do
-    system "./BUILD_MODULES"
-  end
-end
 
 # pulls down and compiles MUMmer 3.23, which is used by scripts/circularizeContigs.pl and others
 # see http://mummer.sourceforge.net/

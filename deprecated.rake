@@ -29,6 +29,38 @@ end
 
 namespace :old do
   
+  task :check => [:check, "old:sas"]
+  
+  # pulls down http://blog.theseed.org/downloads/sas.tgz --> ./vendor/sas
+  #   then it adds SAS libs to PERL5LIB
+  #   then it adds SAS bins to PATH
+  task :sas => [:env, "#{SAS_DIR}/sas.tgz", "#{SAS_DIR}/modules/lib"] do
+    ENV['PERL5LIB'] = "#{ENV['PERL5LIB']}:#{SAS_DIR}/lib:#{SAS_DIR}/modules/lib"
+    ENV['PATH'] = "#{SAS_DIR}/bin:#{ENV['PATH']}"
+  
+    unless ENV['RAST_USER'] && ENV['RAST_USER'] != ''
+      abort "FATAL: RAST_USER must be set to your username for http://rast.nmpdr.org/\n#{ENV_ERROR}"
+    end
+    unless ENV['RAST_PASSWORD'] && ENV['RAST_PASSWORD'] != ''
+      abort "FATAL: RAST_PASSWORD must be set to your password for http://rast.nmpdr.org/\n#{ENV_ERROR}"
+    end
+  end
+
+  directory SAS_DIR
+  file "#{SAS_DIR}/sas.tgz" => [SAS_DIR] do |t|
+    Dir.chdir(File.dirname(t.name)) do
+      system "curl -L -O 'http://blog.theseed.org/downloads/sas.tgz'" and
+      system "tar xvzf sas.tgz"
+    end
+  end
+
+  directory "#{SAS_DIR}/modules/lib"
+  file "#{SAS_DIR}/modules/lib" => ["#{SAS_DIR}/sas.tgz"] do |t|
+    Dir.chdir("#{SAS_DIR}/modules") do
+      system "./BUILD_MODULES"
+    end
+  end
+  
   ##
   ## Circularization is now handled by Circlator (instead of custom scripts w/ nucmer)
   ##
@@ -38,7 +70,7 @@ namespace :old do
   # ============================
 
   desc "deprecated - Circularizes the PacBio assembly"
-  task :circularize_assembly => [:check, "data/polished_assembly_circularized.fasta"]
+  task :circularize_assembly => ["old:check", "data/polished_assembly_circularized.fasta"]
   file "data/polished_assembly_circularized.fasta" => "data/polished_assembly.fasta.gz" do |t|
     system "gunzip -c data/polished_assembly.fasta.gz >data/polished_assembly.fasta" and
     system "#{REPO_DIR}/scripts/circularizeContigs.pl -i data/polished_assembly.fasta -l 12000 2> polished_assembly_circularized.log"
@@ -49,7 +81,7 @@ namespace :old do
   # ===========================
 
   desc "deprecated - Resequences the circularized assembly"
-  task :resequence_assembly => [:check, "data/#{STRAIN_NAME}_consensus.fasta"]
+  task :resequence_assembly => ["old:check", "data/#{STRAIN_NAME}_consensus.fasta"]
   file "data/#{STRAIN_NAME}_consensus.fasta" => "data/polished_assembly_circularized.fasta" do |t|
     abort "FATAL: Task old:resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
     abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
@@ -80,7 +112,7 @@ namespace :old do
   # =========================
 
   desc "deprecated - Reorients the circularized assembly to a given locus"
-  task :reorient_assembly => [:check, "data/#{STRAIN_NAME}_reorient.fasta"]
+  task :reorient_assembly => ["old:check", "data/#{STRAIN_NAME}_reorient.fasta"]
   file "data/#{STRAIN_NAME}_reorient.fasta" => "data/#{STRAIN_NAME}_consensus.fasta" do |t|
     abort "FATAL: Task old:reorient_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
     abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
@@ -116,7 +148,7 @@ namespace :old do
   # =====================
 
   desc "deprecated - Submits the circularized assembly to RAST for annotations"
-  task :rast_annotate => [:check, "data/#{STRAIN_NAME}_reorient_rast.fna", 
+  task :rast_annotate => ["old:check", "data/#{STRAIN_NAME}_reorient_rast.fna", 
       "data/#{STRAIN_NAME}_reorient_rast.gbk", "data/#{STRAIN_NAME}_reorient_rast_aa.fa",
       "data/rast_job_id"]
 
@@ -192,7 +224,7 @@ namespace :old do
   end
 
   desc "deprecated - Improves GenBank output from RAST by re-annotating gene names from better references"
-  task :improve_rast => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"]
+  task :improve_rast => ["old:check", "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"]
 
 
   # ===================
@@ -202,7 +234,7 @@ namespace :old do
   directory IGB_DIR
 
   desc "deprecated - Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
-  task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"] do |t|
+  task :rast_to_igb => ["old:check", "data/#{STRAIN_NAME}_reorient_rast_reannotate.gbk"] do |t|
     job_id = ENV['SMRT_JOB_ID']
     abort "FATAL: Task #{t.name} requires specifying SMRT_JOB_ID" unless job_id
     abort "FATAL: Task #{t.name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
@@ -257,7 +289,7 @@ namespace :old do
     # ============================
 
     desc "deprecated - Recalls a new consensus by piling Illumina reads onto a PacBio assembly"
-    task :recall_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_reorient.fasta"]
+    task :recall_consensus => ["old:check", "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_reorient.fasta"]
 
     file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
       abort "FATAL: Task old:ilm:recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
@@ -328,7 +360,7 @@ namespace :old do
     # =========================
 
     desc "deprecated - Submits the Illumina-fixed consensus to RAST for annotations"
-    task :rast_annotate => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast.fna", 
+    task :rast_annotate => ["old:check", "data/#{STRAIN_NAME}_ilm_reorient_rast.fna", 
         "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa",
         "data/ilm_rast_job_id"]
 
@@ -352,7 +384,7 @@ namespace :old do
     # ========================
 
     desc "deprecated - Improves GenBank output from RAST by re-annotating gene names from better references"
-    task :improve_rast => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"]
+    task :improve_rast => ["old:check", "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"]
 
     file "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"] do |t|
       improve_rast_genbank("data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", t.name)
@@ -364,7 +396,7 @@ namespace :old do
     # =======================
 
     desc "deprecated - Creates an IGB Quickload-compatible directory for your Illumina-fixed genome in IGB_DIR"
-    task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
+    task :rast_to_igb => ["old:check", "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
       abort "FATAL: Task #{t.name} requires specifying SMRT_JOB_ID" unless job_id
       abort "FATAL: Task #{t.name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
       abort "FATAL: Task #{t.name} requires specifying SPECIES" unless SPECIES 

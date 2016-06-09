@@ -44,7 +44,7 @@ Variable             | Required by                                             |
 `SMRT_JOB_ID`        | `pull_down_raw_reads` `prokka_to_igb` `ilm:rast_to_igb`   | (none)  | The ID of the job on the SMRTPortal with your reads.
 `STRAIN_NAME`        | `resequence_assembly` `prokka_annotate` `ilm:rast_annotate` `ilm:recall_consensus` `ilm:rast_to_igb` `prokka_to_igb` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
 `SPECIES`            | `prokka_annotate` `ilm:rast_annotate` `prokka_to_igb` `ilm:rast_to_igb` | (none)  | The species for your sample.
-`ILLUMINA_FASTQ`     | `ilm:recall_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
+`ILLUMINA_FASTQ`     | `ilm:recall_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina unpaired reads.
 
 ### Optional environment variables
 
@@ -52,6 +52,7 @@ These variables may be provided to configure certain tasks within the pipeline, 
 
 Variable             | Can be provided for                   | Default | Purpose
 ---------------------|---------------------------------------|---------|-----------------------------------
+`LSF_DISABLED`       | all steps                             | (none)  | Set to a non-empty string to disable all submissions to LSF (everything only runs locally). Useful for debugging on an interactive node.
 `REPLACE_FASTA`      | `pull_down_raw_reads`                 | (none)  | Shunts this filename's FASTA data in place of the SMRTPortal-built `polished_assembly.fasta`. Use this to run the pipeline on non-SMRTpipe (i.e., manually fixed) assemblies.
 `CLUSTER`            | `assemble_raw_reads` `resequence_assembly` | LSF_PSP | Sets the `-D CLUSTER=` option for [`smrtpipe.py`][smrtpipe], which controls which job submission wrapper scripts are used. Set to `BASH` to disable job submissions by SMRT Pipe (all steps run local to the current node).
 `ILLUMINA_REFERENCE` | `ilm:fake_prereqs`                    | (none)  | Path to the FASTA file containing the reference sequence that you want to shunt into the Illumina correction branch of the pipeline.
@@ -84,7 +85,7 @@ The final task, `prokka_to_igb`, creates an [IGB](http://bioviz.org/igb/) Quickl
 
 #### Illumina-specific tasks
 
-Optionally, if Illumina reads are available for the same isolate (which you provide as the `ILLUMINA_FASTQ` parameter), they can be aligned to correct small (typically indel) errors in the PacBio assembly, and then this new consensus can be re-annotated and converted to a new IGB quickload directory with four extra steps.
+Optionally, if unpaired Illumina reads are available for the same isolate (which you provide as the `ILLUMINA_FASTQ` parameter), they can be aligned to correct small (typically indel) errors in the PacBio assembly, and then this new consensus can be re-annotated and converted to a new IGB quickload directory with four extra steps.
 
 1. `ilm:recall_consensus`
 2. `ilm:prokka_annotate`
