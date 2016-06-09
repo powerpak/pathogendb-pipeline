@@ -41,7 +41,7 @@ If a required environment variable isn't present when a task is run and there is
 Variable             | Required by                                             | Default | Purpose
 ---------------------|---------------------------------------------------------|---------|-----------------------------------
 `OUT`                | all tasks                                               | ./out   | This is where your interim and completed files are saved
-`SMRT_JOB_ID`        | `pull_down_raw_reads` `prokka_to_igb` `ilm:rast_to_igb`   | (none)  | The ID of the job on the SMRT Portal with your reads.
+`SMRT_JOB_ID`        | `pull_down_raw_reads` `prokka_to_igb` `ilm:rast_to_igb`   | (none)  | The ID of the job on the SMRTPortal with your reads.
 `STRAIN_NAME`        | `resequence_assembly` `prokka_annotate` `ilm:rast_annotate` `ilm:recall_consensus` `ilm:rast_to_igb` `prokka_to_igb` | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
 `SPECIES`            | `prokka_annotate` `ilm:rast_annotate` `prokka_to_igb` `ilm:rast_to_igb` | (none)  | The species for your sample.
 `ILLUMINA_FASTQ`     | `ilm:recall_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina reads.
@@ -52,6 +52,7 @@ These variables may be provided to configure certain tasks within the pipeline, 
 
 Variable             | Can be provided for                   | Default | Purpose
 ---------------------|---------------------------------------|---------|-----------------------------------
+`REPLACE_FASTA`      | `pull_down_raw_reads`                 | (none)  | Shunts this filename's FASTA data in place of the SMRTPortal-built `polished_assembly.fasta`. Use this to run the pipeline on non-SMRTpipe (i.e., manually fixed) assemblies.
 `CLUSTER`            | `assemble_raw_reads` `resequence_assembly` | LSF_PSP | Sets the `-D CLUSTER=` option for [`smrtpipe.py`][smrtpipe], which controls which job submission wrapper scripts are used. Set to `BASH` to disable job submissions by SMRT Pipe (all steps run local to the current node).
 `ILLUMINA_REFERENCE` | `ilm:fake_prereqs`                    | (none)  | Path to the FASTA file containing the reference sequence that you want to shunt into the Illumina correction branch of the pipeline.
 `REORIENT_FASTA`     | `old:reorient_assembly`                   | (none)  | *This option is deprecated in favor of using [circlator][].* A path pointing to a FASTA file with a landmark that the assembly will be reoriented to.  If not given, reorientation will be skipped.
@@ -81,6 +82,17 @@ The final task, `prokka_to_igb`, creates an [IGB](http://bioviz.org/igb/) Quickl
 
 **TODO:** document `motif_and_mods` and `all`.
 
+#### Illumina-specific tasks
+
+Optionally, if Illumina reads are available for the same isolate (which you provide as the `ILLUMINA_FASTQ` parameter), they can be aligned to correct small (typically indel) errors in the PacBio assembly, and then this new consensus can be re-annotated and converted to a new IGB quickload directory with four extra steps.
+
+1. `ilm:recall_consensus`
+2. `ilm:prokka_annotate`
+3. `ilm:create_QC_webpage`
+4. `ilm:prokka_to_igb`
+
+If you had discarded the intermediate files for the PacBio-only assembly, you can still shunt its final FASTA sequence into the Illumina branch of the pipeline by using the `ilm:fake_prereqs` task, which takes the `ILLUMINA_REFERENCE` parameter (the path to the FASTA file). This sets up a skeleton job directory so that you may run the four `ilm:` steps listed above on their own.
+
 #### Deprecated tasks
 
 Prior versions of the pipeline utilized custom scripts for circularization based on [MUMmer][] output, and [RAST][rast] for annotation of finished assemblies. These processes are now handled by the more mature tools [circlator][] and [prokka][], respectively, but we have preserved the old steps under the `old:` namespace within `deprecated.rake`.
@@ -88,23 +100,16 @@ Prior versions of the pipeline utilized custom scripts for circularization based
 [MUMmer]: (http://mummer.sourceforge.net/)
 [circlator]: http://sanger-pathogens.github.io/circlator/
 
-1. `old:circularize_assembly`
-2. `old:resequence_assembly`
-3. `old:reorient_assembly`
-4. `old:rast_annotate`
-5. `old:improve_rast`
-6. `old:rast_to_igb`
-
-#### Illumina-specific tasks
-
-Optionally, if Illumina reads are available for the same isolate (which you provide as the `ILLUMINA_FASTQ` parameter), they can be aligned to correct small (typically indel) errors in the PacBio assembly, and then this new consensus can be re-annotated and converted to a new IGB quickload directory with four extra steps. **TODO:** these should be updated to use prokka instead of RAST.
-
-1. `ilm:recall_consensus`
-2. `ilm:rast_annotate`
-3. `ilm:improve_rast`
-4. `ilm:rast_to_igb`
-
-If you had discarded the intermediate files for the PacBio-only assembly, you can still shunt its final FASTA sequence into the Illumina branch of the pipeline by using the `ilm:fake_prereqs` task, which takes the `ILLUMINA_REFERENCE` parameter (the path to the FASTA file). This sets up a skeleton job directory so that you may run the four `ilm:` steps listed above on their own.
+1.  `old:circularize_assembly`
+2.  `old:resequence_assembly`
+3.  `old:reorient_assembly`
+4.  `old:rast_annotate`
+5.  `old:improve_rast`
+6.  `old:rast_to_igb`
+7.  `old:ilm:recall_consensus`
+8.  `old:ilm:rast_annotate`
+9.  `old:ilm:improve_rast`
+10. `old:ilm:rast_to_igb`
 
 ### Multiple runs within `screen`
 

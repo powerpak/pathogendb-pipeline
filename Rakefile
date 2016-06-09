@@ -31,6 +31,8 @@ ILLUMINA_REFERENCE = ENV['ILLUMINA_REFERENCE'] && File.expand_path(ENV['ILLUMINA
 TASK_FILE = ENV['TASK_FILE']
 GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
 CLUSTER = ENV['CLUSTER']
+REPLACE_FASTA = ENV['REPLACE_FASTA'] && File.expand_path(ENV['REPLACE_FASTA'])
+
 
 #############################################################
 #  IMPORTANT!
@@ -213,6 +215,16 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
       python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
       find #{OUT}/*bax.h5 > bash5.fofn
     SH
+  end
+  
+  # The optional REPLACE_FASTA parameter allows one to shunt a custom assembly into the rest of the pipeline 
+  #     in place of the polished_assembly.fasta.gz built by SMRTPortal.
+  # Note that the fastq, best edges data, etc., if they do not match the new fasta, may throw off QC analyses.
+  if REPLACE_FASTA
+    cp replace_fasta, "data/replaced_assembly.fasta"
+    system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
+    rm "data/polished_assembly.fasta.gz"
+    ln_s "data/replaced_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
   end
 end
 
@@ -486,161 +498,204 @@ desc "Runs entire pipeline for PacBio-only data (up to prokka_to_IGB and motif_a
 task :all => [:prokka_to_igb, :motif_and_mods]
 
 
+
 # ====================================================================================================
 # = The following tasks are for assemblies where we want to incorporate Illumina reads to fix indels =
 # ====================================================================================================
 
 namespace :ilm do
 
+
   # ====================
   # = ilm:fake_prereqs =
   # ====================
-  desc "Fakes the prerequisites for the Illumina tasks"
-  task :fake_prereqs do
-    abort "FATAL: Task ilm:fake_prereqs requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  
+  desc "Fakes the prerequisites for the Illumina tasks (for testing purposes)"
+  task :fake_prereqs do |t|
+    abort "FATAL: Task #{t.name} requires specifying STRAIN_NAME" unless STRAIN_NAME 
     mkdir_p "log"
     mkdir_p "data"
-    touch "bash5.fofn"                                  and sleep 1
-    touch "data/polished_assembly.fasta.gz"             and sleep 1
-    touch "data/polished_assembly_circularized.fasta"   and sleep 1
+    touch "bash5.fofn"                                        and sleep 1
+    touch "data/polished_assembly.fasta.gz"                   and sleep 1
+    touch "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"   and sleep 1
     if ILLUMINA_REFERENCE
       abort "FATAL: file '#{ILLUMINA_REFERENCE}' does not exist" unless File.exists?(ILLUMINA_REFERENCE)
-      cp ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_consensus.fasta"
-      cp ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_reorient.fasta"
+      cp(ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta") and sleep 1
+      cp(ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_postcirc.fasta")              and sleep 1
+      cp(ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_consensus_circ.fasta")        and sleep 1
+      cp(ILLUMINA_REFERENCE, "data/#{STRAIN_NAME}_prokka.fasta")
     else
-      touch "data/#{STRAIN_NAME}_consensus.fasta"         and sleep 1
-      touch "data/#{STRAIN_NAME}_reorient.fasta"
-      puts "Replace #{OUT}/data/#{STRAIN_NAME}_reorient.fasta with the old reference sequence you are piling new reads onto."
+      touch "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" and sleep 1
+      touch "data/#{STRAIN_NAME}_postcirc.fasta"              and sleep 1
+      touch "data/#{STRAIN_NAME}_consensus_circ.fasta"        and sleep 1
+      touch "data/#{STRAIN_NAME}_prokka.fasta"
+      puts "Replace #{OUT}/data/#{STRAIN_NAME}_prokka.fasta with the old reference sequence you are piling new reads onto."
     end
   end
-    
-
+  
+  
   # ========================
   # = ilm:recall_consensus =
   # ========================
 
-  desc "Recalls a new consensus by piling Illumina reads onto a PacBio assembly"
-  task :recall_consensus => [:check, "data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_ilm_reorient.fasta"]
+  desc "Recalls a new consensus by piling Illumina reads onto a circlator-finished PacBio assembly"
+  task :recall_consensus => [:check, "data/#{STRAIN_NAME}_prokka_flt.vcf", "data/#{STRAIN_NAME}_ilm_prokka.fasta"]
 
-  file "data/ref.sort.bam" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+  file "data/prokka.ref.sort.bam" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
     abort "FATAL: Task ilm:recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
     abort "FATAL: Task ilm:recall_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
-  
+
     LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-    LSF.job_name "ref.aln.sam"
+    LSF.job_name "prokka.ref.aln.sam"
     LSF.bsub_interactive <<-SH or abort
       module load bwa/0.7.8
-      bwa index "data/#{STRAIN_NAME}_reorient.fasta"
-      bwa mem "data/#{STRAIN_NAME}_reorient.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/ref.aln.sam
-    
-      module load samtools/1.1
-      samtools view -bS data/ref.aln.sam > data/ref.aln.bam
-      samtools sort data/ref.aln.bam data/ref.sort
-    SH
+      bwa index "data/#{STRAIN_NAME}_prokka.fasta"
+      bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/prokka.ref.aln.sam
   
+      module load samtools/1.1
+      samtools view -bS data/prokka.ref.aln.sam > data/prokka.ref.aln.bam
+      samtools sort data/prokka.ref.aln.bam data/prokka.ref.sort
+    SH
+
     # Can remove the SAM as it is huge and the .aln.bam should contain everything in it
-    rm "data/ref.aln.sam"
+    rm "data/prokka.ref.aln.sam"
   end
 
-  file "data/#{STRAIN_NAME}_ref_raw.bcf" => "data/ref.sort.bam" do |t|
+  file "data/#{STRAIN_NAME}_prokka_raw.bcf" => "data/prokka.ref.sort.bam" do |t|
     abort "FATAL: Task ilm:recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
     # Use mpileup to do the consensus calling.
     # Note: the -L and -d flags are important; they ensure samtools looks at up to 100k reads per base to call variants.
     # The default for -L is 250, which would turn off indel calling for deeply resequenced (depth >250) samples.
     LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-    LSF.job_name "#{STRAIN_NAME}_ref_raw.bcf"
+    LSF.job_name "#{STRAIN_NAME}_prokka_raw.bcf"
     LSF.bsub_interactive <<-SH
       module load samtools/1.1
       module load bcftools/1.1
-      samtools mpileup -L100000 -d100000 -uf "data/#{STRAIN_NAME}_reorient.fasta" data/ref.sort.bam \
-          | bcftools call -cv -Ob > "data/#{STRAIN_NAME}_ref_raw.bcf"
+      samtools mpileup -L100000 -d100000 -uf "data/#{STRAIN_NAME}_prokka.fasta" data/prokka.ref.sort.bam \
+          | bcftools call -cv -Ob > "data/#{STRAIN_NAME}_prokka_raw.bcf"
     SH
   end
 
-  file "data/#{STRAIN_NAME}_ref_flt.vcf" => "data/#{STRAIN_NAME}_ref_raw.bcf" do |t|
+  file "data/#{STRAIN_NAME}_prokka_flt.vcf" => "data/#{STRAIN_NAME}_prokka_raw.bcf" do |t|
     LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
-    LSF.job_name "#{STRAIN_NAME}_ref_flt.vcf"
+    LSF.job_name "#{STRAIN_NAME}_prokka_flt.vcf"
     LSF.bsub_interactive <<-SH
       module load samtools/1.1
       module load bcftools/1.1
-      bcftools view "data/#{STRAIN_NAME}_ref_raw.bcf" | vcfutils.pl varFilter > "data/#{STRAIN_NAME}_ref_flt.vcf"
+      bcftools view "data/#{STRAIN_NAME}_prokka_raw.bcf" | vcfutils.pl varFilter > "data/#{STRAIN_NAME}_prokka_flt.vcf"
     SH
   end
 
-  file "data/#{STRAIN_NAME}_ilm_reorient.fasta" => 
-      ["data/#{STRAIN_NAME}_ref_flt.vcf", "data/#{STRAIN_NAME}_reorient.fasta"] do |t|
+  file "data/#{STRAIN_NAME}_ilm_prokka.fasta" => 
+      ["data/#{STRAIN_NAME}_prokka_flt.vcf", "data/#{STRAIN_NAME}_prokka.fasta"] do |t|
     system <<-SH
       module load vcftools/0.1.12b
       module load tabix/0.2.6 
-    
-      bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-      tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-      cat "data/#{STRAIN_NAME}_reorient.fasta" | vcf-consensus "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
-              > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
-    
+  
+      bgzip -c "data/#{STRAIN_NAME}_prokka_flt.vcf" > "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
+      tabix -p vcf "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
+      cat "data/#{STRAIN_NAME}_prokka.fasta" | vcf-consensus "data/#{STRAIN_NAME}_prokka_flt.vcf.gz" \
+              > "data/#{STRAIN_NAME}_ilm_prokka.fasta"
+  
       # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
-      # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_ref_flt.vcf" > "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-      # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_ref_flt.vcf.gz"
-      # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_reorient.fasta" "data/#{STRAIN_NAME}_ref_flt.vcf.gz" \
-      #    > "data/#{STRAIN_NAME}_ilm_reorient.fasta"
+      # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_prokka_flt.vcf" > "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
+      # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
+      # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_prokka.fasta" "data/#{STRAIN_NAME}_prokka_flt.vcf.gz" \
+      #    > "data/#{STRAIN_NAME}_ilm_prokka.fasta"
+    SH
+  end
+  
+
+  # =======================
+  # = ilm:prokka_annotate =
+  # =======================
+
+  desc "Annotates the Illumina-corrected assembly with prokka"
+  task :prokka_annotate => [:check, "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk"]
+  file "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk" => "data/#{STRAIN_NAME}_ilm_prokka.fasta" do |t|
+    abort "FATAL: Task ilm:prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  
+    system <<-SH
+      module load prokka  
+      module load barrnap
+      module unload rnammer
+      module load minced
+      module load signalp
+        
+      prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_ilm_prokka data/#{STRAIN_NAME}_ilm_prokka.fasta
     SH
   end
 
+
   # =====================
-  # = ilm:rast_annotate =
+  # = create_QC_webpage =
   # =====================
 
-  desc "Submits the Illumina-fixed consensus to RAST for annotations"
-  task :rast_annotate => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast.fna", 
-      "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa",
-      "data/ilm_rast_job_id"]
-
-  file "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient.fasta"] do |t|
-    fasta = "data/#{STRAIN_NAME}_ilm_reorient.fasta"
-    submit_and_retrieve_rast(fasta, t.name, "ilm_rast_job_id", "rast_annotate_ilm")
-  end
-  file "data/ilm_rast_job_id" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"
-
-  file "data/#{STRAIN_NAME}_ilm_reorient_rast_aa.fa" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
-    gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :aa, "rast_annotate_ilm"
-  end
-
-  file "data/#{STRAIN_NAME}_ilm_reorient_rast.fna" => "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk" do |t|
-    gb_to_fasta "data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", "#{OUT}/#{t.name}", :nt, "rast_annotate_ilm"
-  end
-
-
-  # ====================
-  # = ilm:improve_rast =
-  # ====================
-
-  desc "Improves GenBank output from RAST by re-annotating gene names from better references"
-  task :improve_rast => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"]
-
-  file "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk" => ["data/#{STRAIN_NAME}_ilm_reorient_rast.gbk"] do |t|
-    improve_rast_genbank("data/#{STRAIN_NAME}_ilm_reorient_rast.gbk", t.name)
-  end
-
-
-  # ===================
-  # = ilm:rast_to_igb =
-  # ===================
-
-  desc "Creates an IGB Quickload-compatible directory for your Illumina-fixed genome in IGB_DIR"
-  task :rast_to_igb => [:check, "data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk"] do |t|
-    abort "FATAL: Task ilm:rast_to_igb requires specifying SMRT_JOB_ID" unless job_id
-    abort "FATAL: Task ilm:rast_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
-    abort "FATAL: Task ilm:rast_to_igb requires specifying SPECIES" unless SPECIES 
+  desc "Creates the QC webpage for the Illumina-corrected assembly"
+  task :create_QC_webpage => [:check, "data/ilm_www/index.html"]
+  file "data/ilm_www/index.html" => "data/#{STRAIN_NAME}_ilm_prokka.fasta" do |t|
+    job_id = ENV['SMRT_JOB_ID']
+    abort "FATAL: Task ilm:create_QC_webpage requires specifying SMRT_JOB_ID" unless job_id
+    abort "FATAL: Task ilm:create_QC_webpage requires specifying STRAIN_NAME" unless STRAIN_NAME 
+    abort "FATAL: Task ilm:create_QC_webpage requires specifying SPECIES" unless SPECIES 
+    species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
   
     system <<-SH
+      module unload python
+      module unload py_packages
+      module load blast
+      module load bwa/0.7.12
+      module load celera
+      module load python/2.7.6
+      module load py_packages/2.7
+      module load ucsc-utils
+      module load samtools/1.2
+      #{REPO_DIR}/scripts/create_QC_webpage.py -o data/ilm_qc_wd -w data/ilm_www -f data/#{STRAIN_NAME}_ilm_prokka.fasta \
+       -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
+    SH
+  end
+
+
+  # =================
+  # = prokka_and_QC =
+  # =================
+
+  desc "Run prokka and create the QC website for the Illumina-corrected assembly"
+  task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage]
+  
+  
+  # =================
+  # = prokka_to_igb =
+  # =================
+
+  directory IGB_DIR
+
+  desc "Creates an IGB Quickload-compatible directory for the Illumina-corrected assembly in IGB_DIR"
+  task :prokka_to_igb => [:check, :prokka_and_QC] do |t|
+    job_id = ENV['SMRT_JOB_ID']
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying SMRT_JOB_ID" unless job_id
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying SPECIES" unless SPECIES 
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying IGB_DIR" unless IGB_DIR 
+    species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
+    
+    system <<-SH
+      module unload python
+      module unload py_packages
+      module load python/2.7.6
+      module load py_packages/2.7
       module load blat
       module load bioperl
       export SAS_DIR=#{SAS_DIR}
       perl #{REPO_DIR}/scripts/rast2igb.pl \
-          -f data/#{STRAIN_NAME}_ilm_reorient_rast_reannotate.gbk \
+          -f data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk \
           -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
+          -q data/ilm_www/ \
+          -w data/ilm_qc_wd/bigwig/ \
+          -b data/ilm_qc_wd/alignment.sorted.bam \
           -i #{IGB_DIR}
     SH
   end
+  
 
 end # namespace :ilm
