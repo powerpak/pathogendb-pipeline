@@ -248,20 +248,22 @@ desc "Runs circlator on smrtpipe output."
 task :run_circlator => [:check, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"]
 file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system <<-SH
-    module purge
-    module load bwa
-    module load prodigal/2.6.2
-    module load samtools/1.1
-    module load spades/3.6.0
-    module load python/3.5.0  py_packages/3.5
-    module load mummer/3.23
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
     gunzip data/circ_input.fasta.gz
   SH
   if SKIP_CIRCLATOR
     ln_s "data/circ_input.fasta", "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"
   else
-    system "circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/"
+    system <<-SH or abort "FATAL: circlator failed to run to completion."
+      module purge
+      module load bwa
+      module load prodigal/2.6.2
+      module load samtools/1.1
+      module load spades/3.6.0
+      module load python/3.5.0  py_packages/3.5
+      module load mummer/3.23
+      circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
+    SH
   end
 end
 
