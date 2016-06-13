@@ -148,8 +148,8 @@ task :multi, [:task_file, :n] => [:check] do |t, args|
 end
 
 
-desc "Clean all intermediate files from the OUT directory, and if [:prereqs] is set, all prereq software in vendor/"
-task :clean, [:prereqs] do |t|
+desc "Clean all intermediate files from the OUT directory (and if $prereqs is set, all downloaded software in vendor/ too)"
+task :clean, [:prereqs] do |t, args|
   rm_f "bash5.fofn"
   rm_f "pathogendb-pipeline.png"
   rm_rf "data"
