@@ -267,10 +267,14 @@ file "data/#{STRAIN_NAME}_postcirc.fasta" => "data/#{STRAIN_NAME}_circlator/06.f
   job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   job_id = job_id.rjust(6, '0')
-  system <<-SH
-    # call script to rename contigs
-    #{REPO_DIR}/scripts/post_circlator_contig_rename.py data/#{STRAIN_NAME}_circlator/ data/#{STRAIN_NAME}_postcirc.fasta data/#{STRAIN_NAME}_postcirc2.fasta #{job_id}
-  SH
+  if SKIP_CIRCLATOR
+    ln_s "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta", "data/#{STRAIN_NAME}_postcirc.fasta"
+  else
+    system <<-SH
+      # call script to rename contigs
+      #{REPO_DIR}/scripts/post_circlator_contig_rename.py data/#{STRAIN_NAME}_circlator/ data/#{STRAIN_NAME}_postcirc.fasta data/#{STRAIN_NAME}_postcirc2.fasta #{job_id}
+    SH
+  end
 end
 
 
