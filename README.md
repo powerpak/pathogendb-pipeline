@@ -80,6 +80,8 @@ The typical series of tasks used to assemble a strain's genome from PacBio RS re
 
 With some exceptions (for instance, if you need to manually edit interim files) you should be able to simply run `rake` with the last task you want to reach, and assuming you've specified all [required environment variables](#required-environment-variables), the pipeline will take care of running any necessary previous tasks, based on what's already present or missing from the `OUT` directory.
 
+If you are trying to re-run the pipeline on a manually fixed and/or circularized assembly, you may find the `REPLACE_FASTA` and `SKIP_CIRCLATOR` [optional environment variables](#optional-environment-variables) useful.
+
 The final task, `prokka_to_igb`, creates an [IGB](http://bioviz.org/igb/) Quickload-compatible directory so you can load the genome into IGB. By default, this occurs in `~/www/igb`, although you can override this by setting `IGB_DIR` in your `scripts/env.sh`. To view the genome in IGB, open IGB's preferences and add `https://YOUR_USERNAME.u.hpc.mssm.edu/igb/` as a Quickload data source (replacing `YOUR_USERNAME` with your Minerva username), and then you should be able to find your genome under the Species dropdown in the browser.
 
 **TODO:** document `motif_and_mods` and `all`.
