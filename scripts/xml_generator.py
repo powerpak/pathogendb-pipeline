@@ -6,11 +6,11 @@ import MySQLdb
 import re
 
 '''Queries pathogendb to get the necessary data for the XML'''
-def queryPathogenDB():
+def queryPathogenDB(organism):
     results=[]
     db=MySQLdb.connect(host="db.hpc.mssm.edu", db="vanbah01_pathogens", user="pathogendb_ro", passwd="avbikCog3")
     cur=db.cursor()
-    cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.organism_ID=88 limit 10")
+    cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks on tExtracts.stock_ID=tStocks.stock_ID join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.full_name=\'"+organism+"\' limit 10")
     for row in cur.fetchall():
         results.append(row)
     db.close()
@@ -56,17 +56,19 @@ for line in fh:
     if(BioProject_flag==1):
         bp.append(data_list)
 
-results=queryPathogenDB()
+results=queryPathogenDB(bp[6][0])
 (bs_organism, bs_collection_sourceA, bs_collection_sourceB, bs_collection_date,exp_platform, exp_readlength, exp_paired_end,exp_run_data)=fill_data(results)
 print "<Submission xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"../../xml/portal/submission.xsd\">"
 print "<Description>"
 print "<Comment> BP(1.0)+BS(1.0)+SRA</Comment>"
+print "<Organization role=\"owner\" type=\"institute\">"
 print "<Name>Icahn School of Medicine at Mount Sinai</Name>"
 print "<Contact email=\"oliver.attie@mssm.edu\">"
 print "<Name>"
 print "<First>Oliver</First>"
 print "<Last>Attie</Last>"
 print "</Name>"
+print "</Contact>"
 print "</Organization>"
 print "<Hold release_date=\'"+bp[1][0]+"\'></Hold>"
 print "</Description>"
@@ -113,7 +115,10 @@ for isolate in bs_organism.keys():
     print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+isolate+"</SPUID>"
     print "</SampleId>"
     print "<Descriptor>"
-    print "<Title>"+bs_organism[isolate]+" sample from "+bs_collection_sourceA[isolate]+"/"+bs_collection_sourceB[isolate]+"</Title>"
+    if(len(bs_collection_sourceA[isolate])>0):
+        print "<Title>"+bs_organism[isolate]+" sample from "+bs_collection_sourceA[isolate]+"</Title>"
+    else:
+        print "<Title>"+bs_organism[isolate]+" sample from "+bs_collection_sourceB[isolate]+"</Title>"
     print "</Descriptor>"
     print "<Organism>"
     print "<OrganismName>"+bs_organism[isolate]+"</OrganismName>"
@@ -123,7 +128,10 @@ for isolate in bs_organism.keys():
     print "<Attribute attribute_name=\"strain\">"+isolate+"</Attribute>"
     print "<Attribute attribute_name=\"collected_by\">ISMMS</Attribute>"
     print "<Attribute attribute_name=\"collection_date\">"+str(bs_collection_date[isolate])+"</Attribute>"
-    print "<Attribute attribute_name=\"isolation_source\">"+bs_collection_sourceA[isolate]+"</Attribute>"
+    if(len(bs_collection_sourceA[isolate])>0):
+        print "<Attribute attribute_name=\"isolation_source\">"+bs_collection_sourceA[isolate]+"</Attribute>"
+    else:
+        print "<Attribute attribute_name=\"isolation_source\">"+bs_collection_sourceB[isolate]+"</Attribute>"
     print "<Attribute attribute_name=\"geo_loc_name\">USA:New York City</Attribute>"
     print "<Attribute attribute_name=\"lat_lon\">40N 73W</Attribute>"
     print "</Attributes>"
@@ -135,8 +143,6 @@ for isolate in bs_organism.keys():
     print "</Identifier>"
     print "</AddData>"
     print "</Action>"
-#    print reads
-#    print range(1,len(reads[i].keys())+1)
     for exp in exp_platform[isolate].keys():
         print "<Action>"
         print "<AddFiles target_db=\"SRA\">"
@@ -153,15 +159,21 @@ for isolate in bs_organism.keys():
 #            print "\t\t<File file_path=\""+str(runs[i-1][j-1][i][1][0])+"\">"
         print "<DataType>generic-data</DataType>"
         print "</File>"
-        print "<Attribute name=\"instrument_model\">"+exp_platform[isolate][exp]+"</Attribute>"
+        if(exp_platform[isolate][exp]=='Pacbio'):
+            print "<Attribute name=\"instrument_model\">PacBio RSII</Attribute>"
+        else:
+            print "<Attribute name=\"instrument_model\">Illumina HiSeq 2500</Attribute>"
         print "<Attribute name=\"library_name\">"+bs_organism[isolate]+" "+isolate+"</Attribute>"
         print "<Attribute name=\"library_strategy\">WGS</Attribute>"
         print "<Attribute name=\"library_source\">GENOMIC</Attribute>"
         print "<Attribute name=\"library_selection\">RANDOM</Attribute>"
-        print "<Attribute name=\"library_layout\">FRAGMENTED</Attribute>"
+        if(exp_paired_end[isolate][exp]=="No"):
+            print "<Attribute name=\"library_layout\">FRAGMENTED</Attribute>"
+        else:
+            print "<Attribute name=\"library_layout\">PAIRED_END</Attribute>"
         print "<AttributeRefId name=\"BioProject\">"
         print "<RefId>"
-        print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+isolate+"</SPUID>"
+        print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+bp[2][0]+"</SPUID>"
         print "</RefId>"
         print "</AttributeRefId>"
         print "<AttributeRefId name=\"BioSample\">"
