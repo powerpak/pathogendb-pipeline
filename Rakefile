@@ -119,7 +119,7 @@ task :graph do
     STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' SMRT_JOB_ID='${SMRT_JOB_ID}' rake -f \
         #{Shellwords.escape(__FILE__)} -P \
         | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with '$REPO_DIR' \
-               --narrow-path check,default\
+               --narrow-path old:check,check,default\
         | dot -Tpng -o pathogendb-pipeline.png
   SH
 end
@@ -145,6 +145,15 @@ task :multi, [:task_file, :n] => [:check] do |t, args|
   Dir.chdir(REPO_DIR) do
     Subscreens.run(cmds)
   end
+end
+
+
+desc "Clean all intermediate files from the OUT directory, and if [:prereqs] is set, all prereq software in vendor/"
+task :clean, [:prereqs] do |t|
+  rm_f "bash5.fofn"
+  rm_f "pathogendb-pipeline.png"
+  rm_rf "data"
+  rm_rf Dir.glob("#{REPO_DIR}/vendor/*") if args[:prereqs]
 end
 
 
