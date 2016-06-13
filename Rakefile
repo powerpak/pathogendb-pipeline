@@ -32,6 +32,7 @@ TASK_FILE = ENV['TASK_FILE']
 GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
 CLUSTER = ENV['CLUSTER']
 REPLACE_FASTA = ENV['REPLACE_FASTA'] && File.expand_path(ENV['REPLACE_FASTA'])
+SKIP_CIRCLATOR = ENV['SKIP_CIRCLATOR']
 
 
 #############################################################
@@ -247,8 +248,12 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
     module load mummer/3.23
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
     gunzip data/circ_input.fasta.gz
-    circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
   SH
+  if SKIP_CIRCLATOR
+    ln_s "data/circ_input.fasta", "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"
+  else
+    system "circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/"
+  end
 end
 
 
@@ -256,7 +261,7 @@ end
 # = post_circlator =
 # ==================
 
-desc "Renames the reoriented assembly contigs using a shortened scheme. If reorientated start too near contig start reorientate to middle of contig."
+desc "Renames the reoriented assembly contigs using a shortened scheme. If reoriented too near the contig start, reorientate to middle of contig."
 task :post_circlator => [:check, "data/#{STRAIN_NAME}_postcirc.fasta"]
 file "data/#{STRAIN_NAME}_postcirc.fasta" => "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" do |t|
   job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
