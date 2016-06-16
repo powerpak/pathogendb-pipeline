@@ -32,7 +32,7 @@ TASK_FILE = ENV['TASK_FILE']
 GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
 CLUSTER = ENV['CLUSTER']
 REPLACE_FASTA = ENV['REPLACE_FASTA'] && File.expand_path(ENV['REPLACE_FASTA'])
-SKIP_CIRCLATOR = ENV['SKIP_CIRCLATOR']
+CURATED = ENV['CURATED']
 
 
 #############################################################
@@ -251,8 +251,18 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
     gunzip data/circ_input.fasta.gz
   SH
-  if SKIP_CIRCLATOR
-    ln_s "data/circ_input.fasta", "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta"
+  if CURATED
+    system <<-SH or abort "FATAL: circlator failed to run to completion."
+      module purge
+      module load bwa
+      module load prodigal/2.6.2
+      module load samtools/1.1
+      module load spades/3.6.0
+      module load python/3.5.0  py_packages/3.5
+      module load mummer/3.23
+      mkdir data/#{STRAIN_NAME}_circlator
+      circlator fixstart data/circ_input.fasta data/#{STRAIN_NAME}_circlator/06.fixstart
+    SH
   else
     system <<-SH or abort "FATAL: circlator failed to run to completion."
       module purge
@@ -278,14 +288,10 @@ file "data/#{STRAIN_NAME}_postcirc.fasta" => "data/#{STRAIN_NAME}_circlator/06.f
   job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   job_id = job_id.rjust(6, '0')
-  if SKIP_CIRCLATOR
-    ln_s "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta", "data/#{STRAIN_NAME}_postcirc.fasta"
-  else
-    system <<-SH
-      # call script to rename contigs
-      #{REPO_DIR}/scripts/post_circlator_contig_rename.py data/#{STRAIN_NAME}_circlator/ data/#{STRAIN_NAME}_postcirc.fasta data/#{STRAIN_NAME}_postcirc2.fasta #{job_id}
-    SH
-  end
+  system <<-SH
+    # call script to rename contigs
+    #{REPO_DIR}/scripts/post_circlator_contig_rename.py data/#{STRAIN_NAME}_circlator/ data/#{STRAIN_NAME}_postcirc.fasta data/#{STRAIN_NAME}_postcirc2.fasta #{job_id}
+  SH
 end
 
 
