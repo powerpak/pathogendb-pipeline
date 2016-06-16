@@ -1,0 +1,18 @@
+xml_generator.py takes a project file project.xml and an isolates file isolates.txt and outputs an XML file for submission to the SRA at NCBI. The format for 
+project.xml is:
+	    <BioProject>
+	    Release date
+	    Name of BioProject
+	    Title of BioProject
+	    Medical Relevance
+	    Type(mono or multi-isolate)
+	    Organism Name
+	    </BioProject>
+
+The isolates.txt file is in the form
+            CD0001
+	    CD0003
+	    etc.
+
+The program is then invoked as follows:
+    python xml_generator.py project.xml isolates.txt > output.xml
