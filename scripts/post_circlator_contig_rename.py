@@ -57,10 +57,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             if first:
                 first = False
             else:
-                if curated:
-                    cbf, name, break_point, gn, gr, nn, skipped = line.split()
-                else:
-                    cbf1, cbf2, cbf3, name, break_point, gn, gr, nn, skipped = line.split()
+                name, break_point, gn, gr, nn, skipped = line.split(']')[1].split()
                 if break_point == '-':
                     pass
                 else:
