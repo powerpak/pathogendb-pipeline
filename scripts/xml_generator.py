@@ -6,13 +6,14 @@ import MySQLdb
 import re
 
 '''Queries pathogendb to get the necessary data for the XML'''
-def queryPathogenDB(organism):
+def queryPathogenDB(organism,isolateID_list):
     results=[]
     db=MySQLdb.connect(host="db.hpc.mssm.edu", db="vanbah01_pathogens", user="pathogendb_ro", passwd="avbikCog3")
     cur=db.cursor()
-    cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks on tExtracts.stock_ID=tStocks.stock_ID join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.full_name=\'"+organism+"\' limit 10")
-    for row in cur.fetchall():
-        results.append(row)
+    for isolateID in isolateID_list:
+        cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks on tExtracts.stock_ID=tStocks.stock_ID join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.full_name=\'"+organism+"\' and tIsolates.isolate_ID=\'"+isolateID+"\'")
+        for row in cur.fetchall():
+            results.append(row)
     db.close()
     return results
 
@@ -44,8 +45,9 @@ def fill_data(results):
 
 
 bp=[]
+isolate_ID_list=[]
 datafile=sys.argv[1]
-
+isolates_list=sys.argv[2]
 fh=open(datafile, 'r')
 for line in fh:
     if(line.rstrip().split("\t")[0]=='<BioProject>'):
@@ -55,8 +57,13 @@ for line in fh:
     data_list=line.rstrip().split("\t")
     if(BioProject_flag==1):
         bp.append(data_list)
+fh.close()
+fh1=open(isolates_list, 'r')
+for line in fh1:
+    isolate_ID_list.append(line.rstrip())
+fh1.close()
 
-results=queryPathogenDB(bp[6][0])
+results=queryPathogenDB(bp[6][0],isolate_ID_list)
 (bs_organism, bs_collection_sourceA, bs_collection_sourceB, bs_collection_date,exp_platform, exp_readlength, exp_paired_end,exp_run_data)=fill_data(results)
 print "<Submission xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"../../xml/portal/submission.xsd\">"
 print "<Description>"
