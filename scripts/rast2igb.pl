@@ -28,6 +28,7 @@ use File::Basename;
 
 # GLOBALS
 my $sSvrRetrieveJob = 'svr_retrieve_RAST_job';
+my $sFetchMlst      = 'fetch_mlst.py';
 my $sFaToTwoBit     = 'faToTwoBit';
 my %hTrackColors    = (read_spans_bin_forward => "369EAD",
                        read_spans_bin_reverse => "C24642",
@@ -44,7 +45,10 @@ my %hTrackColors    = (read_spans_bin_forward => "369EAD",
                        total_reads => "000000");
 
 # If SAS_DIR is set in the environment, use perl to interpret the plbins directly (preserving the environment)
-if ($ENV{'SAS_DIR'}) { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
+if ($ENV{'SAS_DIR'})  { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
+
+# If REPO_DIR is set, use the direct path to the fetch_mlst.py script
+if ($ENV{'REPO_DIR'}) { $sFetchMlst      = "$ENV{'REPO_DIR'}/scripts/fetch_mlst.py"; }
 
 # GET PARAMETERS
 my $sHelp            = 0;
@@ -280,7 +284,7 @@ if ($sGenus and $sSpecies){
    $sSpecies = lc($sSpecies);
    if ( (length($sGenus) == 1) and ($sSpecies =~ /^[a-z]+$/) ){
       my $sMLSTdb = join('', lc($sGenus), lc($sSpecies));
-      system("fetch_mlst.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst $sMLSTdb --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+      system("$sFetchMlst --fasta $sGenomeDir/$sGenomeName.fasta --mlst $sMLSTdb --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
    }
    else{
       warn("Warning: skipped MLST database search because genus and/or species were incorrectly formatted in the genome name\n");
