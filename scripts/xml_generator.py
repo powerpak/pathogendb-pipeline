@@ -4,6 +4,16 @@ import sys
 import collections
 import MySQLdb
 import re
+import argparse
+parser=argparse.ArgumentParser(description='XML generator to generate XML from PathogenDB database for GenBank submission')
+parser.add_argument('-r','--release_date', help='Release date for GenBank submission')
+parser.add_argument('-n','--bioproject_name', help='Name of BioProject')
+parser.add_argument('-b','--bioproject_title', help='Title of BioProject')
+parser.add_argument('-m','--medical_relevance', help='Medical Relevance')
+parser.add_argument('-t','--type', help='Mono or Multiisolate')
+parser.add_argument('-o','--organism_name', help='Organism Name')
+parser.add_argument('-i','--isolates', help='Isolates File')
+args=parser.parse_args()
 
 '''Queries pathogendb to get the necessary data for the XML'''
 def queryPathogenDB(organism,isolateID_list):
@@ -46,24 +56,24 @@ def fill_data(results):
 
 bp=[]
 isolate_ID_list=[]
-datafile=sys.argv[1]
-isolates_list=sys.argv[2]
-fh=open(datafile, 'r')
-for line in fh:
-    if(line.rstrip().split("\t")[0]=='<BioProject>'):
-        BioProject_flag=1
-    if(line.rstrip().split("\t")[0]=='</BioProject>'):
-        BioProject_flag=0
-    data_list=line.rstrip().split("\t")
-    if(BioProject_flag==1):
-        bp.append(data_list)
-fh.close()
-fh1=open(isolates_list, 'r')
+#datafile=sys.argv[1]
+#isolates_list=sys.argv[2]
+#fh=open(datafile, 'r')
+#for line in fh:
+#    if(line.rstrip().split("\t")[0]=='<BioProject>'):
+#        BioProject_flag=1
+#    if(line.rstrip().split("\t")[0]=='</BioProject>'):
+#        BioProject_flag=0
+#    data_list=line.rstrip().split("\t")
+#    if(BioProject_flag==1):
+#        bp.append(data_list)
+#fh.close()
+fh1=open(args.isolates, 'r')
 for line in fh1:
     isolate_ID_list.append(line.rstrip())
 fh1.close()
 
-results=queryPathogenDB(bp[6][0],isolate_ID_list)
+results=queryPathogenDB(args.organism_name,isolate_ID_list)
 (bs_organism, bs_collection_sourceA, bs_collection_sourceB, bs_collection_date,exp_platform, exp_readlength, exp_paired_end,exp_run_data)=fill_data(results)
 print "<Submission xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"../../xml/portal/submission.xsd\">"
 print "<Description>"
@@ -77,7 +87,7 @@ print "<Last>Attie</Last>"
 print "</Name>"
 print "</Contact>"
 print "</Organization>"
-print "<Hold release_date=\'"+bp[1][0]+"\'></Hold>"
+print "<Hold release_date=\'"+args.release_date+"\'></Hold>"
 print "</Description>"
 print "<Action>"
 print "<AddData target_db=\"BioProject\">"
@@ -85,11 +95,11 @@ print "<Data content_type=\"xml\">"
 print "<XmlContent>"
 print "<Project schema_version=\"2.0\">"
 print "<ProjectID>"
-print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+bp[2][0]+"</SPUID>"
+print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+args.bioproject_name+"</SPUID>"
 print "</ProjectID>"
 print "<Descriptor>"
-print "<Title>"+bp[3][0]+"</Title>"
-print "<Description><p>"+bp[2][0]+"</p></Description>"
+print "<Title>"+args.bioproject_title+"</Title>"
+print "<Description><p>"+args.bioproject_name+"</p></Description>"
 print "<Relevance>"
 print "<Medical>Yes</Medical>"
 print "</Relevance>"
@@ -97,7 +107,7 @@ print "</Descriptor>"
 print "<ProjectType>"
 print "<ProjectTypeSubmission sample_scope=\"eMonoisolate\">"
 print "<Organism>"
-print "<OrganismName>"+bp[6][0]+"</OrganismName>"
+print "<OrganismName>"+args.organism_name+"</OrganismName>"
 print "</Organism>"
 print "<IntendedDataTypeSet>"
 print "<DataType>genome sequencing</DataType>"
@@ -108,7 +118,7 @@ print "</Project>"
 print "</XmlContent>"
 print "</Data>"
 print "<Identifier>"
-print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+bp[2][0]+"</SPUID>"
+print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+args.bioproject_name+"</SPUID>"
 print "</Identifier>"
 print "</AddData>"
 print "</Action>"
@@ -180,7 +190,7 @@ for isolate in bs_organism.keys():
             print "<Attribute name=\"library_layout\">PAIRED_END</Attribute>"
         print "<AttributeRefId name=\"BioProject\">"
         print "<RefId>"
-        print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+bp[2][0]+"</SPUID>"
+        print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+args.bioproject_name+"</SPUID>"
         print "</RefId>"
         print "</AttributeRefId>"
         print "<AttributeRefId name=\"BioSample\">"
