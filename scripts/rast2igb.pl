@@ -47,8 +47,6 @@ my %hTrackColors    = (read_spans_bin_forward => "369EAD",
 # If SAS_DIR is set in the environment, use perl to interpret the plbins directly (preserving the environment)
 if ($ENV{'SAS_DIR'})  { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
 
-# If REPO_DIR is set, use the direct path to the fetch_mlst.py script
-if ($ENV{'REPO_DIR'}) { $sFetchMlst      = "$ENV{'REPO_DIR'}/scripts/fetch_mlst.py"; }
 
 # GET PARAMETERS
 my $sHelp            = 0;
@@ -61,6 +59,7 @@ my $sFromGenbankFile = '';
 my $sBigWigDir       = '';
 my $sQcDir           = '';
 my $sBamFile         = '';
+my $sRepoDir         = '';
 my $res = GetOptions("help!"       => \$sHelp,
                      "user=s"      => \$sRastUser,
                      "pass=s"      => \$sRastPass,
@@ -70,7 +69,8 @@ my $res = GetOptions("help!"       => \$sHelp,
                      "qcdir=s"     => \$sQcDir,
                      "bam=s"       => \$sBamFile,
                      "genome=s"    => \$sGenomeName,
-                     "igbdir=s"    => \$sIGBdir);
+                     "igbdir=s"    => \$sIGBdir,
+                     "repodir=s"   => \$sRepoDir);
 
 # PRINT HELP
 $sHelp = 1 unless (($sFromGenbankFile or ($sRastPass and $sRastUser and $nRastJobID)) and $sGenomeName and $sIGBdir);
@@ -101,6 +101,8 @@ if (!$res || $sHelp) {
          Optional directory with assembly QC data
        -b --bamfile <string>
          Optional bam file with aligned reads
+       -r --repodir <string>
+         directory containing repository
        -help
          This help message
 
@@ -132,6 +134,10 @@ my $sGenomeDir = "$sIGBdir/$sGenomeName";
 if (-d $sGenomeDir) {
    die "FATAL: $sGenomeDir already exists, possibly from a failed run.\n       Please move or delete it before re-running this script.\n";
 }
+
+# If REPO_DIR is set, use the direct path to the fetch_mlst.py script
+if ($sRepoDir) { $sFetchMlst      = "$sRepoDir/scripts/fetch_mlst.py"; }
+
 mkdir($sGenomeDir) or die "FATAL: could not create $sGenomeDir - $!\n";
 
 
