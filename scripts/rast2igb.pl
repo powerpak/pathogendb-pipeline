@@ -28,6 +28,7 @@ use File::Basename;
 
 # GLOBALS
 my $sSvrRetrieveJob = 'svr_retrieve_RAST_job';
+my $sFetchMlst      = 'fetch_mlst.py';
 my $sFaToTwoBit     = 'faToTwoBit';
 my %hTrackColors    = (read_spans_bin_forward => "369EAD",
                        read_spans_bin_reverse => "C24642",
@@ -44,7 +45,10 @@ my %hTrackColors    = (read_spans_bin_forward => "369EAD",
                        total_reads => "000000");
 
 # If SAS_DIR is set in the environment, use perl to interpret the plbins directly (preserving the environment)
-if ($ENV{'SAS_DIR'}) { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
+if ($ENV{'SAS_DIR'})  { $sSvrRetrieveJob = "perl $ENV{'SAS_DIR'}/plbin/svr_retrieve_RAST_job.pl"; }
+
+# If REPO_DIR is set, use the direct path to the fetch_mlst.py script
+if ($ENV{'REPO_DIR'}) { $sFetchMlst      = "$ENV{'REPO_DIR'}/scripts/fetch_mlst.py"; }
 
 # GET PARAMETERS
 my $sHelp            = 0;
@@ -74,10 +78,10 @@ if (!$res || $sHelp) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
    die <<HELP
 
-   Usage: 
+   Usage:
        $sScriptName -f <genbankfile> -g <genomename> -i <igbdir> [ -b <bigwigdir> -q <qcdir> -b <bamfile> ]
        $sScriptName -u <rastuser> -p <rastpass> -j <rastjob> -g <genomename> -i <igbdir> [ -b <bigwigdir> -q <qcdir> -b <bamfile> ]
-   
+
    Arguments
        -f --from <string>
          GenBank file that will be used as input (overrides -u, -p, and -j)
@@ -99,7 +103,7 @@ if (!$res || $sHelp) {
          Optional bam file with aligned reads
        -help
          This help message
-   
+
 HELP
 }
 
@@ -138,7 +142,7 @@ mkdir($sGenomeDir) or die "FATAL: could not create $sGenomeDir - $!\n";
 # Create a beddetail file for the annotations
 if ($sFromGenbankFile) {
    genbank_to_beddetail($sFromGenbankFile, $sGenomeDir, $sGenomeName);
-} 
+}
 else {
    rast_to_beddetail($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName);
 }
@@ -256,7 +260,7 @@ unless(exists $hContentIDs{$sGenomeName}){
 }
 
 # Now clear and rewrite the content file
-seek(CONTENT, 0, 0); 
+seek(CONTENT, 0, 0);
 truncate(CONTENT, 0);
 print CONTENT @asFile;
 close(CONTENT);
@@ -280,7 +284,7 @@ if ($sGenus and $sSpecies){
    $sSpecies = lc($sSpecies);
    if ( (length($sGenus) == 1) and ($sSpecies =~ /^[a-z]+$/) ){
       my $sMLSTdb = join('', lc($sGenus), lc($sSpecies));
-      system("fetch_mlst.py --fasta $sGenomeDir/$sGenomeName.fasta --mlst $sMLSTdb --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+      system("$sFetchMlst --fasta $sGenomeDir/$sGenomeName.fasta --mlst $sMLSTdb --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
    }
    else{
       warn("Warning: skipped MLST database search because genus and/or species were incorrectly formatted in the genome name\n");
@@ -344,7 +348,7 @@ sub genbank_to_beddetail {
       $sLocusID =~ s/^ +//;
       $sLocusID =~ s/\|/_/g;
       $sLocusID =~ s/\s+$//;
-      
+
       # Each CDS/RNA feature becomes a line in the BED file
       for my $feature ($nextSeq->get_SeqFeatures) {
          if ($feature->primary_tag =~ /^CDS|tRNA|rRNA$/i) {
@@ -353,7 +357,7 @@ sub genbank_to_beddetail {
             my @anBlockStarts = ();
             my @anBlockSizes = ();
             my ($nStart, $nEnd, $sBlockStarts, $sBlockSizes, $sID, $sName, $sDescription);
-            
+
             # Must convert GenBank locations into BED's chromStart, chromEnd, blockStarts and blockSizes.
             if ($location->isa("Bio::Location::SplitLocationI")) {
                ($nStart, $nEnd) = minmax(map { $_->start } $feature->location->sub_Location);
@@ -368,14 +372,14 @@ sub genbank_to_beddetail {
                push @anBlockStarts, 0;
                push @anBlockSizes, $nEnd - $nStart;
             }
-            
+
             # Figure out best names, IDs, and descriptions from feature tags.
             if ($feature->has_tag("db_xref")) {
                for my $sDbXref ($feature->get_tag_values('db_xref')) {
                   if ($sDbXref =~ /^SEED:(.+)$/) { $sID = $1; $sName = $1; }
                }
             }
-            
+
             if ($feature->has_tag("gene")) {
                ($sID) = ($feature->get_tag_values('gene'));
             }
@@ -383,7 +387,7 @@ sub genbank_to_beddetail {
                ($sName) = ($feature->get_tag_values('locus_tag'));
                ($sID)   = ($feature->get_tag_values('locus_tag')) unless ($sID);
             }
-            
+
             die "Error: feature '$sID $sName' has no SEED ID\n" unless ($sID);
             if ($feature->has_tag("gene")) {
                $sName = ($feature->get_tag_values("gene"))[0];
@@ -397,12 +401,12 @@ sub genbank_to_beddetail {
                my @asDescParts = split /;\s+/, $sDescription;
                $sName = $asDescParts[-1];
             }
-            
+
             # Print the line to the BED file.
             $sName        ||= $sID;
             $sDescription ||= $sID;
             $sName =~ s/[^\w-]/-/g;
-            print BEDOUT join("\t", ($sLocusID, $nStart, $nEnd, $sName, '0', $sStrand, $nStart, $nEnd, '0,0,0', 0+@anBlockSizes, 
+            print BEDOUT join("\t", ($sLocusID, $nStart, $nEnd, $sName, '0', $sStrand, $nStart, $nEnd, '0,0,0', 0+@anBlockSizes,
                               join(',', @anBlockSizes), join(',', @anBlockStarts), $sID, $sDescription)) . "\n";
          }
       }
@@ -463,7 +467,7 @@ sub rast_to_beddetail {
          $hFeatures{$sID}{$sType}{'start'} = $nStart;
          $hFeatures{$sID}{$sType}{'end'}   = $nEnd;
          push @{$hFeatures{$sID}{$sType}{'features'}}, [$nStart, $nEnd];
-      }   
+      }
    }
    print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
    close BEDOUT;
@@ -476,7 +480,7 @@ sub rast_to_beddetail {
 sub get_bedline{
    my $rhFeatures = shift @_;
    my $sReturn = "";
-   
+
    foreach my $sID (keys(%$rhFeatures)){
       # Parse ID string
       my %hAnnots;
@@ -487,7 +491,7 @@ sub get_bedline{
       }
       my $sOutID   = exists($hAnnots{ID}) ? $hAnnots{ID} : "ID not found";
       my $sOutDesc = exists($hAnnots{Name}) ? $hAnnots{Name} : "Name not found";
-   
+
       if (exists($rhFeatures->{$sID}{'exon'}) and exists($rhFeatures->{$sID}{'cds'})){
          my $nStart      = $rhFeatures->{$sID}{'exon'}{'start'} - 1;
          my $nThickStart = $rhFeatures->{$sID}{'cds'}{'start'} - 1;
@@ -524,14 +528,14 @@ sub get_bedline{
 sub get_blocks {
    my ($nGenomeStart, $raBlocks) = @_;
    my @aaBlocks = @$raBlocks;
-   
+
    if (scalar(@aaBlocks)==1){
       my ($nStart,$nEnd) = @{$aaBlocks[0]};
       my $blocksize = $nEnd-$nStart+1;
       return join("\t", 1,"$blocksize,","0,");
    }
    else{
-      
+
       # Now sort by start then end and process each block
       @aaBlocks = sort { $a->[0] <=> $b->[0] || $a->[1] <=> $b->[1] } @aaBlocks;
       my @anBlockStarts;
@@ -546,5 +550,4 @@ sub get_blocks {
       return join("\t", scalar(@aaBlocks), "$sBlockSizes,","$sBlockStarts,");
    }
 }
-
 
