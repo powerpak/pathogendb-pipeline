@@ -428,7 +428,8 @@ task :prokka_to_igb => [:check, :prokka_and_QC] do |t|
         -q data/www/ \
         -w data/qc_wd/bigwig/ \
         -b data/qc_wd/alignment.sorted.bam \
-        -i #{IGB_DIR}
+        -i #{IGB_DIR} \
+        -r #{REPO_DIR}
   SH
 end
 
