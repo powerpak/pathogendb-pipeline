@@ -174,8 +174,8 @@ for isolate in bs_organism.keys():
 #        print runs[0][0][1][1][0]
 #        for k in range(1, len(runs[i-1][j-1].keys())+1):
 #            print "\t\t<File file_path=\""+str(runs[i-1][j-1][i][1][0])+"\">"
-        print "<DataType>generic-data</DataType>"
-        print "</File>"
+            print "<DataType>generic-data</DataType>"
+            print "</File>"
         if(exp_platform[isolate][exp]=='Pacbio'):
             print "<Attribute name=\"instrument_model\">PacBio RSII</Attribute>"
         else:
