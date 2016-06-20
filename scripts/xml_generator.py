@@ -18,7 +18,7 @@ args=parser.parse_args()
 '''Queries pathogendb to get the necessary data for the XML'''
 def queryPathogenDB(organism,isolateID_list):
     results=[]
-    db=MySQLdb.connect(host="db.hpc.mssm.edu", db="vanbah01_pathogens", user="pathogendb_ro", passwd="avbikCog3")
+    db=MySQLdb.connect(host="db.hpc.mssm.edu", db="vanbah01_pathogens", user="", passwd="avbikCog3")
     cur=db.cursor()
     for isolateID in isolateID_list:
         cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks on tExtracts.stock_ID=tStocks.stock_ID join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.full_name=\'"+organism+"\' and tIsolates.isolate_ID=\'"+isolateID+"\'")
@@ -133,9 +133,9 @@ for isolate in bs_organism.keys():
     print "</SampleId>"
     print "<Descriptor>"
     if(len(bs_collection_sourceA[isolate])>0):
-        print "<Title>"+bs_organism[isolate]+" sample from "+bs_collection_sourceA[isolate]+"</Title>"
+        print "<Title>"+bs_organism[isolate]+" "+isolate+" sample from "+bs_collection_sourceA[isolate]+"</Title>"
     else:
-        print "<Title>"+bs_organism[isolate]+" sample from "+bs_collection_sourceB[isolate]+"</Title>"
+        print "<Title>"+bs_organism[isolate]+" "+isolate+" sample from "+bs_collection_sourceB[isolate]+"</Title>"
     print "</Descriptor>"
     print "<Organism>"
     print "<OrganismName>"+bs_organism[isolate]+"</OrganismName>"
@@ -150,7 +150,7 @@ for isolate in bs_organism.keys():
     else:
         print "<Attribute attribute_name=\"isolation_source\">"+bs_collection_sourceB[isolate]+"</Attribute>"
     print "<Attribute attribute_name=\"geo_loc_name\">USA:New York City</Attribute>"
-    print "<Attribute attribute_name=\"lat_lon\">40N 73W</Attribute>"
+    print "<Attribute attribute_name=\"lat_lon\">41N 74W</Attribute>"
     print "</Attributes>"
     print "</BioSample>"
     print "</XmlContent>"
@@ -188,7 +188,7 @@ for isolate in bs_organism.keys():
         print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+args.bioproject_name+"</SPUID>"
         print "</RefId>"
         print "</AttributeRefId>"
-        print "<AttributeRefId name=\"BimoSample\">"
+        print "<AttributeRefId name=\"BioSample\">"
         print "<RefId>"
         print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+isolate+"</SPUID>"
         print "</RefId>"
