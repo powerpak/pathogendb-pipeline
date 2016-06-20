@@ -122,13 +122,13 @@ print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+args.bioproject_name+"</SPUID>"
 print "</Identifier>"
 print "</AddData>"
 print "</Action>"
-print "<Action>"
-print "<AddData target_db=\"BioSample\">"
-print "<Data content_type=\"xml\">"
-print "<XmlContent>"
-print "<BioSample schema_version=\"2.0\">"
-print "<SampleId>"
 for isolate in bs_organism.keys():
+    print "<Action>"
+    print "<AddData target_db=\"BioSample\">"
+    print "<Data content_type=\"xml\">"
+    print "<XmlContent>"
+    print "<BioSample schema_version=\"2.0\">"
+    print "<SampleId>"
     print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+isolate+"</SPUID>"
     print "</SampleId>"
     print "<Descriptor>"
@@ -167,13 +167,8 @@ for isolate in bs_organism.keys():
         fh=open("/sc/orga/projects/pacbio/userdata_permanent/jobs/"+str(url[-1])[:3]+"/"+url[-1]+"/input.fofn", 'r')
 
         for line in fh.readlines():
-            reads=line.split("/")
+            reads=line.rstrip().split("/")
             print "<File file_path=\""+reads[-1]+"\">"
-#        print runs
-#        print range(0, len(runs[i-1][j-1].keys())+1)
-#        print runs[0][0][1][1][0]
-#        for k in range(1, len(runs[i-1][j-1].keys())+1):
-#            print "\t\t<File file_path=\""+str(runs[i-1][j-1][i][1][0])+"\">"
             print "<DataType>generic-data</DataType>"
             print "</File>"
         if(exp_platform[isolate][exp]=='Pacbio'):
@@ -193,7 +188,7 @@ for isolate in bs_organism.keys():
         print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+args.bioproject_name+"</SPUID>"
         print "</RefId>"
         print "</AttributeRefId>"
-        print "<AttributeRefId name=\"BioSample\">"
+        print "<AttributeRefId name=\"BimoSample\">"
         print "<RefId>"
         print "<SPUID spuid_namespace=\"ISMMS_PSP\">"+isolate+"</SPUID>"
         print "</RefId>"
