@@ -324,7 +324,7 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
     samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
         -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
-    gunzip data/consensus.fasta.gz
+    gunzip -f data/consensus.fasta.gz
   SH
   cp "data/consensus.fasta", "data/#{STRAIN_NAME}_consensus_circ.fasta"
 end
@@ -334,7 +334,7 @@ end
 # = post_quiver_orient_correct =
 # ==============================
 
-desc "Renames the reoriented assembly contigs using a shortened scheme"
+desc "Corrects orientation post-resequencing and renames contigs using a shortened scheme"
 task :post_quiver_orient_correct => [:check, "data/#{STRAIN_NAME}_prokka.fasta"]
 file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_consensus_circ.fasta" do |t|
   abort "FATAL: Task post_quiver_orient_correct requires specifying STRAIN_NAME" unless STRAIN_NAME 
@@ -465,24 +465,29 @@ end
 # = motif_and_mods =
 # ==================
 
-desc "Reruns SMRTPipe for modifcation and motif analysis on the reoriented assembly"
+desc "Reruns SMRTPipe for modification and motif analysis on the polished assembly"
 task :motif_and_mods => [:check, "data/motif_summary.csv"]
 file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
   abort "FATAL: Task motif_and_mods requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
   
+  rm_rf "polished_sequence"
+  mkdir_p "polished_sequence"
   system <<-SH or abort
     module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    referenceUploader -c -p reoriented_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_reorient.fasta
+    referenceUploader -c -p polished_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_prokka.fasta
   SH
+  # NOTE: sometimes referenceUploader auto-appends a timestamp to the reference name given by `-n` to avoid a conflict
+  # Therefore, we must detect if it did this by checking how it named the directory
+  reference_dir = Dir.glob("polished_sequence/#{STRAIN_NAME}*").last
   cp "#{REPO_DIR}/xml/motif_simple_example_params.xml", OUT
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl motif_simple_example_params.xml " +
-      "#{OUT} reoriented_sequence/#{STRAIN_NAME} > motif_simple_params.xml" and
+      "#{OUT} #{reference_dir} > motif_simple_params.xml" and
   system <<-SH or abort
     module load smrtpipe/2.2.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    samtools faidx reoriented_sequence/#{STRAIN_NAME}/sequence/#{STRAIN_NAME}.fasta &&
+    samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
         -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params motif_simple_params.xml xml:bash5.xml
   SH
