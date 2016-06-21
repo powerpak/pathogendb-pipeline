@@ -8,6 +8,10 @@ import argparse
 parser=argparse.ArgumentParser(description='XML generator to generate XML from PathogenDB database for GenBank submission')
 parser.add_argument('-r','--release_date', help='Release date for GenBank submission')
 parser.add_argument('-n','--bioproject_name', help='Name of BioProject')
+parser.add_argument('-p','--password', help='database password')
+parser.add_argument('-u','--user', help='database user')
+parser.add_argument('-h','--host', help='database host')
+parser.add_argument('-d','--database', help='database name')
 parser.add_argument('-b','--bioproject_title', help='Title of BioProject')
 parser.add_argument('-m','--medical_relevance', help='Medical Relevance')
 parser.add_argument('-t','--type', help='Mono or Multiisolate')
@@ -18,7 +22,7 @@ args=parser.parse_args()
 '''Queries pathogendb to get the necessary data for the XML'''
 def queryPathogenDB(organism,isolateID_list):
     results=[]
-    db=MySQLdb.connect(host="db.hpc.mssm.edu", db="vanbah01_pathogens", user="", passwd="avbikCog3")
+    db=MySQLdb.connect(host=args.host, db=args.database, user=args.user, passwd=args.password)
     cur=db.cursor()
     for isolateID in isolateID_list:
         cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks on tExtracts.stock_ID=tStocks.stock_ID join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.full_name=\'"+organism+"\' and tIsolates.isolate_ID=\'"+isolateID+"\'")
