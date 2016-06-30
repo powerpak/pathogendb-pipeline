@@ -205,7 +205,6 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
     cp "#{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
     system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
     rm "data/polished_assembly.fasta.gz"
-    cp "data/replaced_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
   end
 end
 
@@ -224,6 +223,7 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
   
   if REPLACE_FASTA
     puts "NOTICE: polished_assembly.fasta.gz has been replaced by user input, skipping assemble_raw_reads"
+    cp "data/replaced_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
     next
   end
   
