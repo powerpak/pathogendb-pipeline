@@ -222,6 +222,11 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
     fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
   SH
   
+  if REPLACE_FASTA
+    puts "NOTICE: polished_assembly.fasta.gz has been replaced by user input, skipping assemble_raw_reads"
+    next
+  end
+  
   lstat = File::lstat("data/polished_assembly.fasta.gz") rescue nil
   if lstat and lstat.symlink?
     puts "NOTICE: polished_assembly.fasta.gz is symlinked to an existing assembly, skipping assemble_raw_reads"
