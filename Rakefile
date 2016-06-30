@@ -202,7 +202,7 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   #     in place of the polished_assembly.fasta.gz built by SMRTPortal.
   # Note that the fastq, best edges data, etc., if they do not match the new fasta, may throw off QC analyses.
   if REPLACE_FASTA
-    cp "{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
+    cp "#{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
     system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
     rm "data/polished_assembly.fasta.gz"
     cp "data/replaced_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
