@@ -41,7 +41,7 @@ If a required environment variable isn't present when a task is run and there is
 Variable             | Required by                                             | Default | Purpose
 ---------------------|---------------------------------------------------------|---------|-----------------------------------
 `OUT`                | all tasks                                               | ./out   | This is where your interim and completed files are saved
-`SMRT_JOB_ID`        | `pull_down_raw_reads` `prokka_to_igb` `ilm:rast_to_igb`   | (none)  | The ID of the job on the SMRTPortal with your reads.
+`SMRT_JOB_ID`        | `pull_down_raw_reads` `prokka_to_igb` `post_circlator` `ilm:rast_to_igb`  | (none)  | The ID of the job on the SMRTPortal with your reads.
 `STRAIN_NAME`        | `resequence_assembly` `prokka_annotate` `prokka_to_igb` `ilm:recall_consensus` `ilm:prokka_annotate` `ilm:prokka_to_igb`  | (none)  | The strain name for your sample. **This cannot include anything but letters, numbers and underscores.**
 `SPECIES`            | `prokka_annotate` `prokka_to_igb` `ilm:prokka_annotate` `ilm:prokka_to_igb` | (none)  | The species for your sample.
 `ILLUMINA_FASTQ`     | `ilm:recall_consensus`                                  | (none)  | A path pointing to a FASTQ file containing the Illumina unpaired reads.

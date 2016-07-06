@@ -254,7 +254,7 @@ task :run_circlator => [:check, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta
 file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system <<-SH
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
-    gunzip data/circ_input.fasta.gz
+    gunzip -f data/circ_input.fasta.gz
   SH
   if CURATED
     system <<-SH or abort "FATAL: circlator failed to run to completion."
@@ -265,7 +265,7 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
       module load spades/3.6.0
       module load python/3.5.0  py_packages/3.5
       module load mummer/3.23
-      mkdir data/#{STRAIN_NAME}_circlator
+      mkdir -p data/#{STRAIN_NAME}_circlator
       circlator fixstart data/circ_input.fasta data/#{STRAIN_NAME}_circlator/06.fixstart
     SH
   else
@@ -277,6 +277,7 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
       module load spades/3.6.0
       module load python/3.5.0  py_packages/3.5
       module load mummer/3.23
+      rm -rf data/#{STRAIN_NAME}_circlator
       circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
     SH
   end
