@@ -61,7 +61,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
                 if skipped ==   'skipped':
                     pass
                 else:
-                    if break_point == '-'
+                    if break_point == '-':
                         break_point = 0
                     reorient_dict[name] = int(break_point)
     out = open(outname, 'w')
