@@ -255,6 +255,7 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
   system <<-SH
     cp data/polished_assembly.fasta.gz data/circ_input.fasta.gz
     gunzip -f data/circ_input.fasta.gz
+    echo "INFO: starting circlator."
   SH
   if CURATED
     system <<-SH or abort "FATAL: circlator failed to run to completion."
