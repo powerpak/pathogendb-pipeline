@@ -202,10 +202,9 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   #     in place of the polished_assembly.fasta.gz built by SMRTPortal.
   # Note that the fastq, best edges data, etc., if they do not match the new fasta, may throw off QC analyses.
   if REPLACE_FASTA
-    cp "{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
+    cp "#{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
     system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
     rm "data/polished_assembly.fasta.gz"
-    cp "data/replaced_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
   end
 end
 
@@ -221,6 +220,12 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
     source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
     fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
   SH
+  
+  if REPLACE_FASTA
+    puts "NOTICE: polished_assembly.fasta.gz has been replaced by user input, skipping assemble_raw_reads"
+    cp "data/replaced_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
+    next
+  end
   
   lstat = File::lstat("data/polished_assembly.fasta.gz") rescue nil
   if lstat and lstat.symlink?
