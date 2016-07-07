@@ -128,7 +128,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             at_least_one = True
             out_log.write(contig_name + '_' + assembly_no + '\n')
             out_log.write(seqDict[i])
-            seq = seqDict[i][len(seq)/2:] + seqDict[i][:len(seq)/2]
+            seq = seqDict[i][len(seqDict[i])/2:] + seqDict[i][:len(seqDict[i])/2]
         contig_name += '_' + assembly_no
         out_list.append((contig_name, seq))
     out_list.sort()
