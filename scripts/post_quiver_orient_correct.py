@@ -26,7 +26,7 @@ def reorientate_fasta(fasta_file, log_file, out_file, working_dir):
         with open(working_dir + '/blast_temp.out') as f:
             for line in f:
                 query, subject, length, ident, mm, indel, qstart, qstop, rstart, rstop, evalue, bitscore = line.split()
-                if query + '|quiver' == subject and int(qstart) < int(qstop) and int(rstart) < int(rstop) and int(rstart) < 10 and float(ident) > 90:
+                if query == subject + '|quiver' and int(qstart) < int(qstop) and int(rstart) < int(rstop) and int(rstart) < 10 and float(ident) > 90:
                     if first[query] is None:
                         first[query] = map(int, (qstart, qstop, rstart, rstop))
     with open(log_file) as f:
