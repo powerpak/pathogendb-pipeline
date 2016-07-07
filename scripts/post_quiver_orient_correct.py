@@ -29,12 +29,12 @@ def reorientate_fasta(fasta_file, log_file, out_file, working_dir):
                 if query + '|quiver' == subject and int(qstart) < int(qstop) and int(rstart) < int(rstop) and int(rstart) < 10 and float(ident) > 90:
                     if first[query] is None:
                         first[query] = map(int, (qstart, qstop, rstart, rstop))
-    out = open(out_file, 'w')
     with open(log_file) as f:
         for line in f:
             if line.startswith('>') and not line.rstrip()[1:] in first:
-                sys.sterr.write('No hit found for contig ' + line.rstrip()[1:] + '\n')
+                sys.stderr.write('No hit found for contig ' + line.rstrip()[1:] + '\n')
                 sys.exit()
+    out = open(out_file, 'w')
     for i in seqDict:
         if first[i] is None:
             newstart = 0
