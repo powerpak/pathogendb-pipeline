@@ -58,7 +58,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
                 first = False
             else:
                 name, break_point, gn, gr, nn, skipped = line.split(']')[1].split()
-                if skipped ==   'skipped':
+                if skipped == 'skipped':
                     pass
                 else:
                     if break_point == '-':
@@ -126,7 +126,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             seq = seqDict[i]
         else: # If the contig has been reorientated near the start, re-reorienate and keep a record of inital position so that it can be orientated back to DNAA after quiver
             at_least_one = True
-            out_log.write(contig_name + '\n')
+            out_log.write(contig_name + '_' + assembly_no + '\n')
             out_log.write(seqDict[i])
             seq = seqDict[i][len(seq)/2:] + seqDict[i][:len(seq)/2]
         contig_name += '_' + assembly_no
