@@ -560,7 +560,7 @@ namespace :ilm do
     LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
     LSF.job_name "prokka.ref.aln.sam"
     LSF.bsub_interactive <<-SH or abort
-      module load bwa/0.7.8
+      module load bwa/0.7.12
       bwa index "data/#{STRAIN_NAME}_prokka.fasta"
       bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/prokka.ref.aln.sam
   
