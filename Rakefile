@@ -476,7 +476,7 @@ end
 
 desc "Reruns SMRTPipe for modification and motif analysis on the polished assembly"
 task :motif_and_mods => [:check, "data/motif_summary.csv"]
-file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   abort "FATAL: Task motif_and_mods requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
   
