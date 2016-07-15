@@ -204,7 +204,9 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   if REPLACE_FASTA
     cp "#{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
     system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
-    rm "data/polished_assembly.fasta.gz"
+    if File.exist? "data/polished_assembly.fasta.gz"
+        rm "data/polished_assembly.fasta.gz"
+    end
   end
 end
 
