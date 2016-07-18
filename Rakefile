@@ -4,6 +4,7 @@ require_relative 'lib/colors'
 require_relative 'lib/lsf_client'
 require_relative 'lib/subscreens'
 require 'shellwords'
+require 'rspec/core/rake_task'
 include Colors
 
 task :default => :check
@@ -154,6 +155,16 @@ task :clean, [:prereqs] do |t, args|
   rm_f "pathogendb-pipeline.png"
   rm_rf "data"
   rm_rf Dir.glob("#{REPO_DIR}/vendor/*") if args[:prereqs]
+end
+
+
+# Runs all tests defined in spec/.
+
+RSpec::Core::RakeTask.new(:spec) do |t|
+t.pattern = Dir.glob('spec/**/*_spec.rb')
+t.rspec_opts = '--format documentation'
+# t.rspec_opts << ' more options'
+t.rcov = true
 end
 
 
@@ -707,5 +718,4 @@ namespace :ilm do
     SH
   end
   
-
 end # namespace :ilm
