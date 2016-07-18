@@ -36,6 +36,11 @@ CLUSTER = ENV['CLUSTER']
 REPLACE_FASTA = ENV['REPLACE_FASTA'] && File.expand_path(ENV['REPLACE_FASTA'])
 CURATED = ENV['CURATED']
 
+# Creates a special :spec task that runs all tests defined in spec/.
+RSpec::Core::RakeTask.new(:spec) do |t|
+t.pattern = Dir.glob('spec/**/*_spec.rb')
+t.rspec_opts = '--format documentation'
+end
 
 #############################################################
 #  IMPORTANT!
@@ -156,14 +161,6 @@ task :clean, [:prereqs] do |t, args|
   rm_f "pathogendb-pipeline.png"
   rm_rf "data"
   rm_rf Dir.glob("#{REPO_DIR}/vendor/*") if args[:prereqs]
-end
-
-
-# Runs all tests defined in spec/.
-
-RSpec::Core::RakeTask.new(:spec) do |t|
-t.pattern = Dir.glob("#{REPO_DIR}/spec/**/*_spec.rb")
-t.rspec_opts = '--format documentation'
 end
 
 
