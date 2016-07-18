@@ -4,6 +4,7 @@ require_relative 'lib/colors'
 require_relative 'lib/lsf_client'
 require_relative 'lib/subscreens'
 require 'shellwords'
+require 'bundler/setup'
 require 'rspec/core/rake_task'
 include Colors
 
