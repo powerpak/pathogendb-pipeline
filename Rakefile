@@ -151,6 +151,7 @@ end
 RSpec::Core::RakeTask.new(:spec) do |t|
 t.pattern = Dir.glob("#{REPO_DIR}/spec/**/*_spec.rb")
 t.rspec_opts = '--format documentation'
+t.rspec_opts << ' --color'
 end
 
 desc "Clean all intermediate files from the OUT directory (and if $prereqs is set, all downloaded software in vendor/ too)"
