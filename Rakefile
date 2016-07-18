@@ -678,8 +678,6 @@ namespace :ilm do
   # = prokka_to_igb =
   # =================
 
-  directory IGB_DIR
-
   desc "Creates an IGB Quickload-compatible directory for the Illumina-corrected assembly in IGB_DIR"
   task :prokka_to_igb => [:check, :prokka_and_QC] do |t|
     job_id = ENV['SMRT_JOB_ID']
