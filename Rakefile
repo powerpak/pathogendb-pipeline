@@ -204,7 +204,9 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   if REPLACE_FASTA
     cp "#{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
     system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
-    rm "data/polished_assembly.fasta.gz"
+    if File.exist? "data/polished_assembly.fasta.gz"
+        rm "data/polished_assembly.fasta.gz"
+    end
   end
 end
 
@@ -474,7 +476,7 @@ end
 
 desc "Reruns SMRTPipe for modification and motif analysis on the polished assembly"
 task :motif_and_mods => [:check, "data/motif_summary.csv"]
-file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_reorient.fasta" do |t|
+file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   abort "FATAL: Task motif_and_mods requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
   
@@ -558,7 +560,7 @@ namespace :ilm do
     LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
     LSF.job_name "prokka.ref.aln.sam"
     LSF.bsub_interactive <<-SH or abort
-      module load bwa/0.7.8
+      module load bwa/0.7.12
       bwa index "data/#{STRAIN_NAME}_prokka.fasta"
       bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/prokka.ref.aln.sam
   
