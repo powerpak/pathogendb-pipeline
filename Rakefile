@@ -162,7 +162,7 @@ end
 # Runs all tests defined in spec/.
 
 RSpec::Core::RakeTask.new(:spec) do |t|
-t.pattern = Dir.glob('spec/**/*_spec.rb')
+t.pattern = Dir.glob("#{REPO_DIR}/spec/**/*_spec.rb")
 t.rspec_opts = '--format documentation'
 end
 
