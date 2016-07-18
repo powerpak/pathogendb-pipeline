@@ -36,12 +36,6 @@ CLUSTER = ENV['CLUSTER']
 REPLACE_FASTA = ENV['REPLACE_FASTA'] && File.expand_path(ENV['REPLACE_FASTA'])
 CURATED = ENV['CURATED']
 
-# Creates a special :spec task that runs all tests defined in spec/.
-RSpec::Core::RakeTask.new(:spec) do |t|
-t.pattern = Dir.glob('spec/**/*_spec.rb')
-t.rspec_opts = '--format documentation'
-end
-
 #############################################################
 #  IMPORTANT!
 #  This Rakefile runs with the working directory set to OUT
@@ -118,20 +112,6 @@ end
 file "#{HTSLIB_DIR}/tabix" => "#{HTSLIB_DIR}/bgzip"
 
 
-file "pathogendb-pipeline.png" => [:graph]
-desc "Generates a graph of tasks, intermediate files and their dependencies from this Rakefile"
-task :graph do
-  system <<-SH
-    module load graphviz
-    STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' SMRT_JOB_ID='${SMRT_JOB_ID}' rake -f \
-        #{Shellwords.escape(__FILE__)} -P \
-        | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with '$REPO_DIR' \
-               --narrow-path old:check,check,default\
-        | dot -Tpng -o pathogendb-pipeline.png
-  SH
-end
-
-
 desc "Runs this pipeline in $n separate screens, doing all the tasks in $task_file"
 task :multi, [:task_file, :n] => [:check] do |t, args|
   abort "FATAL: Task multi requires specifying task_file argument" unless args[:task_file]
@@ -154,6 +134,24 @@ task :multi, [:task_file, :n] => [:check] do |t, args|
   end
 end
 
+file "pathogendb-pipeline.png" => [:graph]
+desc "Generates a graph of tasks, intermediate files and their dependencies from this Rakefile"
+task :graph do
+  system <<-SH
+    module load graphviz
+    STRAIN_NAME='${STRAIN_NAME}' SPECIES='${SPECIES}' SMRT_JOB_ID='${SMRT_JOB_ID}' rake -f \
+        #{Shellwords.escape(__FILE__)} -P \
+        | #{REPO_DIR}/scripts/rake-prereqs-dot.rb --prune #{REPO_DIR} --replace-with '$REPO_DIR' \
+               --narrow-path old:check,check,default\
+        | dot -Tpng -o pathogendb-pipeline.png
+  SH
+end
+
+# Creates a special :spec task that runs all tests defined in spec/.
+RSpec::Core::RakeTask.new(:spec) do |t|
+t.pattern = Dir.glob("#{REPO_DIR}/spec/**/*_spec.rb")
+t.rspec_opts = '--format documentation'
+end
 
 desc "Clean all intermediate files from the OUT directory (and if $prereqs is set, all downloaded software in vendor/ too)"
 task :clean, [:prereqs] do |t, args|
