@@ -256,7 +256,7 @@ task :run_circlator => [:check, "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta
 file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembly.fasta.gz" do |t|
   system <<-SH
     module purge
-    module load bwa
+    module load bwa/0.7.12
     module load prodigal/2.6.2
     module load samtools/1.1
     module load spades/3.6.0
