@@ -12,7 +12,7 @@ export PERL5LIB="/usr/bin/perl5.10.1"
 export TMP="/sc/orga/scratch/$USER/tmp"
 export SMRTANALYSIS="/sc/orga/projects/pacbio/modules/smrtanalysis/2.2.0/install/smrtanalysis_2.3.0.140936"
 export SHARED_DIR="/sc/orga/scratch/$USER/shared_dir"
-export IGB_DIR="$HOME/www/igb"
+export IGB_DIR="/hpc/users/vanbah01/www/igb"
 export REORIENT_FASTA="/sc/orga/projects/InfectiousDisease/reference-db/landmarks/dnaA-reference-sequences.fasta"
 export CLUSTER="LSF_PSP"
 
