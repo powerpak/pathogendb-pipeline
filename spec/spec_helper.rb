@@ -16,6 +16,10 @@ def cleanup_temporary_OUT(example)
   FileUtils.rm_r $OUT, :force => true, :secure => true
 end
 
+def md5(filename)
+  `md5sum #{Shellwords.escape filename}`.split(/ /).first
+end
+
 def copy_example(name)
   example_dir = File.expand_path("../data/#{name}", __FILE__)
   # trailing dot copies directory contents instead of directory itself

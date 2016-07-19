@@ -39,13 +39,12 @@ describe "pathogendb-pipeline" do
     end
     
     describe "task :run_circlator", :speed => 'slow' do
-      it "produces a 4884064-byte FASTA file as output (for 019203)" do
+      it "produces a FASTA file with md5 64ae02c8... as output (for 019203)" do
         strain = 'SM5478'
         run "SMRT_JOB_ID=019203 STRAIN_NAME=#{strain} rake --silent run_circlator"
         fasta_out = "#{$OUT}/data/#{strain}_circlator/06.fixstart.fasta"
         expect(File).to exist(fasta_out)
-        fasta_size = File.size fasta_out
-        expect(fasta_size).to eq(4884064)
+        expect(md5(fasta_out)).to eq('64ae02c8a8e68dc2134899b4281f93ca')
       end
     end
     
@@ -75,6 +74,16 @@ describe "pathogendb-pipeline" do
         expect(File).to exist(fasta_out)
         first_line = File.open(fasta_out, &:readline).strip
         expect(first_line).to eq('>u00000crxm_c_019203')
+      end
+    end
+    
+    describe "task :resequence_assembly", :speed => 'slow' do
+      it "produces a FASTA file with md5 ... as output" do
+        run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} CLUSTER=BASH rake --silent resequence_assembly"
+        fasta_out = "#{$OUT}/data/#{@strain}_consensus_circ.fasta"
+        expect(File).to exist(fasta_out)
+        puts md5(fasta_out)
+        expect(md5(fasta_out)).to eq('64ae02c8a8e68dc2134899b4281f93ca')
       end
     end
     
