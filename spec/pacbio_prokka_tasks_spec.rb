@@ -78,7 +78,7 @@ describe "pathogendb-pipeline" do
         expect(first_line).to eq('>u00000crxx_c_019203')
       end
       
-      context "when circlator input is absent"
+      context "when circlator input is absent" do
         before(:each) do
           FileUtils.rm "#{$OUT}/data/#{@strain}_circlator/00.input_assembly.fasta"
         end
