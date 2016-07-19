@@ -151,6 +151,7 @@ end
 RSpec::Core::RakeTask.new(:spec, :all) do |t, args|
   t.pattern = Dir.glob("#{REPO_DIR}/spec/**/*_spec.rb")
   t.rspec_opts = '--format documentation'
+  t.rspec_opts << ' --fail-fast'
   t.rspec_opts << ' --color'
   t.rspec_opts << ' --tag ~speed:slow' unless args[:all]
 end
