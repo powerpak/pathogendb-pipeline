@@ -152,6 +152,18 @@ This Rakefile is able to build a dependency graph of its intermediate files from
 
 ![Dependency graph](https://pakt01.u.hpc.mssm.edu/pathogendb-pipeline.png?)
 
+## Regression tests
+
+Can be run on any Minerva node:
+
+    $ source scripts/env.sh
+    $ bundle install --deployment
+    $ rake spec
+
+This runs all tests defined in `spec/*_spec.rb`, except by default, tests marked as `:speed => 'slow'` are skipped. `rake spec[all]` will run absolutely every test.
+
+Prepend `DEBUG=1` to `rake spec` if you want the temporary directory created for a test saved if it fails. Its location will be printed to the terminal.
+
 ## Other notes
 
 Although all [RAST][rast]-related tasks are now deprecated, this pipeline downloads and installs the [Network-based SEED API package](http://blog.theseed.org/servers/installation/distribution-of-the-seed-server-packages.html) into `vendor/sas`.  Documentation for some of the included executables and the Perl API are also on that page.  Within this package, we are overriding `RASTserver.pm` with our own version in `lib/perl`, because we need to support setting use of a proxy via the `HTTP_PROXY` environment variable.

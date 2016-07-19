@@ -148,12 +148,16 @@ task :graph do
 end
 
 # Creates a special :spec task that runs all tests defined in spec/.
-RSpec::Core::RakeTask.new(:spec, :all) do |t, args|
+RSpec::Core::RakeTask.new(:spec, :speed) do |t, args|
   t.pattern = Dir.glob("#{REPO_DIR}/spec/**/*_spec.rb")
   t.rspec_opts = '--format documentation'
   t.rspec_opts << ' --fail-fast'
   t.rspec_opts << ' --color'
-  t.rspec_opts << ' --tag ~speed:slow' unless args[:all]
+  if args[:speed]
+    t.rspec_opts << " --tag speed:#{args[:speed]}" unless args[:speed] == 'all'
+  else
+    t.rspec_opts << ' --tag ~speed:slow'   # avoid slow tests by default
+  end
 end
 
 desc "Clean all intermediate files from the OUT directory (and if $prereqs is set, all downloaded software in vendor/ too)"
