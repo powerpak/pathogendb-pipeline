@@ -59,13 +59,22 @@ describe "pathogendb-pipeline" do
       touch_prereqs :run_circlator, "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain}"
     end
     
-    describe "task :post_circlator", :speed => 'medium' do
+    describe "task :post_circlator" do
       it "renames the first contig to u00000crxx_c_019203" do
         run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} rake --silent post_circlator"
         fasta_out = "#{$OUT}/data/#{@strain}_postcirc.fasta"
         expect(File).to exist(fasta_out)
         first_line = File.open(fasta_out, &:readline).strip
         expect(first_line).to eq('>u00000crxx_c_019203')
+      end
+      
+      it "renames the first contig to u00000crxm_c_019203 if circlator output is deleted" do
+        FileUtils.rm "#{$OUT}/data/#{@strain}_circlator/00.input_assembly.fasta"
+        run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} rake --silent post_circlator"
+        fasta_out = "#{$OUT}/data/#{@strain}_postcirc.fasta"
+        expect(File).to exist(fasta_out)
+        first_line = File.open(fasta_out, &:readline).strip
+        expect(first_line).to eq('>u00000crxm_c_019203')
       end
     end
     
