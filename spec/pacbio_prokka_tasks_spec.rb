@@ -59,7 +59,7 @@ describe "pathogendb-pipeline" do
       touch_prereqs :run_circlator, "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain}"
     end
     
-    describe "task :post_circlator" do
+    describe "task :post_circlator", :speed => 'medium' do
       it "renames the first contig to u00000crxx_c_019203" do
         run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} rake --silent post_circlator"
         fasta_out = "#{$OUT}/data/#{@strain}_postcirc.fasta"
