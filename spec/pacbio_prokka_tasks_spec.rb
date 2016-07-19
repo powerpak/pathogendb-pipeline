@@ -3,46 +3,70 @@ require 'pp'
 
 describe "pathogendb-pipeline" do
   
-  context "when running prokka pacbio-only tasks" do
-    
-    before(:all) { setup_temporary_OUT }
-    after(:all) { cleanup_temporary_OUT }
+  around(:each) do |example|
+    setup_temporary_OUT
+    example.run
+    if ENV['DEBUG'] && example.exception
+      $stderr.puts "DEBUG: Files left in #{$OUT}"
+    else
+      cleanup_temporary_OUT(example)
+    end
+  end
+  
+  context "when running tasks from scratch" do
   
     describe "task :pull_down_raw_reads" do
-      
-      it "pulls down a polished assembly for a job in SMRT Portal" do
-        %x{SMRT_JOB_ID=023625 rake --quiet pull_down_raw_reads}
+      it "pulls down a polished assembly for a job in SMRT Portal (023625)" do
+        run "SMRT_JOB_ID=023625 rake --silent pull_down_raw_reads"
         expect(File).to exist("#{$OUT}/bash5.fofn")
         expect(File).to exist("#{$OUT}/data/polished_assembly.fasta.gz")
       end
       
-      it "pulls down a polished assembly for a job in old_smrtportal_jobs" do
-        %x{SMRT_JOB_ID=019203 rake --quiet pull_down_raw_reads}
+      it "pulls down a polished assembly for a job in old_smrtportal_jobs (019203)" do
+        run "SMRT_JOB_ID=019203 rake --silent pull_down_raw_reads"
         expect(File).to exist("#{$OUT}/bash5.fofn")
         expect(File).to exist("#{$OUT}/data/polished_assembly.fasta.gz")
       end
-      
     end
     
     describe "task :assemble_raw_reads" do
-      
-      it "skips assembly for a job already assembled by SMRT Portal" do
-        stdout = %x{SMRT_JOB_ID=023625 rake --quiet assemble_raw_reads}
+      it "skips assembly for a job already assembled by SMRT Portal (023625)" do
+        stdout = run "SMRT_JOB_ID=023625 rake --silent assemble_raw_reads"
         expect(File).to exist("#{$OUT}/data/polished_assembly.fasta.gz")
-        expect(File).to_not exist("#{$OUT}/example_params.xml")
+        expect(File).not_to exist("#{$OUT}/example_params.xml")
         expect(stdout).to match(/NOTICE: .* skipping assemble_raw_reads/)
       end
-      
     end
     
-    describe "task :run_circlator" do
-      
-      # Warning, long-running test.
-      it "produces a FASTA file as output" do
-        %x{SMRT_JOB_ID=023625 STRAIN_NAME=CD01394 rake --quiet run_circlator}
-        expect(File).to exist("#{OUT}/data/#{STRAIN_NAME}_circlator/06.fixstart.fasta")
+    describe "task :run_circlator", :speed => 'slow' do
+      it "produces a 4884064-byte FASTA file as output (for 019203)" do
+        strain = 'SM5478'
+        run "SMRT_JOB_ID=019203 STRAIN_NAME=#{strain} rake --silent run_circlator"
+        fasta_out = "#{$OUT}/data/#{strain}_circlator/06.fixstart.fasta"
+        expect(File).to exist(fasta_out)
+        fasta_size = File.size fasta_out
+        expect(fasta_size).to eq(4884064)
       end
+    end
     
+  end
+  
+  context "when running tasks on SM5478 (019203), after run_circlator" do
+    
+    before(:each) do
+      @strain = "SM5478"
+      copy_example "#{@strain}-run_circlator"
+      touch_prereqs :run_circlator, "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain}"
+    end
+    
+    describe "task :post_circlator", :speed => 'medium' do
+      it "renames the first contig to u00000crxx_c_019203" do
+        run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} rake --silent post_circlator"
+        fasta_out = "#{$OUT}/data/#{@strain}_postcirc.fasta"
+        expect(File).to exist(fasta_out)
+        first_line = File.open(fasta_out, &:readline).strip
+        expect(first_line).to eq('>u00000crxx_c_019203')
+      end
     end
     
   end
