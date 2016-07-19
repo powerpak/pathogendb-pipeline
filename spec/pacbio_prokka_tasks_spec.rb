@@ -48,6 +48,17 @@ describe "pathogendb-pipeline" do
       end
     end
     
+    describe "task :resequence_assembly", :speed => 'slow' do
+      it "produces a FASTA file with md5 ... as output (for 023625)" do
+        strain = 'CD01394'
+        run "SMRT_JOB_ID=023625 STRAIN_NAME=#{strain} CLUSTER=BASH rake --silent resequence_assembly"
+        fasta_out = "#{$OUT}/data/#{strain}_consensus_circ.fasta"
+        expect(File).to exist(fasta_out)
+        puts md5(fasta_out)
+        expect(md5(fasta_out)).to eq('64ae02c8a8e68dc2134899b4281f93ca')
+      end
+    end
+    
   end
   
   context "when running tasks on SM5478 (019203), after run_circlator" do
@@ -67,23 +78,18 @@ describe "pathogendb-pipeline" do
         expect(first_line).to eq('>u00000crxx_c_019203')
       end
       
-      it "renames the first contig to u00000crxm_c_019203 if circlator output is deleted" do
-        FileUtils.rm "#{$OUT}/data/#{@strain}_circlator/00.input_assembly.fasta"
-        run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} rake --silent post_circlator"
-        fasta_out = "#{$OUT}/data/#{@strain}_postcirc.fasta"
-        expect(File).to exist(fasta_out)
-        first_line = File.open(fasta_out, &:readline).strip
-        expect(first_line).to eq('>u00000crxm_c_019203')
-      end
-    end
-    
-    describe "task :resequence_assembly", :speed => 'slow' do
-      it "produces a FASTA file with md5 ... as output" do
-        run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} CLUSTER=BASH rake --silent resequence_assembly"
-        fasta_out = "#{$OUT}/data/#{@strain}_consensus_circ.fasta"
-        expect(File).to exist(fasta_out)
-        puts md5(fasta_out)
-        expect(md5(fasta_out)).to eq('64ae02c8a8e68dc2134899b4281f93ca')
+      context "when circlator input is absent"
+        before(:each) do
+          FileUtils.rm "#{$OUT}/data/#{@strain}_circlator/00.input_assembly.fasta"
+        end
+      
+        it "considers the assembly curated and renames the first contig to u00000crxm_c_019203" do
+          run "SMRT_JOB_ID=019203 STRAIN_NAME=#{@strain} rake --silent post_circlator"
+          fasta_out = "#{$OUT}/data/#{@strain}_postcirc.fasta"
+          expect(File).to exist(fasta_out)
+          first_line = File.open(fasta_out, &:readline).strip
+          expect(first_line).to eq('>u00000crxm_c_019203')
+        end
       end
     end
     
