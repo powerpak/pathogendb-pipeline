@@ -54,7 +54,6 @@ describe "pathogendb-pipeline" do
         run "SMRT_JOB_ID=023625 STRAIN_NAME=#{strain} CLUSTER=BASH rake --silent resequence_assembly"
         fasta_out = "#{$OUT}/data/#{strain}_consensus_circ.fasta"
         expect(File).to exist(fasta_out)
-        puts md5(fasta_out)
         expect(md5(fasta_out)).to eq('736249b663a6860f4630cf69e4867388')
       end
     end
