@@ -5,7 +5,10 @@ require 'fileutils'
 require 'bundler/setup'
 
 def run(cmd)
-  cmd += ' 2>&1 | tee -a rake_spec.log' if ENV['DEBUG']
+  if ENV['DEBUG']
+    log_to = File.expand_path("../../rake_spec.log", __FILE__)
+    cmd += " 2>&1 | tee -a #{Shellwords.escape log_to}"
+  end
   `#{cmd}`
 end
 
