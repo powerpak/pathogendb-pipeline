@@ -5,7 +5,8 @@ require 'fileutils'
 require 'bundler/setup'
 
 def run(cmd)
-  stdout = `#{cmd}`
+  cmd += ' 2>&1 | tee -a rake_spec.log' if ENV['DEBUG']
+  `#{cmd}`
 end
 
 def setup_temporary_OUT

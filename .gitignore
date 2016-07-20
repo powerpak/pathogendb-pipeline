@@ -2,3 +2,4 @@
 out
 vendor/
 scripts/env.sh
+rake_spec.log
