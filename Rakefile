@@ -214,7 +214,7 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   #     in place of the polished_assembly.fasta.gz built by SMRTPortal.
   # Note that the fastq, best edges data, etc., if they do not match the new fasta, may throw off QC analyses.
   if REPLACE_FASTA
-    cp "#{ENV['REPLACE_FASTA']}", "data/replaced_assembly.fasta"
+    cp REPLACE_FASTA, "data/replaced_assembly.fasta"
     system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
     if File.exist? "data/polished_assembly.fasta.gz"
         rm "data/polished_assembly.fasta.gz"
@@ -311,7 +311,7 @@ file "data/#{STRAIN_NAME}_postcirc.fasta" => "data/#{STRAIN_NAME}_circlator/06.f
   job_id = job_id.rjust(6, '0')
   system <<-SH
     # call script to rename contigs
-    #{REPO_DIR}/scripts/post_circlator_contig_rename.py data/#{STRAIN_NAME}_circlator/ data/#{STRAIN_NAME}_postcirc.fasta data/#{STRAIN_NAME}_postcirc2.fasta #{job_id}
+    #{REPO_DIR}/scripts/post_circlator_contig_rename.py data/#{STRAIN_NAME}_circlator/ data/#{STRAIN_NAME}_postcirc.fasta data/#{STRAIN_NAME}_postcirc2.txt #{job_id}
   SH
 end
 
@@ -362,7 +362,7 @@ file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_consensus_circ.f
   
   system <<-SH
     module load blast/2.2.26+
-    #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.fasta data/#{STRAIN_NAME}_prokka.fasta data/pq_dir
+    #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.txt data/#{STRAIN_NAME}_prokka.fasta data/pq_dir
   SH
 end
 
@@ -610,8 +610,8 @@ namespace :ilm do
     SH
   end
 
-  file "data/#{STRAIN_NAME}_ilm_prokka.fasta" => 
-      ["data/#{STRAIN_NAME}_prokka_flt.vcf", "data/#{STRAIN_NAME}_prokka.fasta"] do |t|
+  file "data/#{STRAIN_NAME}_ilm_fix.fasta" =>
+      ["data/#{STRAIN_NAME}_prokka_flt.vcf", "data/#{STRAIN_NAME}_ilm_fix.fasta"] do |t|
     system <<-SH
       module load vcftools/0.1.12b
       module load tabix/0.2.6 
@@ -625,8 +625,49 @@ namespace :ilm do
       # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_prokka_flt.vcf" > "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
       # #{HTSLIB_DIR}/tabix -p vcf "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
       # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_prokka.fasta" "data/#{STRAIN_NAME}_prokka_flt.vcf.gz" \
-      #    > "data/#{STRAIN_NAME}_ilm_prokka.fasta"
+      #    > "data/#{STRAIN_NAME}_ilm_fix.fasta"
     SH
+
+  file "data/#{STRAIN_NAME}_ilm_corrected.fasta" =>
+      ["data/#{STRAIN_NAME}_ilm_fix.fasta", "data/#{STRAIN_NAME}_ilm_corrected.fasta"] do |t|
+    system <<-SH
+      module purge
+      module load bwa/0.7.12
+      module load samtools/1.1
+      module load bcftools/1.1
+      module load tabix/0.2.6
+      module load vcftools/0.1.12b
+      module load bedtools/2.21.0
+      genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.fasta" > data/ilm_coverage.cov
+      #{REPO_DIR}/scripts/fix_repeats_ill.py data/ilm_coverage.cov data/#{STRAIN_NAME}_ilm_fix.fasta \
+      #{Shellwords.escape(ILLUMINA_FASTQ)} data/ilm_fix data/#{STRAIN_NAME}_ilm_corrected.fasta
+    SH
+
+  file "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk" => "data/#{STRAIN_NAME}_ilm_corrected.fasta" do |t|
+  rm_rf "circularized_sequence"
+  mkdir_p "circularized_sequence"
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_ilm_corrected.fasta
+  SH
+  # NOTE: sometimes referenceUploader auto-appends a timestamp to the reference name given by `-n` to avoid a conflict
+  # Therefore, we must detect if it did this by checking how it named the directory
+  reference_dir = Dir.glob("circularized_sequence/#{STRAIN_NAME}*").last
+  cp "#{REPO_DIR}/xml/resequence_example_params.xml", OUT
+  system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
+      "#{OUT} #{reference_dir} > resequence_params.xml" and
+  system <<-SH or abort
+    module load smrtpipe/2.2.0
+    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+    samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
+    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
+        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
+    gunzip -f data/consensus.fasta.gz
+  SH
+  cp "data/consensus.fasta", "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk"
+
+
   end
   
 
