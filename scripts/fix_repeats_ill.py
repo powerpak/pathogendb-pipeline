@@ -20,7 +20,7 @@ def filter_vcf(in_file, out_file):
                             continue
 
 
-def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file, read_length=100):
+def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file, read_file_2, read_length=100):
     low_cov = {}
     with open(coverage_file) as cov:
         cov_dict = {}
@@ -75,7 +75,10 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                     for k in range(0, len(j), 60):
                         ref.write(j[k:k+60] + '\n')
     subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
-    subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+    if read_file_2 is None:
+        subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+    else:
+        subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
     subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
     subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
     subprocess.Popen('samtools sort -o ' + working_dir + '/ref.sort.bam ' + working_dir + '/ref.aln.bam', shell=True).wait()
@@ -117,7 +120,10 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             ref.write('>' + i + '\n')
             ref.write(split_seq[name][num])
         subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
-        subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+        if read_file_2 is None:
+            subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+        else:
+            subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
         subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
         subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
         subprocess.Popen('samtools sort -o ' + working_dir + '/ref.sort.bam ' + working_dir + '/ref.aln.bam', shell=True).wait()
@@ -161,6 +167,7 @@ and out_file is the place to write the corrected genome
 ''', epilog="Thanks for using Contiguity")
 parser.add_argument('-c', '--coverage', action='store', help='bed file of coverage at each base')
 parser.add_argument('-r', '--read_file', action='store', help='read file (.fastq, .fastq.gz)')
+parser.add_argument('-r2', '--read_file_2', default=None, action='store', help='read file (.fastq, .fastq.gz)')
 parser.add_argument('-g', '--genome', action='store', help='FASTA file of genome to be corrected')
 parser.add_argument('-w', '--working_dir', action='store', help='working directory')
 parser.add_argument('-o', '--output_fasta', action='store', help='place to write corrected FASTA')
@@ -174,4 +181,4 @@ try:
 except:
     pass
 
-correct_regions(args.genome, args.read_file, args.coverage_file, args.working_dir, args.output_fasta)
+correct_regions(args.genome, args.read_file, args.coverage_file, args.working_dir, args.output_fasta, args.read_file_2)

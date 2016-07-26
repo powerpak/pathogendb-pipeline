@@ -29,6 +29,7 @@ OUT = File.expand_path(ENV['OUT'] || "#{REPO_DIR}/out")
 STRAIN_NAME = ENV['STRAIN_NAME']
 SPECIES = ENV['SPECIES']
 ILLUMINA_FASTQ = ENV['ILLUMINA_FASTQ'] && File.expand_path(ENV['ILLUMINA_FASTQ'])
+ILLUMINA_FASTQ_2 = ENV['ILLUMINA_FASTQ_@'] && File.expand_path(ENV['ILLUMINA_FASTQ'])
 ILLUMINA_REFERENCE = ENV['ILLUMINA_REFERENCE'] && File.expand_path(ENV['ILLUMINA_REFERENCE'])
 TASK_FILE = ENV['TASK_FILE']
 GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].split(':')
@@ -574,8 +575,11 @@ namespace :ilm do
     LSF.bsub_interactive <<-SH or abort
       module load bwa/0.7.12
       bwa index "data/#{STRAIN_NAME}_prokka.fasta"
-      bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/prokka.ref.aln.sam
-  
+      if ILLUMINA_FASTQ_2
+        bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} #{Shellwords.escape(ILLUMINA_FASTQ_2)} > data/prokka.ref.aln.sam
+      else
+        bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/prokka.ref.aln.sam
+      end
       module load samtools/1.1
       samtools view -bS data/prokka.ref.aln.sam > data/prokka.ref.aln.bam
       samtools sort data/prokka.ref.aln.bam data/prokka.ref.sort
@@ -639,8 +643,14 @@ namespace :ilm do
       module load vcftools/0.1.12b
       module load bedtools/2.21.0
       genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.fasta" > data/ilm_coverage.cov
-      #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
-      -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
+      if ILLUMINA_FASTQ_2:
+        #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
+        -r #{Shellwords.escape(ILLUMINA_FASTQ)} -r2 #{Shellwords.escape(ILLUMINA_FASTQ_2)} -w data/ilm_fix \
+        -o data/#{STRAIN_NAME}_ilm_corrected.fasta
+      else:
+        #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
+        -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
+      end
     SH
 
   file "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk" => "data/#{STRAIN_NAME}_ilm_corrected.fasta" do |t|
