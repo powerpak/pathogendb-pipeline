@@ -655,7 +655,7 @@ namespace :ilm do
     SH
   end
 
-  file "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk" => "data/#{STRAIN_NAME}_ilm_corrected.fasta" do |t|
+  file "data/prokka/#{STRAIN_NAME}_ilm_prokka.fasta" => "data/#{STRAIN_NAME}_ilm_corrected.fasta" do |t|
     rm_rf "circularized_sequence"
     mkdir_p "circularized_sequence"
     system <<-SH or abort
@@ -677,7 +677,7 @@ namespace :ilm do
           -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
       gunzip -f data/consensus.fasta.gz
     SH
-    cp "data/consensus.fasta", "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk"
+    cp "data/consensus.fasta", "data/prokka/#{STRAIN_NAME}_ilm_prokka.fasta"
   end
   
 
