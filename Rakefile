@@ -631,6 +631,7 @@ namespace :ilm do
       # #{BCFTOOLS_DIR}/bcftools consensus -f "data/#{STRAIN_NAME}_prokka.fasta" "data/#{STRAIN_NAME}_prokka_flt.vcf.gz" \
       #    > "data/#{STRAIN_NAME}_ilm_fix.fasta"
     SH
+  end
 
   file "data/#{STRAIN_NAME}_ilm_corrected.fasta" =>
       ["data/#{STRAIN_NAME}_ilm_fix.fasta", "data/#{STRAIN_NAME}_ilm_corrected.fasta"] do |t|
@@ -652,32 +653,31 @@ namespace :ilm do
         -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
       end
     SH
+  end
 
   file "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk" => "data/#{STRAIN_NAME}_ilm_corrected.fasta" do |t|
-  rm_rf "circularized_sequence"
-  mkdir_p "circularized_sequence"
-  system <<-SH or abort
-    module load smrtpipe/2.2.0
-    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_ilm_corrected.fasta
-  SH
-  # NOTE: sometimes referenceUploader auto-appends a timestamp to the reference name given by `-n` to avoid a conflict
-  # Therefore, we must detect if it did this by checking how it named the directory
-  reference_dir = Dir.glob("circularized_sequence/#{STRAIN_NAME}*").last
-  cp "#{REPO_DIR}/xml/resequence_example_params.xml", OUT
-  system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
+    rm_rf "circularized_sequence"
+    mkdir_p "circularized_sequence"
+    system <<-SH or abort
+      module load smrtpipe/2.2.0
+      source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+      referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_ilm_corrected.fasta
+    SH
+    # NOTE: sometimes referenceUploader auto-appends a timestamp to the reference name given by `-n` to avoid a conflict
+    # Therefore, we must detect if it did this by checking how it named the directory
+    reference_dir = Dir.glob("circularized_sequence/#{STRAIN_NAME}*").last
+    cp "#{REPO_DIR}/xml/resequence_example_params.xml", OUT
+    system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
       "#{OUT} #{reference_dir} > resequence_params.xml" and
-  system <<-SH or abort
-    module load smrtpipe/2.2.0
-    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
-    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
-        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
-    gunzip -f data/consensus.fasta.gz
-  SH
-  cp "data/consensus.fasta", "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk"
-
-
+    system <<-SH or abort
+      module load smrtpipe/2.2.0
+      source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
+      samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
+      smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
+          -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
+      gunzip -f data/consensus.fasta.gz
+    SH
+    cp "data/consensus.fasta", "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk"
   end
   
 
