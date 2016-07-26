@@ -639,8 +639,8 @@ namespace :ilm do
       module load vcftools/0.1.12b
       module load bedtools/2.21.0
       genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.fasta" > data/ilm_coverage.cov
-      #{REPO_DIR}/scripts/fix_repeats_ill.py data/ilm_coverage.cov data/#{STRAIN_NAME}_ilm_fix.fasta \
-      #{Shellwords.escape(ILLUMINA_FASTQ)} data/ilm_fix data/#{STRAIN_NAME}_ilm_corrected.fasta
+      #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
+      -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
     SH
 
   file "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk" => "data/#{STRAIN_NAME}_ilm_corrected.fasta" do |t|

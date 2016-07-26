@@ -1,6 +1,8 @@
 import sys
 import subprocess
 import os
+import argparse
+
 
 
 def filter_vcf(in_file, out_file):
@@ -60,10 +62,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
     for i in low_cov:
         last_pos = 0
         split_seq[i] = []
-        count = 0
         for j in low_cov[i]:
-            print j, count * 2 + 1
-            count += 1
             split_seq[i].append(seqDict[i][last_pos:j[0]])
             split_seq[i].append(seqDict[i][j[0]:j[1]])
             last_pos = j[1]
@@ -143,26 +142,36 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                 out.write(seq[j:j+80] + '\n')
 
 
-try:
-    coverage_file, ref_file, read_file, working_dir, out_file = sys.argv[1:]
-except:
-    print '''
+
+parser = argparse.ArgumentParser(prog='Fix_repeats_ill.py', formatter_class=argparse.RawDescriptionHelpFormatter, description='''
+fix_repeats_ill is a script for correcting repetitive elements in pacbio assemblies with Illumina data
+
 fix_repeats_ill.py
 This script maps (single-end) Illumina reads back to repetitive regions with no Illumina coverage
 and corrects the errors found.
 
-USAGE: python fix_repeats_ill.py <coverage.txt> <genome.fa> <reads.fq> <working_dir> <out_file>
+USAGE: python fix_repeats_ill.py -c <coverage.txt> -g <genome.fa> -r <reads.fq> -w <working_dir> -o <out_file>
 Where coverage.txt is a bed file of the coverage at all bases
 (can be generated using genomeCoverageBed -d -ibam aln.sorted.bam -g ref.fasta > coverage.txt)
 genome.fa is the reference to be corrected
 reads.fq are the illumina reads (can be gzipped)
 working_dir is where to put intermediate files
 and out_file is the place to write the corrected genome
-'''
+
+''', epilog="Thanks for using Contiguity")
+parser.add_argument('-c', '--coverage', action='store', help='bed file of coverage at each base')
+parser.add_argument('-r', '--read_file', action='store', help='read file (.fastq, .fastq.gz)')
+parser.add_argument('-g', '--genome', action='store', help='FASTA file of genome to be corrected')
+parser.add_argument('-w', '--working_dir', action='store', help='working directory')
+parser.add_argument('-o', '--output_fasta', action='store', help='place to write corrected FASTA')
+
+
+args = parser.parse_args()
+
 
 try:
-    os.makedirs(working_dir)
+    os.makedirs(args.working_dir)
 except:
     pass
 
-correct_regions(ref_file, read_file, coverage_file, working_dir, out_file)
+correct_regions(args.genome, args.read_file, args.coverage_file, args.working_dir, args.output_fasta)
