@@ -34,7 +34,7 @@ for i in order_list:
     mod = 0
     for j in var_list:
         pos, ref, alt = j
-        pos = pos + mod
+        pos = int(pos) + mod
         if alt[0] == 'I':
             seq = seq[:pos] + alt[1:] + seq[pos:]
             mod += len(alt) - 1
