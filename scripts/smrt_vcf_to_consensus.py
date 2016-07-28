@@ -1,9 +1,10 @@
 import sys
 
 try:
-    min_qual = int(sys.argv[3])
+    min_qual = float(sys.argv[3])
 except:
-    'USAGE smrt_vcf_to_consensus.py input.fasta input.vcf min_quality'
+    sys.sterr.write('USAGE smrt_vcf_to_consensus.py input.fasta input.vcf min_quality'\n)
+    sys.exit()
 
 seq_dict = {}
 change_dict = {}
@@ -23,7 +24,7 @@ with open(sys.argv[2]) as vcf:
     for line in vcf:
         if not line.startswith('#'):
             chrom, pos, id, ref, alt, qual, filt, inf = line.split()
-            if int(qual) > min_qual:
+            if float(qual) > min_qual:
                 change_dict[chrom].append((pos, ref, alt))
 
 for i in order_list:
