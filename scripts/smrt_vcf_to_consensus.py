@@ -3,7 +3,7 @@ import sys
 try:
     min_qual = float(sys.argv[3])
 except:
-    sys.sterr.write('USAGE smrt_vcf_to_consensus.py input.fasta input.vcf min_quality'\n)
+    sys.sterr.write('USAGE smrt_vcf_to_consensus.py input.fasta input.vcf min_quality\n')
     sys.exit()
 
 seq_dict = {}
