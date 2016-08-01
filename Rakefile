@@ -615,7 +615,7 @@ namespace :ilm do
   end
 
   file "data/#{STRAIN_NAME}_ilm_fix.fasta" =>
-      ["data/#{STRAIN_NAME}_prokka_flt.vcf", "data/#{STRAIN_NAME}_ilm_fix.fasta"] do |t|
+      ["data/#{STRAIN_NAME}_prokka_flt.vcf", "data/#{STRAIN_NAME}_prokka.fasta"] do |t|
     system <<-SH
       module load vcftools/0.1.12b
       module load tabix/0.2.6 
@@ -633,8 +633,7 @@ namespace :ilm do
     SH
   end
 
-  file "data/#{STRAIN_NAME}_ilm_corrected.fasta" =>
-      ["data/#{STRAIN_NAME}_ilm_fix.fasta", "data/#{STRAIN_NAME}_ilm_corrected.fasta"] do |t|
+  file "data/#{STRAIN_NAME}_ilm_corrected.fasta" => "data/#{STRAIN_NAME}_ilm_fix.fasta" do |t|
     system <<-SH
       module purge
       module load bwa/0.7.12
@@ -676,8 +675,9 @@ namespace :ilm do
       smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
           -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
       gunzip -f data/consensus.fasta.gz
+      python #{REPO_DIR}/scripts/ smrt_vcf_to_consensus.py "data/#{STRAIN_NAME}_ilm_corrected.fasta" data/variants.vcf 40\
+       > "data/#{STRAIN_NAME}_ilm_prokka.fasta"
     SH
-    cp "data/consensus.fasta", "data/#{STRAIN_NAME}_ilm_prokka.fasta"
   end
   
 
