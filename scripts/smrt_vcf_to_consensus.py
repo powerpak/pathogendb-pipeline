@@ -24,7 +24,7 @@ with open(sys.argv[2]) as vcf:
     for line in vcf:
         if not line.startswith('#'):
             chrom, pos, id, ref, alt, qual, filt, inf = line.split()
-            if float(qual) > min_qual:
+            if float(qual) > min_qual and not 'I' in alt and not 'D' in alt:
                 change_dict[chrom].append((pos, ref, alt))
 
 for i in order_list:
