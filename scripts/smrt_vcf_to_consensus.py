@@ -43,7 +43,7 @@ for i in order_list:
             seq = seq[:pos] + seq[pos+bases:]
             mod -= bases
         else:
-            seq = seq[pos-1:] + alt + seq[pos-1 + len(alt):]
+            seq = seq[:pos-1] + alt + seq[pos-1 + len(alt):]
     sys.stdout.write('>' + i + '\n')
     for j in range(0, len(seq), 80):
         sys.stdout.write(seq[j:j+80] + '\n')
