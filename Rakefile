@@ -641,6 +641,18 @@ namespace :ilm do
   end
 
   file "data/#{STRAIN_NAME}_ilm_corrected.fasta" => "data/#{STRAIN_NAME}_ilm_fix.fasta" do |t|
+    if ILLUMINA_FASTQ_2
+      fix_repeats_ill = <<-SH
+        #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
+            -r #{Shellwords.escape(ILLUMINA_FASTQ)} -r2 #{Shellwords.escape(ILLUMINA_FASTQ_2)} -w data/ilm_fix \
+            -o data/#{STRAIN_NAME}_ilm_corrected.fasta
+      SH
+    else
+      fix_repeats_ill = <<-SH
+        #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
+            -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
+      SH
+    end
     system <<-SH
       module purge
       module load bwa/0.7.12
@@ -649,15 +661,10 @@ namespace :ilm do
       module load tabix/0.2.6
       module load vcftools/0.1.12b
       module load bedtools/2.21.0
+      
       genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.fasta" > data/ilm_coverage.cov
-      if ILLUMINA_FASTQ_2:
-        #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
-        -r #{Shellwords.escape(ILLUMINA_FASTQ)} -r2 #{Shellwords.escape(ILLUMINA_FASTQ_2)} -w data/ilm_fix \
-        -o data/#{STRAIN_NAME}_ilm_corrected.fasta
-      else:
-        #{REPO_DIR}/scripts/fix_repeats_ill.py -c data/ilm_coverage.cov -g data/#{STRAIN_NAME}_ilm_fix.fasta \
-        -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
-      end
+      
+      #{fix_repeats_ill}
     SH
   end
 
