@@ -570,16 +570,23 @@ namespace :ilm do
     abort "FATAL: Task ilm:recall_consensus requires specifying STRAIN_NAME" unless STRAIN_NAME 
     abort "FATAL: Task ilm:recall_consensus requires specifying ILLUMINA_FASTQ" unless ILLUMINA_FASTQ
 
+    if ILLUMINA_FASTQ_2
+      bwa_mem_args = <<-SH
+        "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} \
+            #{Shellwords.escape(ILLUMINA_FASTQ_2)} > data/prokka.ref.aln.sam
+      SH
+    else
+      bwa_mem_args = <<-SH
+        "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/prokka.ref.aln.sam
+      SH
+    end
+    
     LSF.set_out_err("log/recall_ilm_consensus.log", "log/recall_ilm_consensus.err.log")
     LSF.job_name "prokka.ref.aln.sam"
     LSF.bsub_interactive <<-SH or abort
       module load bwa/0.7.12
       bwa index "data/#{STRAIN_NAME}_prokka.fasta"
-      if ILLUMINA_FASTQ_2
-        bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} #{Shellwords.escape(ILLUMINA_FASTQ_2)} > data/prokka.ref.aln.sam
-      else
-        bwa mem "data/#{STRAIN_NAME}_prokka.fasta" #{Shellwords.escape(ILLUMINA_FASTQ)} > data/prokka.ref.aln.sam
-      end
+      bwa mem #{bwa_mem_args}
       module load samtools/1.1
       samtools view -bS data/prokka.ref.aln.sam > data/prokka.ref.aln.bam
       samtools sort data/prokka.ref.aln.bam data/prokka.ref.sort
