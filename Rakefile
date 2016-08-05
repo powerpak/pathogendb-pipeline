@@ -664,6 +664,10 @@ namespace :ilm do
       
       genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.fasta" > data/ilm_coverage.cov
       
+      module unload python
+      module unload py_packages
+      module load python/2.7.6
+      module load py_packages/2.7
       #{fix_repeats_ill}
     SH
   end
