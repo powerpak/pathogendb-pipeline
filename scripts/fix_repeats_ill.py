@@ -181,4 +181,4 @@ try:
 except:
     pass
 
-correct_regions(args.genome, args.read_file, args.coverage_file, args.working_dir, args.output_fasta, args.read_file_2)
+correct_regions(args.genome, args.read_file, args.coverage, args.working_dir, args.output_fasta, args.read_file_2)
