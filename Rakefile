@@ -653,7 +653,7 @@ namespace :ilm do
             -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
       SH
     end
-    system <<-SH
+    system <<-SH or abort
       module purge
       module load bwa/0.7.12
       module load samtools/1.1
