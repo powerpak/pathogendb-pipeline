@@ -1,9 +1,9 @@
+#!/usr/bin/env python
+
 import sys
 import subprocess
 import os
 import argparse
-
-
 
 def filter_vcf(in_file, out_file):
     with open(in_file) as vcf, open(out_file, 'w') as out:
