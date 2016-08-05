@@ -630,7 +630,7 @@ namespace :ilm do
       bgzip -c "data/#{STRAIN_NAME}_prokka_flt.vcf" > "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
       tabix -p vcf "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
       cat "data/#{STRAIN_NAME}_prokka.fasta" | vcf-consensus "data/#{STRAIN_NAME}_prokka_flt.vcf.gz" \
-              > "data/#{STRAIN_NAME}_ilm_prokka.fasta"
+              > "data/#{STRAIN_NAME}_ilm_fix.fasta"
   
       # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
       # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_prokka_flt.vcf" > "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
