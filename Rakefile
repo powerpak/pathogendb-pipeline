@@ -630,7 +630,7 @@ namespace :ilm do
       bgzip -c "data/#{STRAIN_NAME}_prokka_flt.vcf" > "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
       tabix -p vcf "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
       cat "data/#{STRAIN_NAME}_prokka.fasta" | vcf-consensus "data/#{STRAIN_NAME}_prokka_flt.vcf.gz" \
-              > "data/#{STRAIN_NAME}_ilm_prokka.fasta"
+              > "data/#{STRAIN_NAME}_ilm_fix.fasta"
   
       # New-style version of doing this with bcftools consensus, but it doesn't work (memory leak in bcftools)
       # #{HTSLIB_DIR}/bgzip -c "data/#{STRAIN_NAME}_prokka_flt.vcf" > "data/#{STRAIN_NAME}_prokka_flt.vcf.gz"
@@ -653,7 +653,7 @@ namespace :ilm do
             -r #{Shellwords.escape(ILLUMINA_FASTQ)} -w data/ilm_fix -o data/#{STRAIN_NAME}_ilm_corrected.fasta
       SH
     end
-    system <<-SH
+    system <<-SH or abort
       module purge
       module load bwa/0.7.12
       module load samtools/1.1
@@ -664,6 +664,10 @@ namespace :ilm do
       
       genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.fasta" > data/ilm_coverage.cov
       
+      module unload python
+      module unload py_packages
+      module load python/2.7.6
+      module load py_packages/2.7
       #{fix_repeats_ill}
     SH
   end

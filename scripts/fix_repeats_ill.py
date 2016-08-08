@@ -1,9 +1,9 @@
+#!/usr/bin/env python
+
 import sys
 import subprocess
 import os
 import argparse
-
-
 
 def filter_vcf(in_file, out_file):
     with open(in_file) as vcf, open(out_file, 'w') as out:
@@ -181,4 +181,4 @@ try:
 except:
     pass
 
-correct_regions(args.genome, args.read_file, args.coverage_file, args.working_dir, args.output_fasta, args.read_file_2)
+correct_regions(args.genome, args.read_file, args.coverage, args.working_dir, args.output_fasta, args.read_file_2)
