@@ -81,7 +81,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
         subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
     subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
     subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
-    subprocess.Popen('samtools sort -o ' + working_dir + '/ref.sort.bam ' + working_dir + '/ref.aln.bam', shell=True).wait()
+    subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam ' + working_dir + '/ref.sort', shell=True).wait()
     subprocess.Popen('samtools index ' + working_dir + '/ref.sort.bam', shell=True).wait()
     subprocess.Popen('samtools mpileup -L100000 -d100000 -uf "' + working_dir + '/ref.fa" ' + working_dir + \
                     '/ref.sort.bam | bcftools call -cv -Ob > "' + working_dir + '/ref.bcf"', shell=True).wait()
