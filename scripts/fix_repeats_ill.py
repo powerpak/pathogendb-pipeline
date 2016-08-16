@@ -35,7 +35,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
         median_cov = cov_vals[len(cov_vals)/2]
         cov_cutoff = median_cov / 8
         sys.stdout.write('Using a coverage cutoff of ' + str(cov_cutoff))
-        for i in cov_dict:
+        for i in cov_dict: # find regions in assembly wiht low coverage
             low_cov[i] = []
             minval = None
             maxval = None
@@ -81,7 +81,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
         subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
     subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
     subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
-    subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam ' + working_dir + '/ref.sort.bam', shell=True).wait()
+    subprocess.Popen('samtools sort -o ' + working_dir + '/ref.sort.bam ' + working_dir + '/ref.aln.bam', shell=True).wait()
     subprocess.Popen('samtools index ' + working_dir + '/ref.sort.bam', shell=True).wait()
     subprocess.Popen('samtools mpileup -L100000 -d100000 -uf "' + working_dir + '/ref.fa" ' + working_dir + \
                     '/ref.sort.bam | bcftools call -cv -Ob > "' + working_dir + '/ref.bcf"', shell=True).wait()
@@ -98,7 +98,6 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                 split_seq[name][num] = ''
             else:
                 split_seq[name][num] += line.rstrip()
-    sys.exit()
     subprocess.Popen('genomeCoverageBed -d -ibam ' + working_dir + '/ref.sort.bam -g ' + working_dir + '/new_ref.fasta > ' + working_dir + '/ref.cov', shell=True).wait()
     redo = set()
     with open(working_dir + '/ref.cov') as cov:
@@ -127,6 +126,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
         subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
         subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
         subprocess.Popen('samtools sort -o ' + working_dir + '/ref.sort.bam ' + working_dir + '/ref.aln.bam', shell=True).wait()
+        subprocess.Popen('samtools index ' + working_dir + '/ref.sort.bam', shell=True).wait()
         subprocess.Popen('samtools mpileup -L100000 -d100000 -uf "' + working_dir + '/ref.fa" ' + working_dir + \
                         '/ref.sort.bam | bcftools call -cv -Ob > "' + working_dir + '/ref.bcf"', shell=True).wait()
         subprocess.Popen('bcftools view "' + working_dir + '/ref.bcf" | vcfutils.pl varFilter -w 0 -W 0 > "' + working_dir + '/ref.vcf"', shell=True).wait()
