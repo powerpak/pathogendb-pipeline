@@ -662,7 +662,8 @@ namespace :ilm do
       module load vcftools/0.1.12b
       module load bedtools/2.21.0
       
-      genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.fasta" > data/ilm_coverage.cov
+      cut -f1,2 "data/#{STRAIN_NAME}_prokka.fasta.fai" > "data/#{STRAIN_NAME}_prokka.chrom.sizes"
+      genomeCoverageBed -d -ibam data/prokka.ref.sort.bam -g "data/#{STRAIN_NAME}_prokka.chrom.sizes" > data/ilm_coverage.cov
       
       module unload python
       module unload py_packages
