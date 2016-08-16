@@ -5,6 +5,8 @@ import subprocess
 import os
 import argparse
 
+
+# filters VCF file so that only alleles with a high frequency are included in output file
 def filter_vcf(in_file, out_file):
     with open(in_file) as vcf, open(out_file, 'w') as out:
         for line in vcf:
@@ -20,9 +22,12 @@ def filter_vcf(in_file, out_file):
                             continue
 
 
+
+# corrects low coverage regions
 def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file, read_file_2, read_length=100):
     low_cov = {}
     with open(coverage_file) as cov:
+        # gets coverage and stores in dictionary with entry for each reference
         cov_dict = {}
         cov_vals = []
         for line in cov:
@@ -32,10 +37,10 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             cov_dict[ref].append(int(cov))
             cov_vals.append(int(cov))
         cov_vals.sort()
-        median_cov = cov_vals[len(cov_vals)/2]
+        median_cov = cov_vals[len(cov_vals)/2] # finds the median coverage and determines a cutoff to identify low coverage regions for remapping
         cov_cutoff = median_cov / 8
         sys.stdout.write('Using a coverage cutoff of ' + str(cov_cutoff))
-        for i in cov_dict: # find regions in assembly wiht low coverage
+        for i in cov_dict: # find regions in assembly with low coverage
             low_cov[i] = []
             minval = None
             maxval = None
@@ -49,7 +54,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                         low_cov[i].append((minval, maxval + read_length))
                         minval = None
                         maxval = None
-    with open(fasta_file) as fasta:
+    with open(fasta_file) as fasta: # read in reference fasta and store sequence in a dictionary
         seqDict = {}
         for line in fasta:
             if line.startswith('>'):
@@ -59,7 +64,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                 seqDict[name] += line.rstrip()
     split_seq = {}
 
-    for i in low_cov:
+    for i in low_cov: # for each reference, split the sequence into high coverage (even) and low coverage (regions to be corrected, odd)
         last_pos = 0
         split_seq[i] = []
         for j in low_cov[i]:
@@ -68,15 +73,16 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             last_pos = j[1]
         split_seq[i].append(seqDict[i][last_pos:])
     with open(working_dir + '/ref.fa', 'w') as ref, open(working_dir + '/ref.genome', 'w') as gf:
+        # write the low coverage (odd) sequences to a new FASTA file for mapping
         for i in split_seq:
             for num, j in enumerate(split_seq[i]):
                 if num % 2 == 1:
-                    ref.write('>' + i + '_' + str(num) + '\n')
+                    ref.write('>' + i + '_' + str(num) + '\n') # store the index of the sequence in the FASTA header
                     gf.write(i + '_' + str(num) + '\t' + len(j) + '\n')
                     for k in range(0, len(j), 60):
                         ref.write(j[k:k+60] + '\n')
     subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
-    if read_file_2 is None:
+    if read_file_2 is None: # if read_file_2 is set do a paired-end alignment, otherwise do a single end alignment
         subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
     else:
         subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
@@ -91,6 +97,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
     subprocess.Popen('bgzip -c "' + working_dir + '/ref2.vcf" > "' + working_dir + '/ref2.vcf.gz"', shell=True).wait()
     subprocess.Popen('tabix -p vcf "' + working_dir + '/ref2.vcf.gz"', shell=True).wait()
     subprocess.Popen('cat "' + working_dir + '/ref.fa" | vcf-consensus "' + working_dir + '/ref2.vcf.gz" > "' + working_dir + '/new_ref.fasta"', shell=True).wait()
+    # once the consensus is called, replace all the low coverage regions with the new consensus sequence
     with open(working_dir + '/new_ref.fasta') as fasta:
         for line in fasta:
             if line.startswith('>'):
@@ -99,8 +106,10 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                 split_seq[name][num] = ''
             else:
                 split_seq[name][num] += line.rstrip()
+    # Check that reads have mapped to each of the low coverage regions
     subprocess.Popen('genomeCoverageBed -d -ibam ' + working_dir + '/ref.sort.bam -g ' + working_dir + '/ref.genome > ' + working_dir + '/ref.cov', shell=True).wait()
     redo = set()
+    # if coverage has not improved, redo alignment and consensus calling sequentially
     with open(working_dir + '/ref.cov') as cov:
         cov_dict = {}
         for line in cov:
@@ -141,6 +150,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                 if not line.startswith('>'):
                     seq += line.rstrip()
         split_seq[name][num] = seq
+    # write new consensus to out
     with open(out_file, 'w') as out:
         for i in split_seq:
             out.write('>' + i + '\n')
