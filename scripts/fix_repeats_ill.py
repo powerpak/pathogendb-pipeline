@@ -67,11 +67,12 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             split_seq[i].append(seqDict[i][j[0]:j[1]])
             last_pos = j[1]
         split_seq[i].append(seqDict[i][last_pos:])
-    with open(working_dir + '/ref.fa', 'w') as ref:
+    with open(working_dir + '/ref.fa', 'w') as ref, open(working_dir + '/ref.genome', 'w') as gf:
         for i in split_seq:
             for num, j in enumerate(split_seq[i]):
                 if num % 2 == 1:
                     ref.write('>' + i + '_' + str(num) + '\n')
+                    gf.write(i + '_' + str(num) + '\t' + len(j) + '\n')
                     for k in range(0, len(j), 60):
                         ref.write(j[k:k+60] + '\n')
     subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
@@ -98,7 +99,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                 split_seq[name][num] = ''
             else:
                 split_seq[name][num] += line.rstrip()
-    subprocess.Popen('genomeCoverageBed -d -ibam ' + working_dir + '/ref.sort.bam -g ' + working_dir + '/new_ref.fasta > ' + working_dir + '/ref.cov', shell=True).wait()
+    subprocess.Popen('genomeCoverageBed -d -ibam ' + working_dir + '/ref.sort.bam -g ' + working_dir + '/ref.genome > ' + working_dir + '/ref.cov', shell=True).wait()
     redo = set()
     with open(working_dir + '/ref.cov') as cov:
         cov_dict = {}
