@@ -694,7 +694,7 @@ namespace :ilm do
       smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
           -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
       gunzip -f data/consensus.fasta.gz
-      python #{REPO_DIR}/scripts/ smrt_vcf_to_consensus.py "data/#{STRAIN_NAME}_ilm_corrected.fasta" data/variants.vcf 40\
+      python #{REPO_DIR}/scripts/smrt_vcf_to_consensus.py "data/#{STRAIN_NAME}_ilm_corrected.fasta" data/variants.vcf 40\
        > "data/#{STRAIN_NAME}_ilm_prokka.fasta"
     SH
   end
