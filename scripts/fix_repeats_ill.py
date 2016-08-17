@@ -78,7 +78,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             for num, j in enumerate(split_seq[i]):
                 if num % 2 == 1:
                     ref.write('>' + i + '_' + str(num) + '\n') # store the index of the sequence in the FASTA header
-                    gf.write(i + '_' + str(num) + '\t' + len(j) + '\n')
+                    gf.write(i + '_' + str(num) + '\t' + str(len(j)) + '\n')
                     for k in range(0, len(j), 60):
                         ref.write(j[k:k+60] + '\n')
     subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
@@ -175,7 +175,7 @@ reads.fq are the illumina reads (can be gzipped)
 working_dir is where to put intermediate files
 and out_file is the place to write the corrected genome
 
-''', epilog="Thanks for using Contiguity")
+''', epilog="Thanks for using fix_repeats_ill.py")
 parser.add_argument('-c', '--coverage', action='store', help='bed file of coverage at each base')
 parser.add_argument('-r', '--read_file', action='store', help='read file (.fastq, .fastq.gz)')
 parser.add_argument('-r2', '--read_file_2', default=None, action='store', help='read file (.fastq, .fastq.gz)')
