@@ -18,7 +18,6 @@ export TMP="/sc/orga/scratch/$USER/tmp"
 export SMRTANALYSIS="/sc/orga/projects/pacbio/modules/smrtanalysis/2.2.0/install/smrtanalysis_2.3.0.140936"
 export SHARED_DIR="/sc/orga/scratch/$USER/shared_dir"
 export IGB_DIR="/sc/orga/projects/InfectiousDisease/igb"
-export REORIENT_FASTA="/sc/orga/projects/InfectiousDisease/reference-db/landmarks/dnaA-reference-sequences.fasta"
 export CLUSTER="BASH"
 
 # If running from interactive1/interactive2, need to run requests through internal HTTP proxy

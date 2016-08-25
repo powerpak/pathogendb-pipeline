@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<pacbioAnalysisInputs>
+  <dataReferences>
+    <url ref="run:0000000-0000"><location>/home/sbsuser/pacbio/raw/MSSA_422_651_Stenotrophomonas_CDif_P5_C3_MB_195/D01_1/Analysis_Results/m140920_130238_42177R_c100683082550000001823136602221557_s1_p0.1.bax.h5</location></url>
+    <url ref="run:0000000-0001"><location>/home/sbsuser/pacbio/raw/MSSA_422_651_Stenotrophomonas_CDif_P5_C3_MB_195/D01_1/Analysis_Results/m140920_130238_42177R_c100683082550000001823136602221557_s1_p0.2.bax.h5</location></url>
+    <url ref="run:0000000-0002"><location>/home/sbsuser/pacbio/raw/MSSA_422_651_Stenotrophomonas_CDif_P5_C3_MB_195/D01_1/Analysis_Results/m140920_130238_42177R_c100683082550000001823136602221557_s1_p0.3.bax.h5</location></url>
+  </dataReferences>
+</pacbioAnalysisInputs>

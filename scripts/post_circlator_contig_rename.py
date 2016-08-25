@@ -5,7 +5,7 @@
 # License: GPLv3
 
 import sys
-
+import os
 
 
 def checkLog(circ_direct, outname, seqlog, assembly_no):
@@ -20,23 +20,36 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             else:
                 seqDict[name] += line.rstrip()
     seqDictOri = {}
-    with open(circ_direct + '/00.input_assembly.fasta') as f: # get the initial input for circlator - this is done so we can readd unitigs thrown out by circlator
-        for line in f:
-            if line.startswith('>'):
-                name = line.rstrip()[1:]
-                seqDictOri[name] = ''
-            else:
-                seqDictOri[name] += line.rstrip()
+    if os.path.exists(circ_direct + '/00.input_assembly.fasta'):
+        with open(circ_direct + '/00.input_assembly.fasta') as f: # get the initial input for circlator - this is done so we can readd unitigs thrown out by circlator
+            for line in f:
+                if line.startswith('>'):
+                    name = line.rstrip()[1:]
+                    seqDictOri[name] = ''
+                else:
+                    seqDictOri[name] += line.rstrip()
+        curated = False
+    else:
+        seqDictOri = seqDict
+        curated = True
+        name_list = list(seqDict)
+        name_list.sort(key=lambda x: len(seqDict[x]), reverse=True)
+        name_dict = {}
+        for num, i in enumerate(name_list):
+            name_dict[i] = '>u' + str(num).zfill(5)
     circ_set = set()
-    with open(circ_direct + '/04.merge.circularise.log') as f: # determine whether circlator has circularised the unitig
-        first = True
-        for line in f:
-            if first:
-                first = False
-            else:
-                mc1, mc2, name, one, two, three, circed = line.split()
-                if circed == '1':
-                    circ_set.add(name)
+    if curated:
+        circ_set = set(seqDict)
+    else:
+        with open(circ_direct + '/04.merge.circularise.log') as f: # determine whether circlator has circularised the unitig
+            first = True
+            for line in f:
+                if first:
+                    first = False
+                else:
+                    mc1, mc2, name, one, two, three, circed = line.split()
+                    if circed == '1':
+                        circ_set.add(name)
     reorient_dict = {}
     with open(circ_direct + '/06.fixstart.log') as f: # determine whether circlator has reorientated the unitig, keep track of breakpoint
         first = True
@@ -44,14 +57,17 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             if first:
                 first = False
             else:
-                cbf1, cbf2, cbf3, name, break_point, gn, gr, nn, skipped = line.split()
-                if break_point == '-':
+                name, break_point, gn, gr, nn, skipped = line.split(']')[1].split()
+                if skipped == 'skipped':
                     pass
                 else:
+                    if break_point == '-':
+                        break_point = 0
                     reorient_dict[name] = int(break_point)
     out = open(outname, 'w')
     out_log = open(seqlog, 'w')
     at_least_one = False
+    out_list = []
     for q in seqDictOri: # build new name for contig
         gotit = False
         merged = False
@@ -64,7 +80,10 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
                 merged = True
         if not gotit:
             i = q
-        if i.startswith('unitig'):
+        if curated:
+            contig_name = name_dict[i]
+            manual = True
+        elif i.startswith('unitig'):
             contig_name = '>u' + i.split('|')[0].split('_')[1].zfill(5)
             manual = False
         else:
@@ -107,10 +126,13 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             seq = seqDict[i]
         else: # If the contig has been reorientated near the start, re-reorienate and keep a record of inital position so that it can be orientated back to DNAA after quiver
             at_least_one = True
-            out_log.write(contig_name + '\n')
+            out_log.write(contig_name + '_' + assembly_no + '\n')
             out_log.write(seqDict[i])
-            seq = seqDict[i][len(seq)/2:] + seqDict[i][:len(seq)/2]
+            seq = seqDict[i][len(seqDict[i])/2:] + seqDict[i][:len(seqDict[i])/2]
         contig_name += '_' + assembly_no
+        out_list.append((contig_name, seq))
+    out_list.sort()
+    for contig_name, seq in out_list:
         out.write(contig_name + '\n')
         for j in range(0, len(seq), 60):
             out.write(seq[j:j+60] + '\n')
