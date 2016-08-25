@@ -24,8 +24,8 @@ def queryPathogenDB(organism,isolateID_list):
     results=[]
     db=MySQLdb.connect(host=args.host, db=args.database, user=args.user, passwd=args.password)
     cur=db.cursor()
-    for isolateID in isolateID_list:
-        cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks on tExtracts.stock_ID=tStocks.stock_ID join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.full_name=\'"+organism+"\' and tIsolates.isolate_ID=\'"+isolateID+"\'")
+    for extract_ID in isolateID_list:
+        cur.execute("select tIsolates.isolate_ID, tIsolates.collection_sourceA, tIsolates.collection_sourceB, tOrganisms.full_name, tIsolates.collection_date, tSequencing_runs.sequence_run_ID, tSequencing_runs.sequencing_platform, tSequencing_runs.read_length, tSequencing_runs.paired_end, tSequencing_runs.run_data_link from tSequencing_runs join tExtracts on tSequencing_runs.extract_ID=tExtracts.extract_ID join tStocks on tExtracts.stock_ID=tStocks.stock_ID join tIsolates on tStocks.isolate_ID=tIsolates.isolate_ID join tOrganisms on tIsolates.organism_ID=tOrganisms.organism_ID where tOrganisms.full_name=\'"+organism+"\' and tExtracts.extract_ID=\'"+extract_ID+"\'")
         for row in cur.fetchall():
             results.append(row)
     db.close()
