@@ -14,6 +14,8 @@ parser.add_argument('-f', '--ftp_password', help='ftp password')
 parser.add_argument('-s', '--service', help='ftp service name')
 parser.add_argument('-n', '--ncbi', help='ncbi ftp address')
 parser.add_argument('-r', '--directory', help='ftp directory')
+parser.add_argument('-o', '--organism', help='organism name')
+parser.add_argument('-i', '--isolate_file', help='isolate file')
 args=parser.parse_args()
 
 def queryPathogenDB(organism, isolateID_list):
@@ -28,15 +30,26 @@ def queryPathogenDB(organism, isolateID_list):
         return results
 
 def fill_data(results):
+    run_data={}
     run_data=collections.defaultdict()
-    for i in (0, len(results)):
+#    print results
+    for i in (0, len(results)-1):
         run_data[results[i][0]]={}
-    for i in (0, len(results)):
+    for i in (0, len(results)-1):
         run_data[results[i][0]][results[i][1]]=results[i][2]
     return run_data
-                  
+
+isolate_ID_list=[]
+fh=open(args.isolate_file, 'r')
+for line in fh:
+    isolate_ID_list.append(line.rstrip())
+fh.close()
+results=queryPathogenDB(args.organism, isolate_ID_list)
+
+run_data=fill_data(results)
+
 ftp=FTP(args.ncbi)
-ftp(args.service, args.ftp_password)
+ftp.login(args.service, args.ftp_password)
 ftp.cwd(args.directory)
 
 for isolate in run_data.keys():
@@ -45,6 +58,7 @@ for isolate in run_data.keys():
         fh=open("/sc/orga/projects/pacbio/userdata_permanent/jobs/"+str(url[-1])[:3]+"/"+url[-1]+"/input.fofn", 'r')
         for line in fh.readlines():
             reads=line.rstrip().split("/")
-            ftp.storbinary("STOR "+reads, reads)
+            fh=open(line.rstrip(),'r')
+            ftp.storbinary("STOR "+reads[-1], fh)
 
 ftp.close()
