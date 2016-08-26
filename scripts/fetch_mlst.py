@@ -35,8 +35,8 @@ def fetch_results(inputfile, mlstdb):
     	alleles = tables[1]
     	MSLT = tables[2]
     elif len(tables)==2:
-	alleles = tables[1]
-	MSLT=""
+	alleles = tables[0]
+	MSLT=tables[1]
     else:
 	print "No match found\n"
         sys.exit(0)
