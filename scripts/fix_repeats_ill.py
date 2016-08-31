@@ -39,16 +39,17 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
         cov_vals.sort()
         median_cov = cov_vals[len(cov_vals)/2] # finds the median coverage and determines a cutoff to identify low coverage regions for remapping
         cov_cutoff = median_cov / 8
-        sys.stdout.write('Using a coverage cutoff of ' + str(cov_cutoff))
+        sys.stdout.write('Using a coverage cutoff of ' + str(cov_cutoff) + '\n')
         for i in cov_dict: # find regions in assembly with low coverage
             low_cov[i] = []
             minval = None
             maxval = None
             for pos, j in enumerate(cov_dict[i]):
                 if j < cov_cutoff:
-                    if minval is None:
+                    if minval is None and pos > read_length:
                         minval = pos - read_length
-                    maxval = pos
+                    if not minval is None:
+                        maxval = pos
                 else:
                     if not maxval is None and pos > maxval + 2 * read_length:
                         low_cov[i].append((minval, maxval + read_length))
@@ -78,7 +79,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             for num, j in enumerate(split_seq[i]):
                 if num % 2 == 1:
                     ref.write('>' + i + '_' + str(num) + '\n') # store the index of the sequence in the FASTA header
-                    gf.write(i + '_' + str(num) + '\t' + len(j) + '\n')
+                    gf.write(i + '_' + str(num) + '\t' + str(len(j)) + '\n')
                     for k in range(0, len(j), 60):
                         ref.write(j[k:k+60] + '\n')
     subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
@@ -99,13 +100,20 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
     subprocess.Popen('cat "' + working_dir + '/ref.fa" | vcf-consensus "' + working_dir + '/ref2.vcf.gz" > "' + working_dir + '/new_ref.fasta"', shell=True).wait()
     # once the consensus is called, replace all the low coverage regions with the new consensus sequence
     with open(working_dir + '/new_ref.fasta') as fasta:
+        seq = None
         for line in fasta:
             if line.startswith('>'):
                 name = '_'.join(line.rstrip()[1:].split('_')[:-1])
                 num = int(line.rstrip().split('_')[-1])
                 split_seq[name][num] = ''
+                if seq == '':
+                    sys.exit('Something went wrong with bwa/samtools.. exiting\n')
+                seq = ''
             else:
+                seq += line.rstrip()
                 split_seq[name][num] += line.rstrip()
+        if seq == '' or seq is None:
+            sys.exit('Something went wrong with bwa/samtools.. exiting\n')
     # Check that reads have mapped to each of the low coverage regions
     subprocess.Popen('genomeCoverageBed -d -ibam ' + working_dir + '/ref.sort.bam -g ' + working_dir + '/ref.genome > ' + working_dir + '/ref.cov', shell=True).wait()
     redo = set()
@@ -128,6 +136,14 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             num = int(i.split('_')[-1])
             ref.write('>' + i + '\n')
             ref.write(split_seq[name][num])
+        os.remove(working_dir + '/new_ref.fasta')
+        os.remove(working_dir + '/ref.aln.sam')
+        os.remove(working_dir + '/ref.aln.bam')
+        os.remove(working_dir + '/ref.sort.bam')
+        os.remove(working_dir + '/ref.bcf')
+        os.remove(working_dir + '/ref.vcf')
+        os.remove(working_dir + '/ref2.vcf')
+        os.remove(working_dir + '/ref2.vcf.gz')
         subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
         if read_file_2 is None:
             subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
@@ -149,6 +165,8 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             for line in fasta:
                 if not line.startswith('>'):
                     seq += line.rstrip()
+            if seq == '':
+                sys.exit('Something went wrong with bwa/samtools.. exiting\n')
         split_seq[name][num] = seq
     # write new consensus to out
     with open(out_file, 'w') as out:
@@ -175,7 +193,7 @@ reads.fq are the illumina reads (can be gzipped)
 working_dir is where to put intermediate files
 and out_file is the place to write the corrected genome
 
-''', epilog="Thanks for using Contiguity")
+''', epilog="Thanks for using fix_repeats_ill.py")
 parser.add_argument('-c', '--coverage', action='store', help='bed file of coverage at each base')
 parser.add_argument('-r', '--read_file', action='store', help='read file (.fastq, .fastq.gz)')
 parser.add_argument('-r2', '--read_file_2', default=None, action='store', help='read file (.fastq, .fastq.gz)')
