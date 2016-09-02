@@ -448,6 +448,7 @@ task :prokka_to_igb => [:check, :prokka_and_QC] do |t|
     module load blat
     module load bioperl
     export SAS_DIR=#{SAS_DIR}
+    export REPO_DIR=#{REPO_DIR}
     perl #{REPO_DIR}/scripts/rast2igb.pl \
         -f data/prokka/#{STRAIN_NAME}_prokka.gbk \
         -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
