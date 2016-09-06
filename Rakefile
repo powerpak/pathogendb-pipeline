@@ -16,6 +16,7 @@ LSF.disable! if ENV['LSF_DISABLED']  # Run everything locally if set (useful for
 REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
 MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
+ALIEN_dIR = "#{REPO_DIR}/vendor/alien_hunter-1.7"
 BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
 HTSLIB_DIR = "#{REPO_DIR}/vendor/htslib"
 
@@ -91,6 +92,17 @@ file "#{MUMMER_DIR}/nucmer" do
     SH
   end
   Dir.chdir(MUMMER_DIR) { system "make install" }
+end
+
+task :alien_hunter => [:env, ALIEN_DIR, "#{ALIEN_DIR}/alien_hunter"]
+directory ALIEN_DIR
+file "#{ALIEN_DIR}/alien_hunter" do
+  Dir.chdir(File.dirname(REPO_DIR)) do
+    system <<-SH
+      curl -L -o alien_hunter.tar.gz 'ftp://ftp.sanger.ac.uk/pub/resources/software/alien_hunter/alien_hunter.tar.gz'
+      tar xvzf alien_hunter.tar.gz  # Creates alien_hunter dir
+    SH
+  end
 end
 
 task :bcftools => [:env, "#{BCFTOOLS_DIR}/bcftools", HTSLIB_DIR, "#{HTSLIB_DIR}/bgzip", "#{HTSLIB_DIR}/tabix"]
@@ -386,6 +398,25 @@ file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fast
     module load signalp/4.1
         
     prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_prokka data/#{STRAIN_NAME}_prokka.fasta
+  SH
+end
+
+# =====================
+# = repeats_phage_pai =
+# =====================
+
+desc "Creates bedFile of repeats, phage and PAIs"
+task :repeats_phage_pai => [:check, "data/#{STRAIN_NAME}.phage.bed"]
+file "data/#{STRAIN_NAME}.phage.bed" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
+  abort "FATAL: Task prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME
+
+  system <<-SH
+    module purge
+    module load mummer
+    module load blast
+
+    #{REPO_DIR}/scripts/get_repeats_phage_pai.py  -d #{PHAGE_DB} -o #{STRAIN_NAME}.rpi -f data/#{STRAIN_NAME}_prokka.fasta \
+    --islands --repeats
   SH
 end
 
@@ -720,6 +751,8 @@ namespace :ilm do
       prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_ilm_prokka data/#{STRAIN_NAME}_ilm_prokka.fasta
     SH
   end
+
+
 
 
   # =====================

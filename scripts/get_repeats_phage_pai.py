@@ -1,4 +1,5 @@
-import sys
+#!/usr/bin/env python
+
 import requests
 import json
 import time
@@ -197,18 +198,63 @@ def get_islands(fasta, prefix):
                 score = line.rstrip().split('=')[1]
                 out.write('\t'.join([name, start, stop, pai_label, score, '+', start, stop, color]) + '\n')
 
+def get_phage_homebrew(fasta, output, db_path):
+    out_list = []
+    subprocess.Popen('blastx -outfmt 6 -num_threads 8 -query ' + fasta + ' -db ' + db_path + ' -out ' + output + '.phage.out', shell=True).wait()
+    with open(output + '.phage.out') as blast:
+        phage_dict = {}
+        for line in blast:
+            query, subject, ident, length, mm, indel, qstart, qend, rstart, rend, eval, bitscore = line.split()
+            if float(ident) >= 33 and int(length) >= 50:
+                if not query in phage_dict:
+                    phage_dict[query] = set()
+                    print qstart, qend, query
+                for j in range(min([int(qstart), int(qend)]), max([int(qstart), int(qend)]) + 1):
+                    phage_dict[query].add(j)
+        gap = 0
+        gapmax = 2000
+        min_length = 1000
+        for i in phage_dict:
+            getit = False
+            for j in range(0, max(phage_dict[i]) + 1):
+                if j in phage_dict[i]:
+                    gap = 0
+                    if not getit:
+                        getit = True
+                        phage_start = j
+                elif getit:
+                    if gap == 0:
+                        phage_end = j
+                    gap += 1
+                    if gap > gapmax:
+                        gap = 0
+                        getit = False
+                        print phage_end, phage_start
+                        if phage_end - phage_start >= min_length:
+                            out_list.append((i, int(phage_start), int(phage_end)))
+            phage_end = j
+            if getit:
+                if phage_end - phage_start >= min_length:
+                    out_list.append((i, int(phage_start), int(phage_end)))
+    out = open(output + '.phage.bed', 'w')
+    out.write('track name="Phage" description="Phage sequence determined by PHASTER"\n')
+    for i in out_list:
+        out.write('\t'.join([i[0], str(i[1]), str(i[2]), 'phage', '1', '+']) + '\n')
+
 parser = argparse.ArgumentParser(description='Given a FASTA file will find any or all of phage regions using PHASTER (output to prefix.phage.bed)'
                                              ' repeats found using Nucmer (output to prefix.repeats.bed) and '
                                              'pathogenicity islands using alien_hunter (output to prefix.pai.bed).')
 parser.add_argument("-o", "--output_prefix", help="prefix used for output files", required=True)
 parser.add_argument("-f", "--fasta", help="FASTA of genome.", metavar="genome.fasta", required=True)
 parser.add_argument("-g", "--genbank", help="genbank of genome.", metavar="genome.gbk")
-parser.add_argument("-p", "--phage", help="Find phage using PHASTER", action='store_true')
+parser.add_argument("-ph", "--phaster", help="Find phage using PHASTER", action='store_true')
+parser.add_argument("-p", "--phage", help="Find phage using hombrew phage finder", action='store_true')
 parser.add_argument("-i", "--islands",  help="Find genomic islands using alien_hunt", action='store_true')
 parser.add_argument("-r", "--repeats", help="Find repeats using nucmer", action='store_true')
 parser.add_argument("-m", "--min_ident", default=85.0, type=float, help="Minimum identity of alignment to coun as repeats")
 parser.add_argument("-l", "--min_length", default=1000, type=int, help="Minimum length of alignment to count as repeat.")
 parser.add_argument("-y", "--proxy", default='False', help="Routes PHASTER through HTTP proxy.")
+parser.add_argument("-d", "--phage_db", help="path to database of phage proteins")
 args = parser.parse_args()
 
 
@@ -217,7 +263,7 @@ if args.proxy == 'False':
     proxies = {'http':args.proxy}
 else:
     proxies = None
-if args.phage:
+if args.phaster:
     if args.genbank is None:
         job_ids, names = submit_phaster(args.fasta, proxies)
     else:
@@ -227,6 +273,8 @@ if args.repeats:
 if args.islands:
     get_islands(args.fasta, args.output_prefix)
 if args.phage:
+    get_phage_homebrew(args.fasta, args.output_prefix, args.phage_db)
+if args.phaster:
     out = open(args.output_prefix + '.phage.bed', 'w')
     out.write('track name="Phage" description="Phage sequence determined by PHASTER"\n')
     out.close()
