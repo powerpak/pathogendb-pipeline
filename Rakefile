@@ -16,7 +16,7 @@ LSF.disable! if ENV['LSF_DISABLED']  # Run everything locally if set (useful for
 REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
 MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
-ALIEN_dIR = "#{REPO_DIR}/vendor/alien_hunter-1.7"
+ALIEN_DIR = "#{REPO_DIR}/vendor/alien_hunter-1.7"
 BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
 HTSLIB_DIR = "#{REPO_DIR}/vendor/htslib"
 
