@@ -24,7 +24,7 @@ def filter_vcf(in_file, out_file):
 
 
 # corrects low coverage regions
-def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file, read_file_2, read_length=100):
+def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file, read_file_2, read_length, no_of_threads):
     low_cov = {}
     with open(coverage_file) as cov:
         # gets coverage and stores in dictionary with entry for each reference
@@ -64,7 +64,6 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             else:
                 seqDict[name] += line.rstrip()
     split_seq = {}
-
     for i in low_cov: # for each reference, split the sequence into high coverage (even) and low coverage (regions to be corrected, odd)
         last_pos = 0
         split_seq[i] = []
@@ -73,47 +72,50 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             split_seq[i].append(seqDict[i][j[0]:j[1]])
             last_pos = j[1]
         split_seq[i].append(seqDict[i][last_pos:])
+    there_is_a_low_cov = False
     with open(working_dir + '/ref.fa', 'w') as ref, open(working_dir + '/ref.genome', 'w') as gf:
         # write the low coverage (odd) sequences to a new FASTA file for mapping
         for i in split_seq:
             for num, j in enumerate(split_seq[i]):
                 if num % 2 == 1:
+                    there_is_a_low_cov = True
                     ref.write('>' + i + '_' + str(num) + '\n') # store the index of the sequence in the FASTA header
                     gf.write(i + '_' + str(num) + '\t' + str(len(j)) + '\n')
                     for k in range(0, len(j), 60):
                         ref.write(j[k:k+60] + '\n')
-    subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
-    if read_file_2 is None: # if read_file_2 is set do a paired-end alignment, otherwise do a single end alignment
-        subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
-    else:
-        subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
-    subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
-    subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
-    subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam ' + working_dir + '/ref.sort', shell=True).wait()
-    subprocess.Popen('samtools index ' + working_dir + '/ref.sort.bam', shell=True).wait()
-    subprocess.Popen('samtools mpileup -L100000 -d100000 -uf "' + working_dir + '/ref.fa" ' + working_dir + \
-                    '/ref.sort.bam | bcftools call -cv -Ob > "' + working_dir + '/ref.bcf"', shell=True).wait()
-    subprocess.Popen('bcftools view "' + working_dir + '/ref.bcf" | vcfutils.pl varFilter -w 0 -W 0 > "' + working_dir + '/ref.vcf"', shell=True).wait()
-    filter_vcf(working_dir + '/ref.vcf', working_dir + '/ref2.vcf')
-    subprocess.Popen('bgzip -c "' + working_dir + '/ref2.vcf" > "' + working_dir + '/ref2.vcf.gz"', shell=True).wait()
-    subprocess.Popen('tabix -p vcf "' + working_dir + '/ref2.vcf.gz"', shell=True).wait()
-    subprocess.Popen('cat "' + working_dir + '/ref.fa" | vcf-consensus "' + working_dir + '/ref2.vcf.gz" > "' + working_dir + '/new_ref.fasta"', shell=True).wait()
+    if there_is_a_low_cov:
+        subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
+        if read_file_2 is None: # if read_file_2 is set do a paired-end alignment, otherwise do a single end alignment
+            subprocess.Popen('bwa mem -t ' + no_of_threads + ' ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+        else:
+            subprocess.Popen('bwa mem -t ' + no_of_threads + ' ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+        subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
+        subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
+        subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam ' + working_dir + '/ref.sort', shell=True).wait()
+        subprocess.Popen('samtools index ' + working_dir + '/ref.sort.bam', shell=True).wait()
+        subprocess.Popen('samtools mpileup -L100000 -d100000 -uf "' + working_dir + '/ref.fa" ' + working_dir + \
+                         '/ref.sort.bam | bcftools call -cv -Ob > "' + working_dir + '/ref.bcf"', shell=True).wait()
+        subprocess.Popen('bcftools view "' + working_dir + '/ref.bcf" | vcfutils.pl varFilter -w 0 -W 0 > "' + working_dir + '/ref.vcf"', shell=True).wait()
+        filter_vcf(working_dir + '/ref.vcf', working_dir + '/ref2.vcf')
+        subprocess.Popen('bgzip -c "' + working_dir + '/ref2.vcf" > "' + working_dir + '/ref2.vcf.gz"', shell=True).wait()
+        subprocess.Popen('tabix -p vcf "' + working_dir + '/ref2.vcf.gz"', shell=True).wait()
+        subprocess.Popen('cat "' + working_dir + '/ref.fa" | vcf-consensus "' + working_dir + '/ref2.vcf.gz" > "' + working_dir + '/new_ref.fasta"', shell=True).wait()
     # once the consensus is called, replace all the low coverage regions with the new consensus sequence
-    with open(working_dir + '/new_ref.fasta') as fasta:
-        seq = None
-        for line in fasta:
-            if line.startswith('>'):
-                name = '_'.join(line.rstrip()[1:].split('_')[:-1])
-                num = int(line.rstrip().split('_')[-1])
-                split_seq[name][num] = ''
-                if seq == '':
-                    sys.exit('Something went wrong with bwa/samtools.. exiting\n')
-                seq = ''
-            else:
-                seq += line.rstrip()
-                split_seq[name][num] += line.rstrip()
-        if seq == '' or seq is None:
-            sys.exit('Something went wrong with bwa/samtools.. exiting\n')
+        with open(working_dir + '/new_ref.fasta') as fasta:
+            seq = None
+            for line in fasta:
+                if line.startswith('>'):
+                    name = '_'.join(line.rstrip()[1:].split('_')[:-1])
+                    num = int(line.rstrip().split('_')[-1])
+                    split_seq[name][num] = ''
+                    if seq == '':
+                        sys.exit('Something went wrong with bwa/samtools.. exiting\n')
+                    seq = ''
+                else:
+                    seq += line.rstrip()
+                    split_seq[name][num] += line.rstrip()
+            if seq == '' or seq is None:
+                sys.exit('Something went wrong with bwa/samtools.. exiting\n')
     # Check that reads have mapped to each of the low coverage regions
     subprocess.Popen('genomeCoverageBed -d -ibam ' + working_dir + '/ref.sort.bam -g ' + working_dir + '/ref.genome > ' + working_dir + '/ref.cov', shell=True).wait()
     redo = set()
@@ -146,9 +148,9 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
         os.remove(working_dir + '/ref2.vcf.gz')
         subprocess.Popen('bwa index ' + working_dir + '/ref.fa', shell=True).wait()
         if read_file_2 is None:
-            subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+            subprocess.Popen('bwa mem -t ' + no_of_threads + ' ' + working_dir + '/ref.fa ' + read_file + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
         else:
-            subprocess.Popen('bwa mem -t 4 ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
+            subprocess.Popen('bwa mem -t ' + no_of_threads + ' ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
         subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
         subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
         subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam ' + working_dir + '/ref.sort', shell=True).wait()
@@ -200,7 +202,8 @@ parser.add_argument('-r2', '--read_file_2', default=None, action='store', help='
 parser.add_argument('-g', '--genome', action='store', help='FASTA file of genome to be corrected')
 parser.add_argument('-w', '--working_dir', action='store', help='working directory')
 parser.add_argument('-o', '--output_fasta', action='store', help='place to write corrected FASTA')
-
+parser.add_argument('-t', '--no_of_threads', action='store', default='4', help='number of threads to use with bwa')
+parser.add_argument('-l', '--read_length', action='store', type=int, default=100, help='Length of reads [integer]')
 
 args = parser.parse_args()
 
@@ -210,4 +213,4 @@ try:
 except:
     pass
 
-correct_regions(args.genome, args.read_file, args.coverage, args.working_dir, args.output_fasta, args.read_file_2)
+correct_regions(args.genome, args.read_file, args.coverage, args.working_dir, args.output_fasta, args.read_file_2, args.read_length, args.no_of_threads)
