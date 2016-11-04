@@ -1219,7 +1219,7 @@ def create_graph(options):
                 G.add_edge(best5, id1)
             if best3 != "0":
                 G.add_edge(id1, best3)
-    Agraph = nx.to_agraph(G)
+    Agraph = nx.nx_agraph.to_agraph(G)
     Agraph.edge_attr['penwidth'] = 5
     Agraph.node_attr['style'] = 'filled'
     h, s, l = 175, 0.8, 0.5
