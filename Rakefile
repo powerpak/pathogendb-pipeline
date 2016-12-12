@@ -416,7 +416,7 @@ file "data/#{STRAIN_NAME}.phage.bed" => "data/#{STRAIN_NAME}_prokka.fasta" do |t
     module load blast
 
     #{REPO_DIR}/scripts/get_repeats_phage_pai.py  -d #{PHAGE_DB} -o #{STRAIN_NAME}.rpi -f data/#{STRAIN_NAME}_prokka.fasta \
-    --islands --repeats
+    --islands --repeats --phage
   SH
 end
 
@@ -450,11 +450,11 @@ end
 
 
 # =================
-# = prokka_and_QC =
+# = prokka_QC_rpi =
 # =================
 
 desc "Run prokka and create the QC website"
-task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage]
+task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage, :repeats_phage_pai]
 
 
 # =================
@@ -464,7 +464,7 @@ task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage]
 directory IGB_DIR
 
 desc "Creates an IGB Quickload-compatible directory for your genome in IGB_DIR"
-task :prokka_to_igb => [:check, :prokka_and_QC] do |t|
+task :prokka_to_igb => [:check, :prokka_QC_rpi] do |t|
   job_id = ENV['SMRT_JOB_ID']
   abort "FATAL: Task prokka_to_igb requires specifying SMRT_JOB_ID" unless job_id
   abort "FATAL: Task prokka_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 

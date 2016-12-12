@@ -19,25 +19,28 @@ def trim_contigs(in_fasta, out_fasta):
     min_length = 500
     min_ident = 95
     overlap_dict = {}
-    wobble = 15000
+    wobble = 1000
     with open('break.out') as blast:
         for line in blast:
             query, subject, ident, length, mm, indel, qstart, qstop, rstart, rstop, eval, bitscore = line.split()
             qstart, qstop, rstart, rstop, length = map(int, [qstart, qstop, rstart, rstop, length])
             eval, bitscore, ident = map(float, [eval, bitscore, ident])
             if qstart <= wobble and length >= min_length and ident >= min_ident and qstart != rstart and rstop >= len(seqDict[query]) - wobble and query == subject:
+                print line.rstrip()
                 if query in overlap_dict:
-                    if qstart > overlap_dict[query]:
+                    if qstop > overlap_dict[query]:
                         overlap_dict[query] = qstop
                 else:
                     overlap_dict[query] = qstop
+    print overlap_dict
     filterset = set()
     for i in sys.argv[3:]:
         filterset.add('u' + i.zfill(5))
         filterset.add('tig' + i.zfill(8))
+        filterset.add('unitig_' + i)
     with open(out_fasta, 'w') as outfile:
         for i in seqDict:
-            if not i[:6] in filterset and not i[:11] in filterset:
+            if not i[:6] in filterset and not i[:11] in filterset and not i[:8] in filterset:
                 if i in overlap_dict:
                     print i, overlap_dict[i]
                     seq = seqDict[i][overlap_dict[i]:]
