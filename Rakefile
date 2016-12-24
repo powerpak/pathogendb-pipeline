@@ -454,7 +454,7 @@ end
 # =================
 
 desc "Run prokka and create the QC website"
-task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage, :repeats_phage_pai]
+task :prokka_QC_rpi => [:prokka_annotate, :create_QC_webpage, :repeats_phage_pai]
 
 
 # =================
