@@ -16,7 +16,7 @@ def trim_contigs(in_fasta, out_fasta):
                 seqDict[name] += line.rstrip()
     subprocess.Popen('makeblastdb -dbtype nucl -in ' + sys.argv[1] + ' -out breakdb', shell=True, stdout=subprocess.PIPE).wait()
     subprocess.Popen('blastn -query ' + sys.argv[1] + ' -db breakdb -outfmt 6 -out break.out', shell=True).wait()
-    min_length = 500
+    min_length = 300
     min_ident = 95
     overlap_dict = {}
     wobble = 1000
