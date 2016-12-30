@@ -37,6 +37,7 @@ GENBANK_REFERENCES = ENV['GENBANK_REFERENCES'] && ENV['GENBANK_REFERENCES'].spli
 CLUSTER = ENV['CLUSTER']
 REPLACE_FASTA = ENV['REPLACE_FASTA'] && File.expand_path(ENV['REPLACE_FASTA'])
 CURATED = ENV['CURATED']
+PHAGE_DB = ENV['PHAGE_DB']
 
 #############################################################
 #  IMPORTANT!
