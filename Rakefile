@@ -415,7 +415,8 @@ file "data/#{STRAIN_NAME}.phage.bed" => "data/#{STRAIN_NAME}_prokka.fasta" do |t
     module purge
     module load mummer
     module load blast
-
+    module load python/2.7.6
+    module load py_packages/2.7
     mkdir -p data/www/wiggle
     python #{REPO_DIR}/scripts/get_repeats_phage_pai.py  -d #{PHAGE_DB} -o data/www/wiggle/#{STRAIN_NAME}.rpi -f data/#{STRAIN_NAME}_prokka.fasta \
     --islands --repeats --phage
