@@ -64,7 +64,7 @@ end
 ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
 
 desc "Checks environment variables and requirements before running tasks"
-task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools] do
+task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools, :alien_hunter] do
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
@@ -98,7 +98,7 @@ end
 task :alien_hunter => [:env, ALIEN_DIR, "#{ALIEN_DIR}/alien_hunter"]
 directory ALIEN_DIR
 file "#{ALIEN_DIR}/alien_hunter" do
-  Dir.chdir(File.dirname(REPO_DIR)) do
+  Dir.chdir(File.dirname("#{REPO_DIR}/vendor/")) do
     system <<-SH
       curl -L -o alien_hunter.tar.gz 'ftp://ftp.sanger.ac.uk/pub/resources/software/alien_hunter/alien_hunter.tar.gz'
       tar xvzf alien_hunter.tar.gz  # Creates alien_hunter dir

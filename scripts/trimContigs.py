@@ -39,18 +39,32 @@ def trim_contigs(args):
     overlap_dict = {}
     wobble = args.wobble
     merge_list = []
+    internal_dup = {}
     with open('break.out') as blast:
         for line in blast:
             query, subject, ident, length, mm, indel, qstart, qstop, rstart, rstop, eval, bitscore = line.split()
+            if not query in internal_dup:
+                internal_dup[query] = (0, None, None, 0, None, None)
             qstart, qstop, rstart, rstop, length = map(int, [qstart, qstop, rstart, rstop, length])
             eval, bitscore, ident = map(float, [eval, bitscore, ident])
             if qstart <= wobble and length >= min_length and ident >= min_ident and qstart != rstart and rstop >= len(seqDict[query]) - wobble and query == subject:
-                print line.rstrip()
                 if query in overlap_dict:
                     if qstop > overlap_dict[query]:
                         overlap_dict[query] = qstop
                 else:
                     overlap_dict[query] = qstop
+            elif query == subject and qstart <= wobble and length >= min_length and ident >= min_ident and qstart != rstart:
+                if bitscore > internal_dup[query][0]:
+                    if rstart < rstop:
+                        internal_dup[query] = (bitscore, rstart, True, internal_dup[query][3], internal_dup[query][4], internal_dup[query][5])
+                    else:
+                        internal_dup[query] = (bitscore, rstart, False, internal_dup[query][3], internal_dup[query][4], internal_dup[query][5])
+            elif query == subject and qstop >= len(seqDict[query]) - wobble and qstart != rstart and ident >= min_ident and length >= min_length:
+                if bitscore > internal_dup[query][3]:
+                    if rstart < rstop:
+                        internal_dup[query] = (internal_dup[query][0], internal_dup[query][1], internal_dup[query][2], bitscore, rstop, True)
+                    else:
+                        internal_dup[query] = (internal_dup[query][0], internal_dup[query][1], internal_dup[query][2], bitscore, rstop, False)
             elif qstart <= wobble and length >= min_length and ident >= min_ident and rstop >= len(seqDict[subject]) - wobble and query != subject:
                 merge_list.append([subject, '+', query, '+', qstop])
             elif rstart <= wobble and length >= min_length and ident >= min_ident and qstop >= len(seqDict[query]) - wobble and query != subject:
@@ -64,7 +78,31 @@ def trim_contigs(args):
         if i.startswith('unitig_'):
             shorten_names[i] = i.split('|')[0].split('_')[1]
         elif i.startswith('u'):
-            shorten_names[i] = str(int(i[:6]))
+            shorten_names[i] = str(int(i[1:6]))
+        else:
+            shorten_names[i] = i
+    if not args.internal_rep is None:
+        for j in internal_dup:
+            if j in args.internal_rep or shorten_names[j] in args.internal_rep:
+                if internal_dup[j][2] is None:
+                    sys.stderr.write('Edge to internal hit not found for both edges in ' + j + '\n')
+                elif internal_dup[j][2] != internal_dup[j][5]:
+                    sys.stderr.write('Orientation of internal hits incorrect in ' + j + '\n')
+                else:
+                    if internal_dup[j][2]:
+                        stop, start = internal_dup[j][1], internal_dup[j][4]
+                        if start < stop:
+                            seqDict[query] += seqDict[query][start:stop]
+                            sys.stdout.write(str(stop - start) + ' repeat bases added to unitig ' + j + '\n')
+                        else:
+                            sys.stderr.write('Internal hits no in correct order.')
+                    else:
+                        start, stop = internal_dup[j][1], internal_dup[j][4]
+                        if start < stop:
+                            seqDict[query] += reverse_compliment(seqDict[query][start:stop])
+                            sys.stdout.write(str(stop - start) + ' repeat bases added to unitig ' + j + '\n')
+                        else:
+                            sys.stderr.write('Internal hits no in correct order.')
     if not args.merge is None:
         for i in range(0, len(args.merge), 4):
             count = i / 4 + 1
@@ -126,12 +164,13 @@ WILL OVERWRITE breakdb.out breakdb.nhr breakdb.nin breakdb.nsq - do not run conc
 ''')
 parser.add_argument("-o", "--output", help="prefix used for output files", required=True)
 parser.add_argument("-f", "--fasta", help="FASTA of genome.", metavar="genome.fasta", required=True)
-parser.add_argument("-w", "--wobble", type=int, default=50, help="Minimum length of alignment to count as repeat.")
-parser.add_argument("-i", "--min_ident", type=float, default=96.0, help="Routes PHASTER through HTTP proxy.")
-parser.add_argument("-l", "--min_length", type=int, default=500, help="path to database of phage proteins")
+parser.add_argument("-w", "--wobble", type=int, default=50, help="Allow this much unaligned sequence at end of each unitig.")
+parser.add_argument("-i", "--min_ident", type=float, default=95.0, help="Minimum identity for something to be considered an overlap")
+parser.add_argument("-l", "--min_length", type=int, default=500, help="Minimum length for something to be considered an overlap")
 parser.add_argument("-r", "--remove", nargs="+", help="unitigs to filter")
 parser.add_argument("-m", "--merge", nargs="+", help="merge these unitigs - e.g. unitig1 + unitig3 - will merge the positive strand of unitig 1 and negative strand of unitig3 if overlap is found")
 parser.add_argument("-t", "--trim", nargs="+", help="Trim edge of contigs before finding overlap")
+parser.add_argument("-d", "--internal_rep", nargs='+', help="Add untigs incomplete due to a repetitive element internal to this unitig")
 args = parser.parse_args()
 
 trim_contigs(args)
