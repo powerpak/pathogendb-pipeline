@@ -6,6 +6,7 @@ import time
 import subprocess
 import random
 import argparse
+import os
 
 # takes HSL value and converts to RGB format for bed files
 def hsl_to_colorstr(h, s, l):
@@ -162,7 +163,7 @@ def get_repeats(fasta, prefix, min_ident=85.0, min_length=1000):
 
 # finds islands in a FASTA files using alien_hunter
 def get_islands(fasta, prefix):
-    subprocess.Popen('alien_hunter ' + fasta + ' ' + prefix + '.pai', shell=True, stdout=log, stderr=log).wait()
+    subprocess.Popen(os.environ['ALIEN_DIR'] + '/alien_hunter ' + fasta + ' ' + prefix + '.pai', shell=True, stdout=log, stderr=log).wait()
     len_list = []
     name_list = []
     with open(fasta) as fa:
