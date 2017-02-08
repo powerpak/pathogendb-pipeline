@@ -162,8 +162,8 @@ def get_repeats(fasta, prefix, min_ident=85.0, min_length=1000):
 
 
 # finds islands in a FASTA files using alien_hunter
-def get_islands(fasta, prefix):
-    subprocess.Popen(os.environ['ALIEN_DIR'] + '/alien_hunter ' + fasta + ' ' + prefix + '.pai', shell=True, stdout=log, stderr=log).wait()
+def get_islands(fasta, prefix, ah):
+    subprocess.Popen(ah + ' ' + fasta + ' ' + prefix + '.pai', shell=True, stdout=log, stderr=log).wait()
     len_list = []
     name_list = []
     with open(fasta) as fa:
@@ -256,6 +256,7 @@ parser.add_argument("-m", "--min_ident", default=85.0, type=float, help="Minimum
 parser.add_argument("-l", "--min_length", default=1000, type=int, help="Minimum length of alignment to count as repeat.")
 parser.add_argument("-y", "--proxy", default='False', help="Routes PHASTER through HTTP proxy.")
 parser.add_argument("-d", "--phage_db", help="path to database of phage proteins")
+parser.add_argument("-a", "--path_to_ah", help="path to alien_hunter")
 args = parser.parse_args()
 
 
@@ -272,7 +273,7 @@ if args.phaster:
 if args.repeats:
     get_repeats(args.fasta, args.output_prefix)
 if args.islands:
-    get_islands(args.fasta, args.output_prefix)
+    get_islands(args.fasta, args.output_prefix, args.path_to_ah)
 if args.phage:
     get_phage_homebrew(args.fasta, args.output_prefix, args.phage_db)
 if args.phaster:
