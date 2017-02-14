@@ -155,6 +155,14 @@ else {
    rast_to_beddetail($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName);
 }
 
+#----------------------------------------------#
+# Stash QC data in the IGB folder if available #
+#----------------------------------------------#
+
+if ($sQcDir){
+   system("cp -R $sQcDir/* $sGenomeDir") == 0 or die "FATAL: Could not copy assembly QC data to '$sGenomeDir' - $!\n";
+}
+
 
 #--------------------------------------------------------------#
 # Create the annots.xml file with annotation and bigwig tracks #
@@ -170,6 +178,7 @@ my @asBigWigFiles = ();
 if ($sBigWigDir){
    opendir my($dir), $sBigWigDir or die "Can't open $sBigWigDir : $!\n";
    @asBigWigFiles = grep { /^.*bw$/ } readdir $dir;
+   closedir $dir;
    mkdir("$sGenomeDir/bigwig") or die "FATAL: could not create $sGenomeDir/bigwig - $!\n";
 }
 
@@ -190,6 +199,22 @@ if ($sBamFile){
    copy("$sBamFile.bai", "$sGenomeDir/$sBamBasename.bai") or die "FATAL: could not copy '$sBigWigDir/$sBamFile.bai' to '$sGenomeDir/$sBamBasename.bai' - $!\n";
    $sBamTrackName =~ s/\./_/g;
    print ANNOTSOUT "   <file name=\"$sBamBasename\" title=\"$sBamTrackName\" description=\"$sBamTrackName\"/>\r\n";
+}
+
+# Check for a track folder in the QC output and push to the annots file
+if (-d "$sGenomeDir/wiggle"){
+   my @asTrackFiles = ();
+   opendir my($trackdir), "$sGenomeDir/wiggle" or die "Can't open $sGenomeDir/wiggle : $!\n";
+   @asTrackFiles = grep { /^.*bed$/ } readdir $trackdir;
+   closedir $trackdir;
+   
+   foreach my $sTrackFile (@asTrackFiles){
+      my $sTrackBasename = basename($sTrackFile);
+      my $sName = $sTrackBasename;
+      $sName =~ s/\.bed$//;
+      $sName =~ s/^.*\.//;
+      print ANNOTSOUT "   <file name=\"wiggle/$sTrackBasename\" title=\"$sName\" description=\"$sName\" background=\"FFFFFF\" foreground=\"003688\"/>\r\n";
+   }
 }
 
 # Close annots file
@@ -272,14 +297,6 @@ seek(CONTENT, 0, 0);
 truncate(CONTENT, 0);
 print CONTENT @asFile;
 close(CONTENT);
-
-#----------------------------------------------#
-# Stash QC data in the IGB folder if available #
-#----------------------------------------------#
-
-if ($sQcDir){
-   system("cp -R $sQcDir/* $sGenomeDir") == 0 or die "FATAL: Could not copy assembly QC data to '$sGenomeDir' - $!\n";
-}
 
 #---------------------------------------#
 # Try to get MLST data for this genome  #
