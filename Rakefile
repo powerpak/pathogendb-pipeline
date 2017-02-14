@@ -98,7 +98,7 @@ end
 task :alien_hunter => [:env, ALIEN_DIR, "#{ALIEN_DIR}/alien_hunter"]
 directory ALIEN_DIR
 file "#{ALIEN_DIR}/alien_hunter" do
-  Dir.chdir(""#{REPO_DIR}/vendor/") do
+  Dir.chdir("#{REPO_DIR}/vendor/") do
     system <<-SH
       curl -L -o alien_hunter.tar.gz 'ftp://ftp.sanger.ac.uk/pub/resources/software/alien_hunter/alien_hunter.tar.gz'
       tar xvzf alien_hunter.tar.gz  # Creates alien_hunter dir
