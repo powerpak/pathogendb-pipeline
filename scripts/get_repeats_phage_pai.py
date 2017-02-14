@@ -184,7 +184,6 @@ def get_islands(fasta, prefix, ah):
                 pai_num += 1
                 start, stop = line.split()[2].split('..')
                 start, stop = int(start), int(stop)
-                print start, len_list
                 start_pos = 0
                 for num, i in enumerate(len_list):
                     if start_pos <= start <= start_pos + i:
@@ -192,7 +191,6 @@ def get_islands(fasta, prefix, ah):
                         start, stop = str(start - start_pos), str(stop - start_pos)
                         break
                     start_pos += i
-                print start,stop
             elif line.startswith('FT                   /colour='):
                 color = line.rstrip().split('=')[1].replace(' ', ',')
             elif line.startswith('FT                   /score='):
@@ -201,7 +199,7 @@ def get_islands(fasta, prefix, ah):
 
 def get_phage_homebrew(fasta, output, db_path):
     out_list = []
-    subprocess.Popen('blastx -outfmt 6 -num_threads 8 -query ' + fasta + ' -db ' + db_path + ' -out ' + output + '.phage.out', shell=True).wait()
+    subprocess.Popen('blastx -outfmt 6 -query ' + fasta + ' -db ' + db_path + ' -out ' + output + '.phage.out', shell=True).wait()
     with open(output + '.phage.out') as blast:
         phage_dict = {}
         for line in blast:
@@ -209,7 +207,6 @@ def get_phage_homebrew(fasta, output, db_path):
             if float(ident) >= 33 and int(length) >= 50:
                 if not query in phage_dict:
                     phage_dict[query] = set()
-                    print qstart, qend, query
                 for j in range(min([int(qstart), int(qend)]), max([int(qstart), int(qend)]) + 1):
                     phage_dict[query].add(j)
         gap = 0
@@ -230,7 +227,6 @@ def get_phage_homebrew(fasta, output, db_path):
                     if gap > gapmax:
                         gap = 0
                         getit = False
-                        print phage_end, phage_start
                         if phage_end - phage_start >= min_length:
                             out_list.append((i, int(phage_start), int(phage_end)))
             phage_end = j

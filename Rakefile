@@ -98,7 +98,7 @@ end
 task :alien_hunter => [:env, ALIEN_DIR, "#{ALIEN_DIR}/alien_hunter"]
 directory ALIEN_DIR
 file "#{ALIEN_DIR}/alien_hunter" do
-  Dir.chdir(File.dirname("#{REPO_DIR}/vendor/")) do
+  Dir.chdir(""#{REPO_DIR}/vendor/") do
     system <<-SH
       curl -L -o alien_hunter.tar.gz 'ftp://ftp.sanger.ac.uk/pub/resources/software/alien_hunter/alien_hunter.tar.gz'
       tar xvzf alien_hunter.tar.gz  # Creates alien_hunter dir
@@ -407,7 +407,7 @@ end
 # =====================
 
 desc "Creates bedFile of repeats, phage and PAIs"
-task :repeats_phage_pai => [:check, "data/#{STRAIN_NAME}.phage.bed"]
+task :repeats_phage_pai => [:check, "data/www/wiggle/#{STRAIN_NAME}.rpi.phage.bed", "data/www/wiggle/#{STRAIN_NAME}.rpi.pai.bed", "data/www/wiggle/#{STRAIN_NAME}.rpi.repeats.bed"]
 file "data/#{STRAIN_NAME}.phage.bed" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   abort "FATAL: Task prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME
 
