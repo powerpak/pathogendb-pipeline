@@ -407,7 +407,7 @@ end
 # =====================
 
 desc "Creates bedFile of repeats, phage and PAIs"
-task :repeats_phage_pai => [:check, "data/www/wiggle/#{STRAIN_NAME}.rpi.phage.bed", "data/www/wiggle/#{STRAIN_NAME}.rpi.pai.bed", "data/www/wiggle/#{STRAIN_NAME}.rpi.repeats.bed"]
+task :repeats_phage_pai => [:check, "data/www/wiggle/#{STRAIN_NAME}.rpi.phage.bed"]
 file "data/www/wiggle/#{STRAIN_NAME}.rpi.phage.bed" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   abort "FATAL: Task prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME
 

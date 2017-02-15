@@ -44,7 +44,7 @@ def trim_contigs(args):
         for line in blast:
             query, subject, ident, length, mm, indel, qstart, qstop, rstart, rstop, eval, bitscore = line.split()
             if not query in internal_dup:
-                internal_dup[query] = (0, None, None, 0, None, None)
+                internal_dup[query] = (0, None, None, 0, None, None, None, None)
             qstart, qstop, rstart, rstop, length = map(int, [qstart, qstop, rstart, rstop, length])
             eval, bitscore, ident = map(float, [eval, bitscore, ident])
             if qstart <= wobble and length >= min_length and ident >= min_ident and qstart != rstart and rstop >= len(seqDict[query]) - wobble and query == subject:
@@ -56,15 +56,15 @@ def trim_contigs(args):
             elif query == subject and qstart <= wobble and length >= min_length and ident >= min_ident and qstart != rstart:
                 if bitscore > internal_dup[query][0]:
                     if rstart < rstop:
-                        internal_dup[query] = (bitscore, rstart, True, internal_dup[query][3], internal_dup[query][4], internal_dup[query][5])
+                        internal_dup[query] = (bitscore, rstop, True, internal_dup[query][3], internal_dup[query][4], internal_dup[query][5], qstop, internal_dup[query][7])
                     else:
-                        internal_dup[query] = (bitscore, rstart, False, internal_dup[query][3], internal_dup[query][4], internal_dup[query][5])
+                        internal_dup[query] = (bitscore, rstop, False, internal_dup[query][3], internal_dup[query][4], internal_dup[query][5], qstop, internal_dup[query][7])
             elif query == subject and qstop >= len(seqDict[query]) - wobble and qstart != rstart and ident >= min_ident and length >= min_length:
                 if bitscore > internal_dup[query][3]:
                     if rstart < rstop:
-                        internal_dup[query] = (internal_dup[query][0], internal_dup[query][1], internal_dup[query][2], bitscore, rstop, True)
+                        internal_dup[query] = (internal_dup[query][0], internal_dup[query][1], internal_dup[query][2], bitscore, rstart, True, internal_dup[query][6], qstart)
                     else:
-                        internal_dup[query] = (internal_dup[query][0], internal_dup[query][1], internal_dup[query][2], bitscore, rstop, False)
+                        internal_dup[query] = (internal_dup[query][0], internal_dup[query][1], internal_dup[query][2], bitscore, rstart, False, internal_dup[query][6], qstart)
             elif qstart <= wobble and length >= min_length and ident >= min_ident and rstop >= len(seqDict[subject]) - wobble and query != subject:
                 merge_list.append([subject, '+', query, '+', qstop])
             elif rstart <= wobble and length >= min_length and ident >= min_ident and qstop >= len(seqDict[query]) - wobble and query != subject:
@@ -84,22 +84,23 @@ def trim_contigs(args):
     if not args.internal_rep is None:
         for j in internal_dup:
             if j in args.internal_rep or shorten_names[j] in args.internal_rep:
+                print internal_dup[j]
                 if internal_dup[j][2] is None:
                     sys.stderr.write('Edge to internal hit not found for both edges in ' + j + '\n')
                 elif internal_dup[j][2] != internal_dup[j][5]:
                     sys.stderr.write('Orientation of internal hits incorrect in ' + j + '\n')
                 else:
                     if internal_dup[j][2]:
-                        stop, start = internal_dup[j][1], internal_dup[j][4]
+                        stop, start, trim_start, trim_stop = internal_dup[j][1], internal_dup[j][4], internal_dup[j][6], internal_dup[j][7]
                         if start < stop:
-                            seqDict[query] += seqDict[query][start:stop]
+                            seqDict[query] = seqDict[query][trim_start:trim_stop] + seqDict[query][start:stop]
                             sys.stdout.write(str(stop - start) + ' repeat bases added to unitig ' + j + '\n')
                         else:
                             sys.stderr.write('Internal hits no in correct order.')
                     else:
                         start, stop = internal_dup[j][1], internal_dup[j][4]
                         if start < stop:
-                            seqDict[query] += reverse_compliment(seqDict[query][start:stop])
+                            seqDict[query] += seqDict[query][trim_start:trim_stop] + reverse_compliment(seqDict[query][start:stop])
                             sys.stdout.write(str(stop - start) + ' repeat bases added to unitig ' + j + '\n')
                         else:
                             sys.stderr.write('Internal hits no in correct order.')
