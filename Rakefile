@@ -804,7 +804,7 @@ namespace :ilm do
       module load blast
       module load python/2.7.6
       module load py_packages/2.7
-      mkdir -p data/www/wiggle
+      mkdir -p data/ilm_www/wiggle
       python #{REPO_DIR}/scripts/get_repeats_phage_pai.py -a #{ALIEN_DIR}/alien_hunter -d #{PHAGE_DB} -o data/ilm_www/wiggle/#{STRAIN_NAME}.rpi -f data/#{STRAIN_NAME}_ilm_prokka.fasta \
       --islands --repeats --phage
      SH
