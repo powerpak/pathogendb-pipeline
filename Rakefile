@@ -460,6 +460,8 @@ desc "Run prokka and create the QC website"
 task :prokka_QC_rpi => [:prokka_annotate, :create_QC_webpage, :repeats_phage_pai]
 
 
+
+
 # =================
 # = prokka_to_igb =
 # =================
@@ -758,9 +760,9 @@ namespace :ilm do
 
 
 
-  # =====================
-  # = create_QC_webpage =
-  # =====================
+  # =========================
+  # = ilm:create_QC_webpage =
+  # =========================
 
   desc "Creates the QC webpage for the Illumina-corrected assembly"
   task :create_QC_webpage => [:check, "data/ilm_www/index.html"]
@@ -787,20 +789,42 @@ namespace :ilm do
   end
 
 
-  # =================
-  # = prokka_and_QC =
-  # =================
+  # =========================
+  # = ilm:repeats_phage_pai =
+  # =========================
 
-  desc "Run prokka and create the QC website for the Illumina-corrected assembly"
-  task :prokka_and_QC => [:prokka_annotate, :create_QC_webpage]
+  desc "Creates bedFile of repeats, phage and PAIs"
+  task :repeats_phage_pai => [:check, "data/ilm_www/wiggle/#{STRAIN_NAME}.rpi.phage.bed"]
+  file "data/ilm_www/wiggle/#{STRAIN_NAME}.rpi.phage.bed" => "data/#{STRAIN_NAME}_ilm_prokka.fasta" do |t|
+    abort "FATAL: Task prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME
+
+    system <<-SH
+      module purge
+      module load mummer
+      module load blast
+      module load python/2.7.6
+      module load py_packages/2.7
+      mkdir -p data/www/wiggle
+      python #{REPO_DIR}/scripts/get_repeats_phage_pai.py -a #{ALIEN_DIR}/alien_hunter -d #{PHAGE_DB} -o data/ilm_www/wiggle/#{STRAIN_NAME}.rpi -f data/#{STRAIN_NAME}_ilm_prokka.fasta \
+      --islands --repeats --phage
+     SH
+  end
+
+  # =====================
+  # = ilm:prokka_QC_rpi =
+  # =====================
+
+  desc "Run prokka and create the QC website for illumina correted data"
+  task :prokka_QC_rpi => [ilm:prokka_annotate, ilm:create_QC_webpage, ilm:repeats_phage_pai]
+
+
   
-  
-  # =================
-  # = prokka_to_igb =
-  # =================
+  # =====================
+  # = ilm:prokka_to_igb =
+  # =====================
 
   desc "Creates an IGB Quickload-compatible directory for the Illumina-corrected assembly in IGB_DIR"
-  task :prokka_to_igb => [:check, :prokka_and_QC] do |t|
+  task :prokka_to_igb => [:check, ilm:prokka_QC_rpi] do |t|
     job_id = ENV['SMRT_JOB_ID']
     abort "FATAL: Task ilm:prokka_to_igb requires specifying SMRT_JOB_ID" unless job_id
     abort "FATAL: Task ilm:prokka_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 

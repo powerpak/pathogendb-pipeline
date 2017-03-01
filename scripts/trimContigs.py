@@ -98,9 +98,9 @@ def trim_contigs(args):
                         else:
                             sys.stderr.write('Internal hits no in correct order.')
                     else:
-                        start, stop = internal_dup[j][1], internal_dup[j][4]
+                        start, stop, trim_start, trim_stop = internal_dup[j][1], internal_dup[j][4], internal_dup[j][6], internal_dup[j][7]
                         if start < stop:
-                            seqDict[query] += seqDict[query][trim_start:trim_stop] + reverse_compliment(seqDict[query][start:stop])
+                            seqDict[query] = seqDict[query][trim_start:trim_stop] + reverse_compliment(seqDict[query][start:stop])
                             sys.stdout.write(str(stop - start) + ' repeat bases added to unitig ' + j + '\n')
                         else:
                             sys.stderr.write('Internal hits no in correct order.')
@@ -131,7 +131,9 @@ def trim_contigs(args):
     with open(args.output, 'w') as outfile:
         for i in seqDict:
             if args.remove is None or (not i in args.remove and not shorten_names[i] in args.remove):
-                if i in overlap_dict:
+                if args.internal_rep is None:
+                    args.internal_rep = []
+                if i in overlap_dict and not (i in args.internal_rep or shorten_names[i] in args.internal_rep):
                     seq = seqDict[i][overlap_dict[i]:]
                     sys.stdout.write(i + ' length:' + str(len(seq)) + ' trimmed:' + str(overlap_dict[i]) + '\n')
                 else:
