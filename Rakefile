@@ -814,8 +814,8 @@ namespace :ilm do
   # = ilm:prokka_QC_rpi =
   # =====================
 
-  desc "Run prokka and create the QC website for illumina correted data"
-  task :prokka_QC_rpi => [prokka_annotate, create_QC_webpage, repeats_phage_pai]
+  desc "Run prokka and create the QC website for illumina corrected data"
+  task :prokka_QC_rpi => [:prokka_annotate, :create_QC_webpage, :repeats_phage_pai]
 
 
   
@@ -824,7 +824,7 @@ namespace :ilm do
   # =====================
 
   desc "Creates an IGB Quickload-compatible directory for the Illumina-corrected assembly in IGB_DIR"
-  task :prokka_to_igb => [:check, prokka_QC_rpi] do |t|
+  task :prokka_to_igb => [:check, :prokka_QC_rpi] do |t|
     job_id = ENV['SMRT_JOB_ID']
     abort "FATAL: Task ilm:prokka_to_igb requires specifying SMRT_JOB_ID" unless job_id
     abort "FATAL: Task ilm:prokka_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME 
