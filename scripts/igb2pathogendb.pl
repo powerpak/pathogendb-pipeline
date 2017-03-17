@@ -13,10 +13,12 @@ use Getopt::Long;
 my $sDbConf = "$ENV{HOME}/.my.cnf";  # MySQL conf file with db password
 
 # GET PARAMETERS
-my $sHelp    = 0;
-my $sIgbDir  = "";
-GetOptions("help!"   => \$sHelp,
-           "input:s" => \$sIgbDir);
+my $sHelp      = 0;
+my $sIgbDir    = "";
+my $sCuratedBy = "";
+GetOptions("help!"        => \$sHelp,
+           "input:s"      => \$sIgbDir,
+           "curatedby:s"  => \$sCuratedBy);
 
 # PRINT HELP
 $sHelp = 1 unless($sIgbDir);
@@ -24,11 +26,14 @@ if ($sHelp) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
    die <<HELP
 
-   Usage: $sScriptName
+   Usage: $sScriptName [-c <curator>] 
    
    Arguments:
     -i <string>
       IGB genome directory 
+    -c <string>
+      For genomes that have been curated, include the name
+      of the curator. Optional argument.
     -help
       This help message
    
@@ -69,6 +74,11 @@ FOLDER
 }
 my $sExtractID = join('.', $sIsolateID, $sAddID);
 
+# Check the curator name
+if ($sCuratedBy){
+   die "Error: curator name can only contain letters, numbers and underscores\n" unless $sCuratedBy =~ /^[\w\s]+$/
+}
+
 # Get the genome stats
 my ($nTotalSize, $nMaxContigLength, $sMaxContigID, $nN50length, $nContigCount) = get_stats_from_genomefile("$sIgbDir/genome.txt");
 
@@ -100,9 +110,9 @@ if ($nCount eq '0E0'){
 
 # Save data into tAssemblies
 $sSQL   = join(" ",
-               "INSERT INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_maxID, contig_sumlength, mlst_subtype, mlst_clade)",
-               "VALUES('$sExtractID', '$sRunID', '$sFolderName', '$nContigCount', '$nN50length', '$nMaxContigLength', '$sMaxContigID', '$nTotalSize', '$sMLST', '$sMLSTclade')",
-               "ON DUPLICATE KEY UPDATE assembly_data_link='$sFolderName', contig_count='$nContigCount', contig_N50='$nN50length', contig_maxlength='$nMaxContigLength', contig_maxID='$sMaxContigID', contig_sumlength='$nTotalSize', mlst_subtype='$sMLST', mlst_clade='$sMLSTclade'");
+               "INSERT INTO tAssemblies (extract_ID, assembly_ID, assembly_data_link, contig_count, contig_N50, contig_maxlength, contig_maxID, contig_sumlength, mlst_subtype, mlst_clade, curated_by)",
+               "VALUES('$sExtractID', '$sRunID', '$sFolderName', '$nContigCount', '$nN50length', '$nMaxContigLength', '$sMaxContigID', '$nTotalSize', '$sMLST', '$sMLSTclade', '$sCuratedBy')",
+               "ON DUPLICATE KEY UPDATE assembly_data_link='$sFolderName', contig_count='$nContigCount', contig_N50='$nN50length', contig_maxlength='$nMaxContigLength', contig_maxID='$sMaxContigID', contig_sumlength='$nTotalSize', mlst_subtype='$sMLST', mlst_clade='$sMLSTclade', curated_by='$sCuratedBy'");
 $nCount = $dbh->do($sSQL);
 if ($nCount){
    print "Loaded assembly '$sRunID' for extract '$sExtractID' into pathogenDB\n";
