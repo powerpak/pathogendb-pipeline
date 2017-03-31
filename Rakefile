@@ -483,6 +483,8 @@ task :prokka_to_igb => [:check, :prokka_QC_rpi] do |t|
     module load py_packages/2.7
     module load blat
     module load bioperl
+    module load ucsc-utils/2015-04-07
+    module load openssl/1.0.2
     export SAS_DIR=#{SAS_DIR}
     export REPO_DIR=#{REPO_DIR}
     perl #{REPO_DIR}/scripts/rast2igb.pl \

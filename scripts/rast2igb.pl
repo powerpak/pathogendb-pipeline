@@ -143,18 +143,6 @@ if ($sRepoDir) { $sFetchMlst      = "$sRepoDir/scripts/fetch_mlst.py"; }
 mkdir($sGenomeDir) or die "FATAL: could not create $sGenomeDir - $!\n";
 
 
-#--------------------------------------------#
-# Create annotation file in beddetail format #
-#--------------------------------------------#
-
-# Create a beddetail file for the annotations
-if ($sFromGenbankFile) {
-   genbank_to_beddetail($sFromGenbankFile, $sGenomeDir, $sGenomeName);
-}
-else {
-   rast_to_beddetail($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName);
-}
-
 #----------------------------------------------#
 # Stash QC data in the IGB folder if available #
 #----------------------------------------------#
@@ -162,65 +150,6 @@ else {
 if ($sQcDir){
    system("cp -R $sQcDir/* $sGenomeDir") == 0 or die "FATAL: Could not copy assembly QC data to '$sGenomeDir' - $!\n";
 }
-
-
-#--------------------------------------------------------------#
-# Create the annots.xml file with annotation and bigwig tracks #
-#--------------------------------------------------------------#
-
-# Write annotations track to annots.xml file
-open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
-print ANNOTSOUT "<files>\r\n";
-print ANNOTSOUT "   <file name=\"$sGenomeName.bed\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\"/>\r\n";
-
-# Gather list of bigwig track files and create a bigwig track dir if any are found
-my @asBigWigFiles = ();
-if ($sBigWigDir){
-   opendir my($dir), $sBigWigDir or die "Can't open $sBigWigDir : $!\n";
-   @asBigWigFiles = grep { /^.*bw$/ } readdir $dir;
-   closedir $dir;
-   mkdir("$sGenomeDir/bigwig") or die "FATAL: could not create $sGenomeDir/bigwig - $!\n";
-}
-
-# Copy the bigwig track files and add entries to annots file
-foreach my $sBigWigFile (@asBigWigFiles){
-   $sBigWigFile =~ s/.bw$//;
-   copy("$sBigWigDir/$sBigWigFile.bw", "$sGenomeDir/bigwig/$sBigWigFile.bw") or die "FATAL: could not copy '$sBigWigDir/$sBigWigFile.bw' to '$sGenomeDir/bigwig/$sBigWigFile.bw' - $!\n";
-   copy("$sBigWigDir/$sBigWigFile.bwt", "$sGenomeDir/bigwig/$sBigWigFile.bwt") or die "FATAL: could not copy '$sBigWigDir/$sBigWigFile.bwt' to '$sGenomeDir/bigwig/$sBigWigFile.bwt' - $!\n";
-   my $sForeground = exists($hTrackColors{$sBigWigFile}) ? $hTrackColors{$sBigWigFile} : "008000";
-   print ANNOTSOUT "   <file name=\"bigwig/$sBigWigFile.bw\" title=\"$sBigWigFile\" description=\"$sBigWigFile\" background=\"FFFFFF\" foreground=\"$sForeground\"/>\r\n";
-}
-
-# Add a bam file
-if ($sBamFile){
-   my $sBamBasename = basename($sBamFile);
-   my $sBamTrackName = $sBamBasename;
-   copy($sBamFile, "$sGenomeDir/$sBamBasename") or die "FATAL: could not copy '$sBigWigDir/$sBamFile' to '$sGenomeDir/$sBamBasename' - $!\n";
-   copy("$sBamFile.bai", "$sGenomeDir/$sBamBasename.bai") or die "FATAL: could not copy '$sBigWigDir/$sBamFile.bai' to '$sGenomeDir/$sBamBasename.bai' - $!\n";
-   $sBamTrackName =~ s/\./_/g;
-   print ANNOTSOUT "   <file name=\"$sBamBasename\" title=\"$sBamTrackName\" description=\"$sBamTrackName\"/>\r\n";
-}
-
-# Check for a track folder in the QC output and push to the annots file
-if (-d "$sGenomeDir/wiggle"){
-   my @asTrackFiles = ();
-   opendir my($trackdir), "$sGenomeDir/wiggle" or die "Can't open $sGenomeDir/wiggle : $!\n";
-   @asTrackFiles = grep { /^.*bed$/ } readdir $trackdir;
-   closedir $trackdir;
-   
-   foreach my $sTrackFile (@asTrackFiles){
-      my $sTrackBasename = basename($sTrackFile);
-      my $sName = $sTrackBasename;
-      $sName =~ s/\.bed$//;
-      $sName =~ s/^.*\.//;
-      print ANNOTSOUT "   <file name=\"wiggle/$sTrackBasename\" title=\"$sName\" description=\"$sName\" background=\"FFFFFF\" foreground=\"003688\"/>\r\n";
-   }
-}
-
-# Close annots file
-print ANNOTSOUT "</files>\r\n";
-close ANNOTSOUT;
-
 
 #----------------------------------------------------------------------------------------#
 # Get genome fasta sequence, convert to 2bit format and create the IGB 'genome.txt' file #
@@ -269,6 +198,75 @@ foreach my $rContig (@aaFastaLengths){
 }
 close GENOMEOUT;
 
+
+#---------------------------------------------------#
+# Create annotation file in beddetail+bigBed format #
+#---------------------------------------------------#
+
+# Create a beddetail file for the annotations
+if ($sFromGenbankFile) {
+   genbank_to_beddetail($sFromGenbankFile, $sGenomeDir, $sGenomeName, "genome.txt");
+}
+else {
+   rast_to_beddetail($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName, "genome.txt");
+}
+
+#--------------------------------------------------------------#
+# Create the annots.xml file with annotation and bigwig tracks #
+#--------------------------------------------------------------#
+
+# Write annotations track to annots.xml file
+open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
+print ANNOTSOUT "<files>\r\n";
+print ANNOTSOUT "   <file name=\"$sGenomeName.bb\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\"/>\r\n";
+
+# Gather list of bigwig track files and create a bigwig track dir if any are found
+my @asBigWigFiles = ();
+if ($sBigWigDir){
+   opendir my($dir), $sBigWigDir or die "Can't open $sBigWigDir : $!\n";
+   @asBigWigFiles = grep { /^.*bw$/ } readdir $dir;
+   closedir $dir;
+   mkdir("$sGenomeDir/bigwig") or die "FATAL: could not create $sGenomeDir/bigwig - $!\n";
+}
+
+# Copy the bigwig track files and add entries to annots file
+foreach my $sBigWigFile (@asBigWigFiles){
+   $sBigWigFile =~ s/.bw$//;
+   copy("$sBigWigDir/$sBigWigFile.bw", "$sGenomeDir/bigwig/$sBigWigFile.bw") or die "FATAL: could not copy '$sBigWigDir/$sBigWigFile.bw' to '$sGenomeDir/bigwig/$sBigWigFile.bw' - $!\n";
+   copy("$sBigWigDir/$sBigWigFile.bwt", "$sGenomeDir/bigwig/$sBigWigFile.bwt") or die "FATAL: could not copy '$sBigWigDir/$sBigWigFile.bwt' to '$sGenomeDir/bigwig/$sBigWigFile.bwt' - $!\n";
+   my $sForeground = exists($hTrackColors{$sBigWigFile}) ? $hTrackColors{$sBigWigFile} : "008000";
+   print ANNOTSOUT "   <file name=\"bigwig/$sBigWigFile.bw\" title=\"$sBigWigFile\" description=\"$sBigWigFile\" background=\"FFFFFF\" foreground=\"$sForeground\"/>\r\n";
+}
+
+# Add a bam file
+if ($sBamFile){
+   my $sBamBasename = basename($sBamFile);
+   my $sBamTrackName = $sBamBasename;
+   copy($sBamFile, "$sGenomeDir/$sBamBasename") or die "FATAL: could not copy '$sBigWigDir/$sBamFile' to '$sGenomeDir/$sBamBasename' - $!\n";
+   copy("$sBamFile.bai", "$sGenomeDir/$sBamBasename.bai") or die "FATAL: could not copy '$sBigWigDir/$sBamFile.bai' to '$sGenomeDir/$sBamBasename.bai' - $!\n";
+   $sBamTrackName =~ s/\./_/g;
+   print ANNOTSOUT "   <file name=\"$sBamBasename\" title=\"$sBamTrackName\" description=\"$sBamTrackName\"/>\r\n";
+}
+
+# Check for a track folder in the QC output and push to the annots file
+if (-d "$sGenomeDir/wiggle"){
+   my @asTrackFiles = ();
+   opendir my($trackdir), "$sGenomeDir/wiggle" or die "Can't open $sGenomeDir/wiggle : $!\n";
+   @asTrackFiles = grep { /^.*bed$/ } readdir $trackdir;
+   closedir $trackdir;
+   
+   foreach my $sTrackFile (@asTrackFiles){
+      my $sTrackBasename = basename($sTrackFile);
+      my $sName = $sTrackBasename;
+      $sName =~ s/\.bed$//;
+      $sName =~ s/^.*\.//;
+      print ANNOTSOUT "   <file name=\"wiggle/$sTrackBasename\" title=\"$sName\" description=\"$sName\" background=\"FFFFFF\" foreground=\"003688\"/>\r\n";
+   }
+}
+
+# Close annots file
+print ANNOTSOUT "</files>\r\n";
+close ANNOTSOUT;
 
 #-------------------------------------------------------------#
 # Add the IGB Quickload dir to the top-level content.txt file #
@@ -363,11 +361,11 @@ sub get_fasta_lengths {
 #
 # Convert genbank file to beddetail format
 sub genbank_to_beddetail {
-   my ($sFromGenbankFile, $sGenomeDir, $sGenomeName) = @_;
+   my ($sFromGenbankFile, $sGenomeDir, $sGenomeName, $sChromSizes) = @_;
 
    my $inSeq = Bio::SeqIO->new(-file   => "<$sFromGenbankFile",
                                -format => 'Genbank');
-   open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
+   open BEDOUT, "| sort -k1,1 -k2,2n > $sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
    while (my $nextSeq = $inSeq->next_seq) {
       my $sLocusID = $nextSeq->display_id();
       $sLocusID =~ s/^ +//;
@@ -437,6 +435,9 @@ sub genbank_to_beddetail {
       }
    }
    close BEDOUT;
+   
+   # Convert beddetail to bigBed format
+   system("bedToBigBed -tab -type=bed12+2 -extraIndex=name $sGenomeDir/$sGenomeName.bed $sGenomeDir/$sChromSizes $sGenomeDir/$sGenomeName.bb") == 0 or die "FATAL: could not convert bedbasic to bigBed format - $!\n";
 }
 
 
@@ -444,7 +445,7 @@ sub genbank_to_beddetail {
 #
 # Convert rast gff3 output to bedbasic format
 sub rast_to_beddetail {
-   my ($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName) = @_;
+   my ($sSvrRetrieveJob, $sRastUser, $sRastPass, $nRastJobID, $sGenomeDir, $sGenomeName, $sChromSizes) = @_;
 
    # Get a gff3 formatted file from rast
    open GFFOUT, ">$sGenomeDir/$sGenomeName.gff3" or die "Error: can't open gff3 file '$sGenomeDir/$sGenomeName.gff3' for writing: $!\n";
@@ -466,7 +467,7 @@ sub rast_to_beddetail {
 
    # Convert the GFF3 format to BED detail format
    my %hFeatures;
-   open BEDOUT, ">$sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
+   open BEDOUT, "| sort -k1,1 -k2,2n > $sGenomeDir/$sGenomeName.bed" or die "Error: can't open bed file '$sGenomeDir/$sGenomeName.bed' for writing: $!\n";
    open GFF, "sort -s -t '\t' -k9,9 $sGenomeDir/$sGenomeName.gff3 |" or die "Error sorting gff file: $!\n";
    while (<GFF>){
       next if /^\s*$/;
@@ -496,6 +497,9 @@ sub rast_to_beddetail {
    }
    print BEDOUT get_bedline(\%hFeatures) if (keys(%hFeatures));
    close BEDOUT;
+
+   # Convert beddetail to bigBed format
+   system("bedToBigBed -tab -type=bed12+2 -extraIndex=name $sGenomeDir/$sGenomeName.bed $sGenomeDir/$sChromSizes $sGenomeDir/$sGenomeName.bb") == 0 or die "FATAL: could not convert bedbasic to bigBed format - $!\n";
 }
 
 
