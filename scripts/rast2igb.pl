@@ -218,7 +218,7 @@ else {
 # Write annotations track to annots.xml file
 open ANNOTSOUT, ">$sGenomeDir/annots.xml" or die "Error: can't open annots.xml file '$sGenomeDir/annots.xml' for writing: $!\n";
 print ANNOTSOUT "<files>\r\n";
-print ANNOTSOUT "   <file name=\"$sGenomeName.bb\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\"/>\r\n";
+print ANNOTSOUT "   <file name=\"$sGenomeName.bb\" title=\"Annotation\" description=\"Gene annotations\" label_field=\"ID\" background=\"FFFFFF\" foreground=\"008000\" positive_strand_color=\"008000\" negative_strand_color=\"008000\" show2tracks=\"true\" direction_type=\"both\" max_depth=\"10\" name_size=\"12\" connected=\"true\" load_hint=\"Whole Sequence\" view_mode='{\"baseColorUseCds\": \"given\", \"translTable\": 11}' />\r\n";
 
 # Gather list of bigwig track files and create a bigwig track dir if any are found
 my @asBigWigFiles = ();
