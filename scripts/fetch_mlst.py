@@ -119,6 +119,7 @@ if __name__ == "__main__":
     if args.fasta==None or args.output==None or args.mlst==None:
     	usage()
     if args.fasta!=None and args.output!=None and args.mlst!=None:  
+        os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-bundle.crt"
     	fastaInput = args.fasta
     	output = args.output
     	MLSTdb = args.mlst
