@@ -392,6 +392,7 @@ file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fast
   
   system <<-SH
     module purge
+    module load CPAN
     module load prokka/1.11  
     module load barrnap/0.6
     module unload rnammer/1.2
