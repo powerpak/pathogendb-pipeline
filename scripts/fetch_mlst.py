@@ -20,7 +20,7 @@ import argparse
 def fetch_results(inputfile, mlstdb):
     #Fetch the result from the server
 
-    curl_command = 'curl --proxy proxy.mgmt.hpc.mssm.edu:8123 --form "fasta_upload=@' + inputfile + '" --form "db=pubmlst_' + mlstdb + '_seqdef" --form "page=sequenceQuery" --form "locus=SCHEME_1" --form "order=locus" -F "submit=submit" "https://pubmlst.org/perl/bigsdb/bigsdb.pl"'
+    curl_command = 'curl --proxy proxy.mgmt.hpc.mssm.edu:8123 --form "fasta_upload=@' + inputfile + '" --form "db=pubmlst_' + mlstdb + '_seqdef" --form "page=sequenceQuery" --form "locus=SCHEME_1" --form "order=locus" -F "submit=submit" -F "no_ajax=1" "https://pubmlst.org/perl/bigsdb/bigsdb.pl"'
 
     print curl_command
 
