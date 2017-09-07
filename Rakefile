@@ -750,11 +750,13 @@ namespace :ilm do
     abort "FATAL: Task ilm:prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
   
     system <<-SH
-      module load prokka  
-      module load barrnap
-      module unload rnammer
-      module load minced
-      module load signalp
+      module purge
+      module load CPAN
+      module load prokka/1.11  
+      module load barrnap/0.6
+      module unload rnammer/1.2
+      module load minced/0.2.0
+      module load signalp/4.1
         
       prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_ilm_prokka data/#{STRAIN_NAME}_ilm_prokka.fasta
     SH
