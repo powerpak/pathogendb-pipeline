@@ -30,18 +30,21 @@ def fetch_results(inputfile, mlstdb):
  
     #load the result into a dom representation and parse the tables
     #there's 3 tables in the result. we are interested in the last 2
-    dom = BeautifulSoup(html)
+    dom = BeautifulSoup(html, "lxml")
     
     tables = dom.find_all("table")
     if len(tables)==3:
-    	alleles = tables[1]
-    	MSLT = tables[2]
+      alleles = tables[1]
+      MSLT = tables[2]
     elif len(tables)==2:
-	alleles = tables[0]
-	MSLT=tables[1]
+      alleles = tables[0]
+      MSLT=tables[1]
+    elif len(tables)==1:
+      alleles = tables[0]
+      MSLT=""
     else:
-	print "No match found\n"
-        sys.exit(0)
+      print "No match found\n"
+      sys.exit(0)
     return (alleles, MSLT)
 
 
@@ -52,13 +55,13 @@ def  convertTabl2tsv(allelesTable, mlstTable, output):
     #handle new lines and whitespaces
     t1 = allelesTable
     t1 = re.sub('\n', '\t', t1.prettify())
-    t1_ = BeautifulSoup(t1)
+    t1_ = BeautifulSoup(t1, "lxml")
    
     t2_=False
     if mlstTable!="": 
     	t2 = mlstTable
     	t2 = re.sub('\n', '\t', t2.prettify())
-    	t2_ = BeautifulSoup(t2)
+    	t2_ = BeautifulSoup(t2, "lxml")
     
     with open("out.tmp", "wb") as f:
         writer = csv.writer(f)
