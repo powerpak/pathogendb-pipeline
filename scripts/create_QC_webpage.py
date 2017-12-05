@@ -663,6 +663,7 @@ def draw_graph(options, header, footer):
                        '      titleFontSize: 16\n'
                        '      },\n'
                        '       data: [')
+        first_bg = True
         for the_data, leg_lab, colour in zip([forward_through, reverse_through, forward_start, reverse_start, forward_end, reverse_end, forward_start_clipped,
                          reverse_start_clipped, forward_end_clipped, reverse_end_clipped], ['Read spans bin (Forward)',
                           'Read spans bin (Reverse)', 'Read starts in bin (F)', 'Read starts in bin (R)',
@@ -677,7 +678,8 @@ def draw_graph(options, header, footer):
                            '         color: "' + colour + '",\n'
                            '         markerType: "none",\n'
                            '         dataPoints: [\n')
-            if refnum == 0:
+            if first_bg and not reference[11] in ['g', 'm']:
+                first_bg = False
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'w')
                 bgt_out = open(options.output_folder + '/bigwig/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.bwt', 'w')
                 bgt_out.write('track type=bigwig bigDataUrl=https://vanbah01.u.hpc.mssm.edu/igb/' + options.assembly_name +'/'
@@ -685,14 +687,16 @@ def draw_graph(options, header, footer):
                               + '.bw name=' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() +
                               'color=0,0,200 altColor=0,200,0 autoScale=on alwaysZero=on graphType=bar yLineMark=10 yLineOnOff=on\n')
                 bgt_out.close()
-            else:
+            elif not reference[11] in ['g', 'm']:
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'a')
-            bg_out.write('fixedStep chrom=' + reference + ' start=1 step=' + str(bin_step) + ' span=' + str(bin_step) + '\n')
+            if not reference[11] in ['g', 'm']:
+                bg_out.write('fixedStep chrom=' + reference + ' start=1 step=' + str(bin_step) + ' span=' + str(bin_step) + '\n')
             for value in range(0, len(x_axis) - 1):
                 html_out.write('{ x: ' + str(x_axis[value]) + ', y: ' + str(the_data[value]) + ' },\n')
-                if x_axis[value] >= 0 and x_axis[value] < chrom_size[reference] - bin_step:
+                if not reference[11] in ['g', 'm'] and x_axis[value] >= 0 and x_axis[value] < chrom_size[reference] - bin_step:
                     bg_out.write(str(the_data[value]) + '\n')
-            bg_out.close()
+            if not reference[11] in ['g', 'm']:
+                bg_out.close()
             html_out.write('{ x: ' + str(x_axis[-1]) + ', y: ' + str(the_data[-1]) + ' }\n')
             html_out.write('        ]\n      }')
             if not the_data is reverse_end_clipped:
@@ -770,6 +774,7 @@ def draw_graph(options, header, footer):
                        '      titleFontSize: 16\n'
                        '},\n'
                        '      data: [')
+        first_bg = True
         for the_data, leg_lab in zip([large_deletions, large_insertions, coverage_array], ['Deletions in read', 'Insertions in read', 'Total reads']):
             html_out.write('         {\n'
                            '         type: "line",\n'
@@ -777,20 +782,23 @@ def draw_graph(options, header, footer):
                            '         legendText: "' + leg_lab + '",\n'
                            '         markerType: "none",\n'
                            '        dataPoints: [\n')
-            if refnum == 0:
+            if first_bg and not reference[11] in ['g', 'm']:
+                first_bg = False
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'w')
                 bgt_out = open(options.output_folder + '/bigwig/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.bwt', 'w')
                 bgt_out.write('track type=bigwig bigDataUrl=' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower()
                               + '.bw name=test color=0,0,200 altColor=0,200,0 autoScale=on alwaysZero=on graphType=bar yLineMark=10 yLineOnOff=on\n')
                 bgt_out.close()
-            else:
+            elif not reference[11] in ['g', 'm']:
                 bg_out = open(options.output_folder + '/wiggle/' + leg_lab.replace(' ', '_').replace(')', '').replace('(', '').lower() + '.wig', 'a')
-            bg_out.write('fixedStep chrom=' + reference + ' start=1 step=' + str(bin_step) + ' span=' + str(bin_step) + '\n')
+            if not reference[11] in ['g', 'm']:
+                bg_out.write('fixedStep chrom=' + reference + ' start=1 step=' + str(bin_step) + ' span=' + str(bin_step) + '\n')
             for value in range(0, len(x_axis) - 1):
                 html_out.write('{ x: ' + str(x_axis[value]) + ', y: ' + str(the_data[value]) + ' },\n')
-                if x_axis[value] >= 0 and x_axis[value] < chrom_size[reference] - bin_step:
+                if x_axis[value] >= 0 and x_axis[value] < chrom_size[reference] - bin_step and not reference[11] in ['g', 'm']:
                     bg_out.write(str(the_data[value]) + '\n')
-            bg_out.close()
+            if not reference[11] in ['g', 'm']:
+                bg_out.close()
             html_out.write('{ x: ' + str(x_axis[-1]) + ', y: ' + str(the_data[-1]) + ' }\n')
             html_out.write('        ]\n      }')
             if not the_data is coverage_array:

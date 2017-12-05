@@ -34,17 +34,27 @@ def reorientate_fasta(fasta_file, log_file, out_file, working_dir):
             if line.startswith('>') and not line.rstrip()[1:] + '|quiver' in first:
                 sys.stderr.write('No hit found for contig ' + line.rstrip()[1:] + '\n')
                 sys.exit()
-    out = open(out_file, 'w')
-    for i in seqDict:
-        if first[i] is None:
-            newstart = 0
-        else:
-            newstart = first[i][0] - first[i][2]
-        out.write('>' + i[:8] + 'p' + i[9:-7] + '\n')
-        seq = seqDict[i][newstart:] + seqDict[i][:newstart]
-        for k in range(0, len(seq), 80):
-            out.write(seq[k:k+80] + '\n')
-    out.close()
+    with open(out_file + '_qc.fasta', 'w') as out:
+        for i in seqDict:
+            if first[i] is None:
+                newstart = 0
+            else:
+                newstart = first[i][0] - first[i][2]
+            out.write('>' + i[:8] + 'p' + i[9:-7] + '\n')
+            seq = seqDict[i][newstart:] + seqDict[i][:newstart]
+            for k in range(0, len(seq), 80):
+                out.write(seq[k:k+80] + '\n')
+    with open(out_file + '_prokka.fasta', 'w') as out:
+        for i in seqDict:
+            if first[i] is None:
+                newstart = 0
+            else:
+                newstart = first[i][0] - first[i][2]
+            if i[11] != 'm' or i[11] != 'g':
+                out.write('>' + i[:8] + 'p' + i[9:-7] + '\n')
+                seq = seqDict[i][newstart:] + seqDict[i][:newstart]
+                for k in range(0, len(seq), 80):
+                    out.write(seq[k:k+80] + '\n')
 
 fasta_file = sys.argv[1]
 log_file = sys.argv[2]

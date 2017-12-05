@@ -376,7 +376,7 @@ file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_consensus_circ.f
   
   system <<-SH
     module load blast/2.2.26+
-    #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.txt data/#{STRAIN_NAME}_prokka.fasta data/pq_dir
+    #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.txt data/#{STRAIN_NAME} data/pq_dir
   SH
 end
 
@@ -393,7 +393,7 @@ file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fast
   system <<-SH
     module purge
     module load CPAN
-    module load prokka/1.11  
+    module load prokka/1.11
     module load barrnap/0.6
     module unload rnammer/1.2
     module load minced/0.2.0
@@ -431,7 +431,7 @@ end
 
 desc "Creates the QC webpage"
 task :create_QC_webpage => [:check, "data/www/index.html"]
-file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
+file "data/www/index.html" => "data/#{STRAIN_NAME}_qc.fasta" do |t|
   job_id = ENV['SMRT_JOB_ID']
   abort "FATAL: Task create_QC_webpage requires specifying SMRT_JOB_ID" unless job_id
   abort "FATAL: Task create_QC_webpage requires specifying STRAIN_NAME" unless STRAIN_NAME 
@@ -447,7 +447,7 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
     module load py_packages/2.7
     module load ucsc-utils/2015-04-07
     module load samtools/1.2
-    #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
+    #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_qc.fasta \
      -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
   SH
 end
@@ -752,7 +752,7 @@ namespace :ilm do
     system <<-SH
       module purge
       module load CPAN
-      module load prokka/1.11  
+      module load prokka/1.11
       module load barrnap/0.6
       module unload rnammer/1.2
       module load minced/0.2.0
@@ -771,7 +771,7 @@ namespace :ilm do
 
   desc "Creates the QC webpage for the Illumina-corrected assembly"
   task :create_QC_webpage => [:check, "data/ilm_www/index.html"]
-  file "data/ilm_www/index.html" => "data/#{STRAIN_NAME}_ilm_prokka.fasta" do |t|
+  file "data/ilm_www/index.html" => "data/#{STRAIN_NAME}_ilm_qc.fasta" do |t|
     job_id = ENV['SMRT_JOB_ID']
     abort "FATAL: Task ilm:create_QC_webpage requires specifying SMRT_JOB_ID" unless job_id
     abort "FATAL: Task ilm:create_QC_webpage requires specifying STRAIN_NAME" unless STRAIN_NAME 
@@ -788,7 +788,7 @@ namespace :ilm do
       module load py_packages/2.7
       module load ucsc-utils
       module load samtools/1.2
-      #{REPO_DIR}/scripts/create_QC_webpage.py -o data/ilm_qc_wd -w data/ilm_www -f data/#{STRAIN_NAME}_ilm_prokka.fasta \
+      #{REPO_DIR}/scripts/create_QC_webpage.py -o data/ilm_qc_wd -w data/ilm_www -f data/#{STRAIN_NAME}_ilm_qc.fasta \
        -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
     SH
   end

@@ -149,15 +149,36 @@ def get_repeats(fasta, prefix, min_ident=85.0, min_length=1000):
     with open(prefix + '.repeats.bed', 'w') as out:
         out.write('track name="Repeats" description="repeat sequence determined by nucmer" itemRgb="On"\n')
         h = 1
-        step = 360 / len(repeats)
+        try:
+            step = 360 / len(repeats)
+        except:
+            step = 0
         for num, i in enumerate(repeats):
             s = 0.4 + 0.2 * random.random()
             l = 0.5 + 0.2 * random.random()
             h += step
             label = 'r' + str(num + 1)
             color = hsl_to_colorstr(h,s,l)
+            a_dict = {}
             for j in i:
-                out.write('\t'.join([j[2], str(j[0]), str(j[1]), label, '0', j[3], str(j[0]), str(j[1]), color]) + '\n')
+                start, stop, chrom, orient = j
+                if chrom in a_dict:
+                    a_dict[chrom].append((start, stop, orient))
+                else:
+                    a_dict[chrom] = [(start, stop, orient)]
+
+            for j in a_dict:
+                a_list = a_dict[j]
+                a_list.sort()
+                start, stop, dir = a_list[0][0], a_list[0][1], a_list[0][2]
+                block_num = len(a_list)
+                block_starts = '0'
+                block_sizes = str(stop - start)
+                stop = a_list[-1][1]
+                for k in a_list[1:]:
+                    block_sizes += ',' + str(k[1] - k[0])
+                    block_starts += ',' + str(k[0] - start)
+                out.write('\t'.join([j, str(start), str(stop), label, '0', dir, str(0), str(0), color, str(block_num), block_sizes, block_starts]) + '\n')
         out.close()
 
 
@@ -199,23 +220,33 @@ def get_islands(fasta, prefix, ah):
 
 def get_phage_homebrew(fasta, output, db_path):
     out_list = []
-    subprocess.Popen('blastx -outfmt 6 -query ' + fasta + ' -db ' + db_path + ' -out ' + output + '.phage.out', shell=True).wait()
+    subprocess.Popen('blastx -num_threads 4 -outfmt 6 -query ' + fasta + ' -db ' + db_path + ' -out ' + output + '.phage.out', shell=True).wait()
     with open(output + '.phage.out') as blast:
         phage_dict = {}
         for line in blast:
             query, subject, ident, length, mm, indel, qstart, qend, rstart, rend, eval, bitscore = line.split()
+            subject = subject.split('-')[0][1:]
             if float(ident) >= 33 and int(length) >= 50:
                 if not query in phage_dict:
-                    phage_dict[query] = set()
+                    phage_dict[query] = {}
                 for j in range(min([int(qstart), int(qend)]), max([int(qstart), int(qend)]) + 1):
-                    phage_dict[query].add(j)
+                    if j in phage_dict[query]:
+                        phage_dict[query][j].append(subject)
+                    else:
+                        phage_dict[query][j] = [subject]
         gap = 0
         gapmax = 2000
         min_length = 1000
         for i in phage_dict:
             getit = False
+            phage_name_count = {}
             for j in range(0, max(phage_dict[i]) + 1):
                 if j in phage_dict[i]:
+                    for k in phage_dict[i][j]:
+                        if k in phage_name_count:
+                            phage_name_count[k] += 1
+                        else:
+                            phage_name_count[k] = 1
                     gap = 0
                     if not getit:
                         getit = True
@@ -225,18 +256,28 @@ def get_phage_homebrew(fasta, output, db_path):
                         phage_end = j
                     gap += 1
                     if gap > gapmax:
+                        max_k = 0
+                        for k in phage_name_count:
+                            if phage_name_count[k] > max_k:
+                                max_k = phage_name_count[k]
+                                phage_name = k
+                        phage_name_count = {}
                         gap = 0
                         getit = False
                         if phage_end - phage_start >= min_length:
-                            out_list.append((i, int(phage_start), int(phage_end)))
+                            out_list.append((i, int(phage_start), int(phage_end), phage_name))
             phage_end = j
             if getit:
                 if phage_end - phage_start >= min_length:
-                    out_list.append((i, int(phage_start), int(phage_end)))
+                    for k in phage_name_count:
+                        if phage_name_count[k] > max_k:
+                            max_k = phage_name_count[k]
+                            phage_name = k
+                    out_list.append((i, int(phage_start), int(phage_end), phage_name))
     out = open(output + '.phage.bed', 'w')
     out.write('track name="Phage" description="Phage sequence determined by PHASTER"\n')
     for i in out_list:
-        out.write('\t'.join([i[0], str(i[1]), str(i[2]), 'phage', '1', '+']) + '\n')
+        out.write('\t'.join([i[0], str(i[1]), str(i[2]), str(i[3]), '1', '+']) + '\n')
 
 parser = argparse.ArgumentParser(description='Given a FASTA file will find any or all of phage regions using PHASTER (output to prefix.phage.bed)'
                                              ' repeats found using Nucmer (output to prefix.repeats.bed) and '

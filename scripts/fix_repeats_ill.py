@@ -65,9 +65,11 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
                 seqDict[name] += line.rstrip()
     split_seq = {}
     for i in low_cov: # for each reference, split the sequence into high coverage (even) and low coverage (regions to be corrected, odd)
+        print i
         last_pos = 0
         split_seq[i] = []
         for j in low_cov[i]:
+            print j
             split_seq[i].append(seqDict[i][last_pos:j[0]])
             split_seq[i].append(seqDict[i][j[0]:j[1]])
             last_pos = j[1]
@@ -91,7 +93,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             subprocess.Popen('bwa mem -t ' + no_of_threads + ' ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
         subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
         subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
-        subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam ' + working_dir + '/ref.sort', shell=True).wait()
+        subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam -o ' + working_dir + '/ref.sort.bam', shell=True).wait()
         subprocess.Popen('samtools index ' + working_dir + '/ref.sort.bam', shell=True).wait()
         subprocess.Popen('samtools mpileup -L100000 -d100000 -uf "' + working_dir + '/ref.fa" ' + working_dir + \
                          '/ref.sort.bam | bcftools call -cv -Ob > "' + working_dir + '/ref.bcf"', shell=True).wait()
@@ -101,6 +103,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
         subprocess.Popen('tabix -p vcf "' + working_dir + '/ref2.vcf.gz"', shell=True).wait()
         subprocess.Popen('cat "' + working_dir + '/ref.fa" | vcf-consensus "' + working_dir + '/ref2.vcf.gz" > "' + working_dir + '/new_ref.fasta"', shell=True).wait()
     # once the consensus is called, replace all the low coverage regions with the new consensus sequence
+    #     sys.exit()
         with open(working_dir + '/new_ref.fasta') as fasta:
             seq = None
             for line in fasta:
@@ -153,7 +156,7 @@ def correct_regions(fasta_file, read_file, coverage_file, working_dir, out_file,
             subprocess.Popen('bwa mem -t ' + no_of_threads + ' ' + working_dir + '/ref.fa ' + read_file + ' ' + read_file_2 + ' > ' + working_dir + '/ref.aln.sam', shell=True).wait()
         subprocess.Popen('samtools faidx ' + working_dir + '/ref.fa ', shell=True).wait()
         subprocess.Popen('samtools view -bS ' + working_dir + '/ref.aln.sam > ' + working_dir + '/ref.aln.bam', shell=True).wait()
-        subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam ' + working_dir + '/ref.sort', shell=True).wait()
+        subprocess.Popen('samtools sort ' + working_dir + '/ref.aln.bam -o ' + working_dir + '/ref.sort.bam', shell=True).wait()
         subprocess.Popen('samtools index ' + working_dir + '/ref.sort.bam', shell=True).wait()
         subprocess.Popen('samtools mpileup -L100000 -d100000 -uf "' + working_dir + '/ref.fa" ' + working_dir + \
                         '/ref.sort.bam | bcftools call -cv -Ob > "' + working_dir + '/ref.bcf"', shell=True).wait()
