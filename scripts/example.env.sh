@@ -16,6 +16,8 @@ export IGB_DIR="/hpc/users/vanbah01/www/igb"
 export REORIENT_FASTA="/sc/orga/projects/InfectiousDisease/reference-db/landmarks/dnaA-reference-sequences.fasta"
 export CLUSTER="LSF_PSP"
 export PHAGE_DB="/sc/orga/projects/InfectiousDisease/reference-db/phage-db/prophage_virus.db"
+export REF_FASTA="/sc/orga/projects/InfectiousDisease/igb/S_aureus_ER02581_3A_025616/S_aureus_ER02581_3A_025616.fasta"
+
 
 # If running from interactive1/interactive2, need to run requests through internal HTTP proxy
 export HTTP_PROXY="http://proxy.mgmt.hpc.mssm.edu:8123"

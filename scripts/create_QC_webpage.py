@@ -1105,7 +1105,7 @@ def do_blast(options, header, footer, coverage):
                 svg.drawLine(width+2*margin, height*5/8, width+2*margin+40, height*5/8, hit_thick, (125, 22, 36))
                 svg.writeString('Inverted hit', width+2*margin + 50, height*5/8+ genome_line_thickness/4, 30)
                 svg.writesvg(out_dir + '/qc_website/blast/' + i + '_' + j + '.svg')
-                svgs_made.append('/igb/' + ass_name +  '/qc_website/blast/' + i + '_' + j + '.svg')
+                svgs_made.append('/igb/' + ass_name + '/qc_website/blast/' + i + '_' + j + '.svg')
     for i in header_names:
         html_name = i[:6]
         html_out = open(out_dir + '/qc_website/blast/' + html_name + '_blast.html', 'w')

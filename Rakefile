@@ -17,6 +17,7 @@ REPO_DIR = File.dirname(__FILE__)
 SAS_DIR = "#{REPO_DIR}/vendor/sas"
 MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
 ALIEN_DIR = "#{REPO_DIR}/vendor/alien_hunter-1.7"
+MAUVE_DIR = "#{REPO_DIR}/vendor/mauve-2.4"
 BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
 HTSLIB_DIR = "#{REPO_DIR}/vendor/htslib"
 
@@ -64,7 +65,7 @@ end
 ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
 
 desc "Checks environment variables and requirements before running tasks"
-task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools, :alien_hunter] do
+task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools, :alien_hunter, :mauve_install] do
   unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
     abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
   end
@@ -95,6 +96,20 @@ file "#{MUMMER_DIR}/nucmer" do
   Dir.chdir(MUMMER_DIR) { system "make install" }
 end
 
+
+task :mauve_install => [:env, MAUVE_DIR, "#{MAUVE_DIR}/linux-x64/progressiveMauve"]
+directory MAUVE_DIR
+file "#{MAUVE_DIR}/linux-x64/progressiveMauve" do
+  Dir.chdir(File.dirname(MAUVE_DIR)) do
+    system <<-SH
+      curl -L -o mauve.tar.gz 'http://darlinglab.org/mauve/downloads/mauve_linux_2.4.0.tar.gz'
+      tar xvzf mauve.tar.gz
+      mv mauve_2.4.0/* #{Shellwords.escape(MAUVE_DIR)}
+      rm -rf mauve.tar.gz mauve_linux_2.4.0.tar.gz
+    SH
+  end
+end
+
 task :alien_hunter => [:env, ALIEN_DIR, "#{ALIEN_DIR}/alien_hunter"]
 directory ALIEN_DIR
 file "#{ALIEN_DIR}/alien_hunter" do
@@ -105,6 +120,7 @@ file "#{ALIEN_DIR}/alien_hunter" do
     SH
   end
 end
+
 
 task :bcftools => [:env, "#{BCFTOOLS_DIR}/bcftools", HTSLIB_DIR, "#{HTSLIB_DIR}/bgzip", "#{HTSLIB_DIR}/tabix"]
 directory BCFTOOLS_DIR
@@ -856,3 +872,157 @@ namespace :ilm do
   end
   
 end # namespace :ilm
+
+
+# ========================================================================
+# = The following tasks are for de novo assemblies of Illumina only data =
+# ========================================================================
+
+namespace :ilm_dn do
+
+
+  # ===========================
+  # = ilm_dn:shovill_assembly =
+  # ===========================
+
+  desc "Assembles Illumina data with SPAdes"
+  task :shovill_assembly => [:check, "data/assembly/contigs.fa"]
+  file "data/assembly/contigs.fa" do |t, args|
+    system <<-SH
+      module load shovill/Sep-29-2017
+      shovill --outdir data/assembly --R1 ILLUMINA_FASTQ --R2 ILLUMINA_FASTQ_2
+    SH
+  end
+
+
+  # ===================
+  # = ilm_dn:scaffold =
+  # ===================
+
+  desc "Order contigs with Mauve"
+  task :scaffold => [:check, "data/#{STRAIN_NAME}_scaf_prokka.fasta"]
+  file "data/#{STRAIN_NAME}_scaf_prokka.fasta" => "data/assembly/contigs.fa" do |t|
+    abort "FATAL: Task ilm_dn:scaffold requires specifying STRAIN_NAME" unless STRAIN_NAME
+
+    system <<-SH
+        java -Xmx500m -cp #{MUMMER_DIR}/Mauve.jar org.gel.mauve.contigs.ContigOrderer -output results_dir -ref reference.gbk -draft #{STRAIN_NAME}_scaf_prokka.fasta
+    SH
+  end
+
+
+  # ==========================
+  # = ilm_dn:prokka_annotate =
+  # ==========================
+
+  desc "Annotates the ordered Illumina de novo assembly with prokka"
+  task :prokka_annotate => [:check, "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk"]
+  file "data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk" => "data/#{STRAIN_NAME}_scaf_prokka.fasta" do |t|
+    abort "FATAL: Task ilm_dn:prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME
+
+    system <<-SH
+      module purge
+      module load CPAN
+      module load prokka/1.11
+      module load barrnap/0.6
+      module unload rnammer/1.2
+      module load minced/0.2.0
+      module load signalp/4.1
+
+      prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_ilm_prokka data/#{STRAIN_NAME}_scaf_prokka.fasta
+    SH
+  end
+
+
+
+
+  # ============================
+  # = ilm_dn:create_QC_webpage =
+  # ============================
+
+  desc "Creates the QC webpage for the Illumina-corrected assembly"
+  task :create_QC_webpage => [:check, "data/ilm_www/index.html"]
+  file "data/ilm_www/index.html" => "data/#{STRAIN_NAME}_ilm_qc.fasta" do |t|
+    job_id = ENV['SMRT_JOB_ID']
+    abort "FATAL: Task ilm:create_QC_webpage requires specifying SMRT_JOB_ID" unless job_id
+    abort "FATAL: Task ilm:create_QC_webpage requires specifying STRAIN_NAME" unless STRAIN_NAME
+    abort "FATAL: Task ilm:create_QC_webpage requires specifying SPECIES" unless SPECIES
+    species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
+
+    system <<-SH
+      module unload python
+      module unload py_packages
+      module load blast
+      module load bwa/0.7.12
+      module load celera
+      module load python/2.7.6
+      module load py_packages/2.7
+      module load ucsc-utils
+      module load samtools/1.2f
+      #{REPO_DIR}/scripts/create_QC_webpage.py -o data/ilm_qc_wd -w data/ilm_www -f data/#{STRAIN_NAME}_scaf_prokka.fasta \
+       -g data -R1 ILLUMINA_FASTQ -R2 ILLUMINA_FASTQ_2 -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
+    SH
+  end
+
+
+  # =========================
+  # = ilm_dn:repeats_phage_pai =
+  # =========================
+
+  desc "Creates bedFile of repeats, phage and PAIs"
+  task :repeats_phage_pai => [:check, "data/ilm_www/wiggle/#{STRAIN_NAME}.rpi.phage.bed"]
+  file "data/ilm_www/wiggle/#{STRAIN_NAME}.rpi.phage.bed" => "data/#{STRAIN_NAME}_ilm_prokka.fasta" do |t|
+    abort "FATAL: Task prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME
+
+    system <<-SH
+      module purge
+      module load mummer
+      module load blast
+      module load python/2.7.6
+      module load py_packages/2.7
+      mkdir -p data/ilm_www/wiggle
+      python #{REPO_DIR}/scripts/get_repeats_phage_pai.py -a #{ALIEN_DIR}/alien_hunter -d #{PHAGE_DB} -o data/ilm_www/wiggle/#{STRAIN_NAME}.rpi -f data/#{STRAIN_NAME}_scaf_prokka.fasta \
+      --islands --repeats --phage
+     SH
+  end
+
+  # =====================
+  # = ilm_dn:prokka_QC_rpi =
+  # =====================
+
+  desc "Run prokka and create the QC website for illumina corrected data"
+  task :prokka_QC_rpi => [:prokka_annotate, :create_QC_webpage, :repeats_phage_pai]
+
+
+
+  # =====================
+  # = ilm_dn:prokka_to_igb =
+  # =====================
+
+  desc "Creates an IGB Quickload-compatible directory for the Illumina-corrected assembly in IGB_DIR"
+  task :prokka_to_igb => [:check, :prokka_QC_rpi] do |t|
+    job_id = ENV['SMRT_JOB_ID']
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying SMRT_JOB_ID" unless job_id
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying STRAIN_NAME" unless STRAIN_NAME
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying SPECIES" unless SPECIES
+    abort "FATAL: Task ilm:prokka_to_igb requires specifying IGB_DIR" unless IGB_DIR
+    species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
+
+    system <<-SH
+      module unload python
+      module unload py_packages
+      module load python/2.7.6
+      module load py_packages/2.7
+      module load blat
+      module load bioperl
+      export SAS_DIR=#{SAS_DIR}
+      perl #{REPO_DIR}/scripts/rast2igb.pl \
+          -f data/prokka/#{STRAIN_NAME}_ilm_prokka.gbk \
+          -g #{species_clean}_#{STRAIN_NAME}_#{job_id} \
+          -q data/ilm_www/ \
+          -w data/ilm_qc_wd/bigwig/ \
+          -b data/ilm_qc_wd/alignment.sorted.bam \
+          -i #{IGB_DIR}
+    SH
+  end
+
+end # namespace :ilm_dn
