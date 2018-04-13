@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 '''
-Author: Luis Cunha
-Date: 02/03/2015
+Author: Ajay Obla, Luis Cunha
+Date: 03/21/2018
 Description: Script to scrap mslt information from pubmlst.org
-Usage:  fect_mslt.py <file.fasta>
+Usage:  fetch_mslt.py <file.fasta>
 '''
 
 
@@ -14,17 +14,75 @@ import sys
 import re
 import os
 import argparse
+import json
+
+def fetch_results(inputfile,mlstdb,output):
+    #Fetch the result from the server
+	curl_command = """(echo -n '{"base64":true,"sequence": "'; base64 """ + inputfile + """ ; echo '"}') | curl --proxy proxy.mgmt.hpc.mssm.edu:8123 -s -H "Content-Type: application/json" -X POST "http://rest.pubmlst.org/db/pubmlst_""" + mlstdb + """_seqdef/schemes/1/sequence" -d @-"""
+	
+	
+	stream = os.popen(curl_command)
+	json_string = stream.read()
+	json_data = json.loads(json_string)
+
+	
+	
+	try:
+		ST=json_data['fields']['ST']
+	except KeyError:
+		ST='No Match'
+	try:
+		mlst_clade=json_data['fields']['mlst_clade']
+	except KeyError:
+		mlst_clade='No Match'
+	
+
+	with open(output, "w") as f:
+		
+		f.write('\t'.join(['Allele','Length','Startposition','Endposition'])+'\n'+'\n')
+		for gene in sorted(json_data['exact_matches'].keys()):
+			allele_id=json_data['exact_matches'][gene][0]['allele_id']
+			f.write(gene+':'+allele_id+'\n')
+
+		f.write('\n'+'\n'+'MLST'+'\n'+'\n')
+		f.write('ST'+'\t'+ST+'\n')
+		f.write('mlstclade'+'\t'+mlst_clade)
+			
+
+def usage():
+	print "\n\tScript to get mslt information from pubmlst.org.\n"
+	print "\tRequirement: fasta input file and MLST database (Examples: 'cdifficile' for C.diff or 'mlst' for MRSA).\n" 
+	print "\tUsage: fetch_mslt.py [-h] [--fasta FASTA] [--output OUTPUT] [--mlst DATABASE]\n\n"
+	sys.exit(0)
 
 
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description='scrap pubmlst.org for mslt')
+	parser.add_argument('--fasta', "-f", help="Input fasta file ")
+	parser.add_argument('--output', "-o", help="Output file with MLST info ")
+	parser.add_argument('--mlst', "-m", help="MLST database to use. Examples: 'cdifficile' for C.diff or 'mlst' for MRSA.")
+	args = parser.parse_args()
+	if args.fasta==None or args.output==None or args.mlst==None:
+		usage()
+	if args.fasta!=None and args.output!=None and args.mlst!=None:  
+		os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-bundle.crt"
+		fastaInput = args.fasta
+		output = args.output
+		MLSTdb = args.mlst
 
+	fetch_results(fastaInput,MLSTdb,output)
+    	
+
+#Code to process legacy pubMLST curl command - Not in use
+"""
 def fetch_results(inputfile, mlstdb):
     #Fetch the result from the server
 
     curl_command = 'curl --proxy proxy.mgmt.hpc.mssm.edu:8123 --form "fasta_upload=@' + inputfile + '" --form "db=pubmlst_' + mlstdb + '_seqdef" --form "page=sequenceQuery" --form "locus=SCHEME_1" --form "order=locus" -F "submit=submit" -F "no_ajax=1" "https://pubmlst.org/perl/bigsdb/bigsdb.pl"'
 
-    print curl_command
+	
 
-    stream = stream=os.popen(curl_command)
+    stream = os.popen(curl_command)
     html = stream.read()
 
  
@@ -46,9 +104,6 @@ def fetch_results(inputfile, mlstdb):
       print "No match found\n"
       sys.exit(0)
     return (alleles, MSLT)
-
-
-
 
 def  convertTabl2tsv(allelesTable, mlstTable, output):
     #convert from table to csv
@@ -105,27 +160,4 @@ def  convertTabl2tsv(allelesTable, mlstTable, output):
     
          os.remove("out.tmp")
 
-
-def usage():
-    print "\n\tScript to get mslt information from pubmlst.org.\n"
-    print "\tRequirement: fasta input file and MLST database (Examples: 'cdifficile' for C.diff or 'mlst' for MRSA).\n" 
-    print "\tUsage: fetch_mslt.py [-h] [--fasta FASTA] [--output OUTPUT] [--mlst DATABASE]\n\n"
-    sys.exit(0)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='scrap pubmlst.org for mslt')
-    parser.add_argument('--fasta', "-f", help="Input fasta file ")
-    parser.add_argument('--output', "-o", help="Output file with MLST info ")
-    parser.add_argument('--mlst', "-m", help="MLST database to use. Examples: 'cdifficile' for C.diff or 'mlst' for MRSA.")
-    args = parser.parse_args()
-    if args.fasta==None or args.output==None or args.mlst==None:
-    	usage()
-    if args.fasta!=None and args.output!=None and args.mlst!=None:  
-        os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-bundle.crt"
-    	fastaInput = args.fasta
-    	output = args.output
-    	MLSTdb = args.mlst
-
-    	allelesTable, mlstTable = fetch_results(fastaInput, MLSTdb)
-    	convertTabl2tsv(allelesTable, mlstTable, output)
+"""
