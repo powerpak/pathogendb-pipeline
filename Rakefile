@@ -393,7 +393,7 @@ file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fast
   system <<-SH
     module purge
     module load CPAN
-    module load prokka/1.11  
+    module load prokka/1.12  
     module load barrnap/0.6
     module unload rnammer/1.2
     module load minced/0.2.0
@@ -752,7 +752,7 @@ namespace :ilm do
     system <<-SH
       module purge
       module load CPAN
-      module load prokka/1.11  
+      module load prokka/1.12  
       module load barrnap/0.6
       module unload rnammer/1.2
       module load minced/0.2.0
@@ -854,5 +854,27 @@ namespace :ilm do
           -i #{IGB_DIR}
     SH
   end
+
+  # =========================
+  # = ilm:igb_to_pathogendb =
+  # =========================
+
+  directory IGB_DIR
+
+  desc "Adds a new genome assembly to pathogendb from an IGB genome dir"
+  task :igb_to_pathogendb => [:check, :prokka_to_igb] do |t|
+  job_id = ENV['SMRT_JOB_ID']
+  abort "FATAL: Task igb_to_pathogendb requires specifying SMRT_JOB_ID" unless job_id
+  abort "FATAL: Task igb_to_pathogendb requires specifying STRAIN_NAME" unless STRAIN_NAME 
+  abort "FATAL: Task igb_to_pathogendb requires specifying SPECIES" unless SPECIES 
+  abort "FATAL: Task igb_to_pathogendb requires specifying IGB_DIR" unless IGB_DIR 
+  species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
+  
+  system <<-SH
+    export SAS_DIR=#{SAS_DIR}
+    perl #{REPO_DIR}/scripts/igb2pathogendb.pl \
+        -i #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}
+  SH
+end
   
 end # namespace :ilm
