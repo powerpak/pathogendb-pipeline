@@ -19,18 +19,10 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
                 seqDict[name] = ''
             else:
                 seqDict[name] += line.rstrip()
-    seqDictOri = {}
+    seqDictOri = seqDict
     if os.path.exists(circ_direct + '/00.input_assembly.fasta'):
-        with open(circ_direct + '/00.input_assembly.fasta') as f: # get the initial input for circlator - this is done so we can readd unitigs thrown out by circlator
-            for line in f:
-                if line.startswith('>'):
-                    name = line.rstrip()[1:]
-                    seqDictOri[name] = ''
-                else:
-                    seqDictOri[name] += line.rstrip()
         curated = False
     else:
-        seqDictOri = seqDict
         curated = True
         name_list = list(seqDict)
         name_list.sort(key=lambda x: len(seqDict[x]), reverse=True)
@@ -114,7 +106,7 @@ def checkLog(circ_direct, outname, seqlog, assembly_no):
             contig_name += 'o'
         if not i in seqDict:
             seq = seqDictOri[i]
-        elif not i in circ_set: # if contig was not circularised do not reorientate
+	elif not i in circ_set: # if contig was not circularised do not reorientate
             seq = seqDict[i]
         elif not i in reorient_dict: # if contig was not reorientated, re-reorientate for quiver
             seq = seqDict[i][len(seq)/2:] + seqDict[i][:len(seq)/2]
