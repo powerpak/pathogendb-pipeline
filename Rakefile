@@ -288,26 +288,18 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
   if CURATED
     system <<-SH or abort "FATAL: circlator failed to run to completion."
       module purge
-      module load bwa/0.7.13
-      module load prodigal/2.6.2
-      module load samtools/1.1
-      module load spades/3.6.0
-      module load python/3.5.0  py_packages/3.5
-      module load mummer/3.23
+      module load circlator
+      module load java
       mkdir -p data/#{STRAIN_NAME}_circlator
       circlator fixstart data/circ_input.fasta data/#{STRAIN_NAME}_circlator/06.fixstart
     SH
   else
     system <<-SH or abort "FATAL: circlator failed to run to completion."
       module purge
-      module load bwa/0.7.13
-      module load prodigal/2.6.2
-      module load samtools/1.1
-      module load spades/3.6.0
-      module load python/3.5.0  py_packages/3.5
-      module load mummer/3.23
+      module load circlator
+      module load java
       rm -rf data/#{STRAIN_NAME}_circlator
-      circlator all data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
+      circlator all  --assembler canu --data_type pacbio-corrected data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
     SH
   end
 end
