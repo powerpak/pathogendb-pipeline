@@ -55,7 +55,7 @@ my ($sFolderName, $sRunID, $sAddID, $sIsolateID) = parse_ids_from_foldername($sI
 
 # Check the identifiers
 my $flIDerror = 0;
-$flIDerror = 1 unless ($sRunID =~ /^\d+$/);
+$flIDerror = 1 unless ($sRunID =~ /^[A-Z]?\d+$/);
 $flIDerror = 1 unless ($sAddID =~ /^\d+[A-Z]+$/);
 $flIDerror = 1 unless ($sIsolateID =~ /^[A-Z]{2}\d{5}$/);
 if ($flIDerror){
