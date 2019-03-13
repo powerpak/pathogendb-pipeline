@@ -307,7 +307,9 @@ if ($sGenus and $sSpecies){
    $sSpecies = lc($sSpecies);
    if ( (length($sGenus) == 1) and ($sSpecies =~ /^[a-z]+$/) ){
       my $sMLSTdb = join('', lc($sGenus), lc($sSpecies));
-      system("$sFetchMlst --fasta $sGenomeDir/$sGenomeName.fasta --mlst $sMLSTdb --output $sGenomeDir/mlst.txt")  == 0 or die "Error: fetch MLST info for job '$nRastJobID'\n";
+      unless ( $sMLSTdb eq "smarcescens" ){
+         system("$sFetchMlst --fasta $sGenomeDir/$sGenomeName.fasta --mlst $sMLSTdb --output $sGenomeDir/mlst.txt")  == 0 or warn "Error: fetching MLST info for job '$nRastJobID'\n";
+      }
    }
    else{
       warn("Warning: skipped MLST database search because genus and/or species were incorrectly formatted in the genome name\n");
