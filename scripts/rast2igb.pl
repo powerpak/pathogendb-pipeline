@@ -133,8 +133,12 @@ $sGenomeName =~ s/ /_/g;
 
 # Create a new Quickload genome dir
 my $sGenomeDir = "$sIGBdir/$sGenomeName";
-if (-d $sGenomeDir) {
-   die "FATAL: $sGenomeDir already exists, possibly from a failed run.\n       Please move or delete it before re-running this script.\n";
+
+#system("rm -rf $sGenomeDir");
+
+if (-d $sGenomeDir) {	
+
+   die "FATAL: $sGenomeDir already exists, possibly from a failed run.\n       Please move or delete it before re-running this script.\n";  
 }
 
 # If REPO_DIR is set, use the direct path to the fetch_mlst.py script
