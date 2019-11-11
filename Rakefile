@@ -51,8 +51,9 @@ task :env do
   puts "Output directory: #{OUT}"
   mkdir_p File.join(REPO_DIR, "vendor")
   
-  sc_orga_scratch = "/sc/orga/scratch/#{ENV['USER']}"
-  ENV['TMP'] ||= Dir.exists?(sc_orga_scratch) ? sc_orga_scratch : "/tmp"
+  sc_hydra_scratch = "/sc/hydra/scratch/#{ENV['USER']}"
+  #sc_hydra_scratch = "/sc/orga/projects/InfectiousDisease/tmp" #if space runs out in scratch
+  ENV['TMP'] ||= Dir.exists?(sc_hydra_scratch) ? sc_hydra_scratch : "/tmp"
   # Always use our locally bundled (patched) perl modules
   ENV['PERL5LIB'] = "#{REPO_DIR}/lib/perl"
 end
@@ -65,8 +66,8 @@ ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` be
 
 desc "Checks environment variables and requirements before running tasks"
 task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools, :alien_hunter] do
-  unless `module avail 2>&1 | grep smrtpipe/2.2.0` != ''
-    abort "FATAL: You must have the smrtpipe/2.2.0 module in your MODULEPATH."
+  unless `module avail 2>&1 | grep smrtanalysis/2.3.0` != ''
+    abort "FATAL: You must have the smrtanalysis/2.3.0 module in your MODULEPATH."
   end
   unless ENV['SMRTANALYSIS'] && File.exists?("#{ENV['SMRTANALYSIS']}/etc/setup.sh")
     abort <<-ERRMSG
@@ -193,7 +194,7 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
   job_id = job_id.rjust(6, '0')
-  pacbio_job_dirs = ["/sc/orga/projects/pacbio/userdata_permanent/jobs/#{job_id[0..2]}/#{job_id}",
+  pacbio_job_dirs = ["/sc/hydra/projects/pacbio/modules/smrtportal/2.3.0/smrtportal/userdata/jobs/#{job_id[0..2]}/#{job_id}",
                      "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}","/sc/orga/scratch/attieo02/#{job_id}"]
   smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
   
@@ -202,11 +203,11 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
     cp "#{found_fofn_dir}/input.fofn", "bash5.fofn"
     mkdir_p "data"
     if File.exist? "#{found_fofn_dir}/data/polished_assembly.fasta.gz"
-      ln_s "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
-      ln_s "#{found_fofn_dir}/data/corrected.fastq", "data/corrected.fastq"
-      ln_s "#{found_fofn_dir}/data/celera-assembler.gkpStore", "data/celera-assembler.gkpStore"
-      ln_s "#{found_fofn_dir}/data/celera-assembler.tigStore", "data/celera-assembler.tigStore"
-      ln_s "#{found_fofn_dir}/data/4-unitigger/best.edges", "data/best.edges"
+      cp "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
+      cp "#{found_fofn_dir}/data/corrected.fastq", "data/corrected.fastq"
+      cp "#{found_fofn_dir}/data/celera-assembler.gkpStore", "data/celera-assembler.gkpStore"
+      cp "#{found_fofn_dir}/data/celera-assembler.tigStore", "data/celera-assembler.tigStore"
+      cp "#{found_fofn_dir}/data/4-unitigger/best.edges", "data/best.edges"
     end
   else
     url = URI.parse(smrtpipe_log_url)
@@ -218,7 +219,7 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
     
     puts "<< Fetching reads with ccs_get.py >>"
     system <<-SH
-      module load python/2.7.6
+      module load python/2.7.16
       python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
       find #{OUT}/*bax.h5 > bash5.fofn
     SH
@@ -244,7 +245,7 @@ desc "Uses smrtpipe.py to assemble raw reads from PacBio within OUT directory"
 task :assemble_raw_reads => [:check, "data/polished_assembly.fasta.gz"]
 file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
   system <<-SH or abort
-    module load smrtpipe/2.2.0
+    module load smrtanalysis/2.3.0
     source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
     fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
   SH
@@ -263,7 +264,7 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
   
   cp "#{REPO_DIR}/xml/example_params.xml", "."
   system <<-SH
-    module load smrtpipe/2.2.0
+    module load smrtanalysis/2.3.0
     source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
         -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params example_params.xml xml:bash5.xml
@@ -335,7 +336,7 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
   rm_rf "circularized_sequence"
   mkdir_p "circularized_sequence"
   system <<-SH or abort
-    module load smrtpipe/2.2.0
+    module load smrtanalysis/2.3.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_postcirc.fasta
   SH
@@ -346,7 +347,7 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
       "#{OUT} #{reference_dir} > resequence_params.xml" and
   system <<-SH or abort
-    module load smrtpipe/2.2.0
+    module load smrtanalysis/2.3.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
@@ -385,7 +386,7 @@ file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fast
   system <<-SH
     module purge
     module load CPAN
-    module load prokka/1.12  
+    module load prokka  
     module load barrnap/0.6
     module unload rnammer/1.2
     module load minced/0.2.0
@@ -408,8 +409,8 @@ file "data/www/wiggle/#{STRAIN_NAME}.rpi.phage.bed" => "data/#{STRAIN_NAME}_prok
     module purge
     module load mummer
     module load blast
-    module load python/2.7.6
-    module load py_packages/2.7
+    module load python/2.7.16
+    
     mkdir -p data/www/wiggle
     python #{REPO_DIR}/scripts/get_repeats_phage_pai.py -a #{ALIEN_DIR}/alien_hunter -d #{PHAGE_DB} -o data/www/wiggle/#{STRAIN_NAME}.rpi -f data/#{STRAIN_NAME}_prokka.fasta \
     --islands --repeats --phage
@@ -435,8 +436,7 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
     module load blast/2.2.26+
     module load bwa/0.7.12
     module load celera/8.1
-    module load python/2.7.6
-    module load py_packages/2.7
+    module load python/2.7.16
     module load ucsc-utils/2015-04-07
     module load samtools/1.2
     #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
@@ -472,12 +472,12 @@ task :prokka_to_igb => [:check, :prokka_QC_rpi] do |t|
     
   system <<-SH
     module purge
-    module load python/2.7.6
-    module load py_packages/2.7
+    module load python/2.7.16    
     module load blat
     module load bioperl
     module load ucsc-utils/2015-04-07
     module load openssl/1.0.2
+    module load CPAN
     export SAS_DIR=#{SAS_DIR}
     export REPO_DIR=#{REPO_DIR}
     perl #{REPO_DIR}/scripts/rast2igb.pl \
@@ -508,6 +508,8 @@ task :igb_to_pathogendb => [:check, :prokka_to_igb] do |t|
   species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
   
   system <<-SH
+    module purge
+    module load CPAN
     export SAS_DIR=#{SAS_DIR}
     perl #{REPO_DIR}/scripts/igb2pathogendb.pl \
         -i #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}
@@ -528,7 +530,7 @@ file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   rm_rf "polished_sequence"
   mkdir_p "polished_sequence"
   system <<-SH or abort
-    module load smrtpipe/2.2.0
+    module load smrtanalysis/2.3.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     referenceUploader -c -p polished_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_prokka.fasta
   SH
@@ -539,7 +541,7 @@ file "data/motif_summary.csv" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl motif_simple_example_params.xml " +
       "#{OUT} #{reference_dir} > motif_simple_params.xml" and
   system <<-SH or abort
-    module load smrtpipe/2.2.0
+    module load smrtanalysis/2.3.0
     source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
     samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
     smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
@@ -709,7 +711,7 @@ namespace :ilm do
     rm_rf "circularized_sequence"
     mkdir_p "circularized_sequence"
     system <<-SH or abort
-      module load smrtpipe/2.2.0
+      module load smrtanalysis/2.3.0
       source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
       referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_ilm_corrected.fasta
     SH
@@ -720,7 +722,7 @@ namespace :ilm do
     system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
       "#{OUT} #{reference_dir} > resequence_params.xml" and
     system <<-SH or abort
-      module load smrtpipe/2.2.0
+      module load smrtanalysis/2.3.0
       source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
       samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
       smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
