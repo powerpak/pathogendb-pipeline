@@ -201,14 +201,21 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   found_fofn_dir = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
   if found_fofn_dir
     cp "#{found_fofn_dir}/input.fofn", "bash5.fofn"
+    system <<-SH or abort
+       module load smrtanalysis/2.3.0
+       source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
+       fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
+    SH
     mkdir_p "data"
     if File.exist? "#{found_fofn_dir}/data/polished_assembly.fasta.gz"
       cp "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
       cp "#{found_fofn_dir}/data/corrected.fastq", "data/corrected.fastq"
-      cp "#{found_fofn_dir}/data/celera-assembler.gkpStore", "data/celera-assembler.gkpStore"
-      cp "#{found_fofn_dir}/data/celera-assembler.tigStore", "data/celera-assembler.tigStore"
-      cp "#{found_fofn_dir}/data/4-unitigger/best.edges", "data/best.edges"
+      cp_r "#{found_fofn_dir}/data/celera-assembler.gkpStore", "data/celera-assembler.gkpStore"
+      cp_r "#{found_fofn_dir}/data/celera-assembler.tigStore", "data/celera-assembler.tigStore"
+      cp "#{found_fofn_dir}/data/4-unitigger/best.edges", "data/best.edges"    
+
     end
+
   else
     url = URI.parse(smrtpipe_log_url)
     req = Net::HTTP.new(url.host, url.port)
@@ -256,9 +263,8 @@ file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
     next
   end
   
-  lstat = File::lstat("data/polished_assembly.fasta.gz") rescue nil
-  if lstat and lstat.symlink?
-    puts "NOTICE: polished_assembly.fasta.gz is symlinked to an existing assembly, skipping assemble_raw_reads"
+  if File.exist? "data/polished_assembly.fasta.gz"
+    puts "NOTICE: polished_assembly.fasta.gz is already present, skipping assemble_raw_reads"
     next
   end
   
