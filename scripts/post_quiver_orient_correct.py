@@ -26,12 +26,12 @@ def reorientate_fasta(fasta_file, log_file, out_file, working_dir):
         with open(working_dir + '/blast_temp.out') as f:
             for line in f:
                 query, subject, length, ident, mm, indel, qstart, qstop, rstart, rstop, evalue, bitscore = line.split()
-                if query == subject + '|quiver' and int(qstart) < int(qstop) and int(rstart) < int(rstop) and int(rstart) < 10 and float(ident) > 90:
+                if query == subject + '|arrow' and int(qstart) < int(qstop) and int(rstart) < int(rstop) and int(rstart) < 10 and float(ident) > 90:
                     if first[query] is None:
                         first[query] = map(int, (qstart, qstop, rstart, rstop))
     with open(log_file) as f:
         for line in f:
-            if line.startswith('>') and not line.rstrip()[1:] + '|quiver' in first:
+            if line.startswith('>') and not line.rstrip()[1:] + '|arrow' in first:
                 sys.stderr.write('No hit found for contig ' + line.rstrip()[1:] + '\n')
                 sys.exit()
     out = open(out_file, 'w')
@@ -40,7 +40,7 @@ def reorientate_fasta(fasta_file, log_file, out_file, working_dir):
             newstart = 0
         else:
             newstart = first[i][0] - first[i][2]
-        out.write('>' + i[:8] + 'p' + i[9:-7] + '\n')
+        out.write('>' + i[:8] + 'p' + i[9:-12] + '\n')
         seq = seqDict[i][newstart:] + seqDict[i][:newstart]
         for k in range(0, len(seq), 80):
             out.write(seq[k:k+80] + '\n')

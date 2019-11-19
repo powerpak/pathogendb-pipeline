@@ -338,29 +338,39 @@ task :resequence_assembly => [:check, "data/#{STRAIN_NAME}_consensus_circ.fasta"
 file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc.fasta" do |t|
   abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
-  
-  rm_rf "circularized_sequence"
-  mkdir_p "circularized_sequence"
+    
   system <<-SH or abort
-    module load smrtanalysis/2.3.0
-    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    referenceUploader -c -p circularized_sequence -n #{STRAIN_NAME} -f data/#{STRAIN_NAME}_postcirc.fasta
+	
+    subreads=$(cat bash5.fofn | tr '\r\n' ' ')
+    module purge all
+    unset PYTHONPATH
+    unset PERL5LIB
+	unset R_LIBS
+	module load anaconda2
+	module load zlib
+
+	source activate pbpolish
+
+	bax2bam $subreads -o #{STRAIN_NAME}
+	
+	#Round1 polishing
+	pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_postcirc.fasta #{STRAIN_NAME}.subreads.bam data/#{STRAIN_NAME}_align0.bam 
+	samtools faidx data/#{STRAIN_NAME}_postcirc.fasta
+	pbindex data/#{STRAIN_NAME}_align0.bam
+	variantCaller -j 12 --algorithm arrow -r data/#{STRAIN_NAME}_postcirc.fasta -o data/#{STRAIN_NAME}_polish0.fasta -o data/#{STRAIN_NAME}_polish0.gff -o data/#{STRAIN_NAME}_polish0.vcf data/#{STRAIN_NAME}_align0.bam
+
+	#Round2 polishing
+	pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_polish0.fasta #{STRAIN_NAME}.subreads.bam data/#{STRAIN_NAME}_align1.bam
+	pbindex data/#{STRAIN_NAME}_align1.bam
+	samtools faidx data/#{STRAIN_NAME}_polish0.fasta
+	variantCaller -j 12 --algorithm arrow -r data/#{STRAIN_NAME}_polish0.fasta -o data/#{STRAIN_NAME}_polish1.fasta -o data/#{STRAIN_NAME}_polish1.gff -o data/#{STRAIN_NAME}_polish1.vcf data/#{STRAIN_NAME}_align1.bam
+
+	conda deactivate
+	
   SH
-  # NOTE: sometimes referenceUploader auto-appends a timestamp to the reference name given by `-n` to avoid a conflict
-  # Therefore, we must detect if it did this by checking how it named the directory
-  reference_dir = Dir.glob("circularized_sequence/#{STRAIN_NAME}*").last
-  cp "#{REPO_DIR}/xml/resequence_example_params.xml", OUT
-  system "perl #{REPO_DIR}/scripts/changeResequencingDirectory.pl resequence_example_params.xml " +
-      "#{OUT} #{reference_dir} > resequence_params.xml" and
-  system <<-SH or abort
-    module load smrtanalysis/2.3.0
-    source #{ENV['SMRTANALYSIS']}/etc/setup.sh &&
-    samtools faidx #{reference_dir}/sequence/#{STRAIN_NAME}.fasta &&
-    smrtpipe.py -D TMP=#{ENV['TMP']} -D SHARED_DIR=#{ENV['SHARED_DIR']} -D NPROC=12 -D CLUSTER=#{CLUSTER} \
-        -D MAX_THREADS=16 #{CLUSTER != 'BASH' ? '--distribute' : ''} --params resequence_params.xml xml:bash5.xml &&
-    gunzip -f data/consensus.fasta.gz
-  SH
-  cp "data/consensus.fasta", "data/#{STRAIN_NAME}_consensus_circ.fasta"
+
+  cp "data/#{STRAIN_NAME}_polish1.fasta", "data/#{STRAIN_NAME}_consensus_circ.fasta"
+
 end
 
 
@@ -374,6 +384,7 @@ file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_consensus_circ.f
   abort "FATAL: Task post_quiver_orient_correct requires specifying STRAIN_NAME" unless STRAIN_NAME 
   
   system <<-SH
+	module purge
     module load blast/2.2.26+
     #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.txt data/#{STRAIN_NAME}_prokka.fasta data/pq_dir
   SH
