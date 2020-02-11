@@ -201,12 +201,9 @@ file "bash5.fofn" do |t, args|                       # <-- implementation for ge
   found_fofn_dir = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
   if found_fofn_dir
     cp "#{found_fofn_dir}/input.fofn", "bash5.fofn"
-    system <<-SH or abort
-       module load smrtanalysis/2.3.0
-       source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
-       fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
-    SH
+    
     mkdir_p "data"
+
     if File.exist? "#{found_fofn_dir}/data/polished_assembly.fasta.gz"
       cp "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
       cp "#{found_fofn_dir}/data/corrected.fastq", "data/corrected.fastq"
@@ -305,6 +302,7 @@ file "data/#{STRAIN_NAME}_circlator/06.fixstart.fasta" => "data/polished_assembl
       module purge
       module load circlator
       module load java
+      
       rm -rf data/#{STRAIN_NAME}_circlator
       circlator all  --assembler canu --data_type pacbio-corrected data/circ_input.fasta data/corrected.fastq data/#{STRAIN_NAME}_circlator/
     SH
@@ -367,9 +365,15 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
 
 	conda deactivate
 	
+	# remove unneccessary files
+	rm data/#{STRAIN_NAME}_align*.bam*
+	rm *scraps*bam*
+
   SH
 
   cp "data/#{STRAIN_NAME}_polish1.fasta", "data/#{STRAIN_NAME}_consensus_circ.fasta"
+  
+ 
 
 end
 
@@ -384,7 +388,7 @@ file "data/#{STRAIN_NAME}_prokka.fasta" => "data/#{STRAIN_NAME}_consensus_circ.f
   abort "FATAL: Task post_quiver_orient_correct requires specifying STRAIN_NAME" unless STRAIN_NAME 
   
   system <<-SH
-	module purge
+    module purge
     module load blast/2.2.26+
     #{REPO_DIR}/scripts/post_quiver_orient_correct.py data/#{STRAIN_NAME}_consensus_circ.fasta data/#{STRAIN_NAME}_postcirc2.txt data/#{STRAIN_NAME}_prokka.fasta data/pq_dir
   SH
@@ -401,15 +405,15 @@ file "data/prokka/#{STRAIN_NAME}_prokka.gbk" => "data/#{STRAIN_NAME}_prokka.fast
   abort "FATAL: Task prokka_annotate requires specifying STRAIN_NAME" unless STRAIN_NAME 
   
   system <<-SH
+
     module purge
-    module load CPAN
-    module load prokka  
-    module load barrnap/0.6
-    module unload rnammer/1.2
-    module load minced/0.2.0
-    module load signalp/4.1
-        
+    module load anaconda2
+    source activate prokka
+
     prokka --outdir data/prokka --force --prefix #{STRAIN_NAME}_prokka data/#{STRAIN_NAME}_prokka.fasta
+
+    conda deactivate
+
   SH
 end
 
