@@ -18,7 +18,7 @@ import json
 
 def fetch_results(inputfile,mlstdb,output):
     #Fetch the result from the server
-	curl_command = """(echo -n '{"base64":true,"sequence": "'; base64 """ + inputfile + """ ; echo '"}') | curl --proxy http://mgmt01.chimera.hpc.mssm.edu:3128 -s -H "Content-Type: application/json" -X POST "http://rest.pubmlst.org/db/pubmlst_""" + mlstdb + """_seqdef/schemes/1/sequence" -d @-"""
+	curl_command = """(echo -n '{"base64":true,"sequence": "'; base64 """ + inputfile + """ ; echo '"}') | curl --proxy nfs01.chimera.hpc.mssm.edu:3128 -s -H "Content-Type: application/json" -X POST "http://rest.pubmlst.org/db/pubmlst_""" + mlstdb + """_seqdef/schemes/1/sequence" -d @-"""
 	
 	
 	stream = os.popen(curl_command)
