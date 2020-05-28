@@ -6,6 +6,7 @@ require_relative 'lib/subscreens'
 require 'shellwords'
 require 'bundler/setup'
 require 'rspec/core/rake_task'
+require 'zlib'
 include Colors
 
 task :default => :check
@@ -38,6 +39,7 @@ CLUSTER = ENV['CLUSTER']
 REPLACE_FASTA = ENV['REPLACE_FASTA'] && File.expand_path(ENV['REPLACE_FASTA'])
 CURATED = ENV['CURATED']
 PHAGE_DB = ENV['PHAGE_DB']
+SEQ_PLATFORM = ENV['SEQ_PLATFORM']
 
 #############################################################
 #  IMPORTANT!
@@ -52,7 +54,7 @@ task :env do
   mkdir_p File.join(REPO_DIR, "vendor")
   
   sc_hydra_scratch = "/sc/hydra/scratch/#{ENV['USER']}"
-  #sc_hydra_scratch = "/sc/orga/projects/InfectiousDisease/tmp" #if space runs out in scratch
+  #sc_hydra_scratch = "/sc/arion/projects/InfectiousDisease/tmp" #if space runs out in scratch
   ENV['TMP'] ||= Dir.exists?(sc_hydra_scratch) ? sc_hydra_scratch : "/tmp"
   # Always use our locally bundled (patched) perl modules
   ENV['PERL5LIB'] = "#{REPO_DIR}/lib/perl"
@@ -189,56 +191,77 @@ end
 # =======================
 
 desc "Copies or downloads raw reads from a PacBio job to the OUT directory"
-task :pull_down_raw_reads => [:check, "bash5.fofn"]  # <-- file(s) created by this task
-file "bash5.fofn" do |t, args|                       # <-- implementation for generating each of these files
+task :pull_down_raw_reads => [:check, "corrected.fastq"]  # <-- file(s) created by this task
+file "corrected.fastq" do |t, args|                       # <-- implementation for generating each of these files
   job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
-  job_id = job_id.rjust(6, '0')
-  pacbio_job_dirs = ["/sc/hydra/projects/pacbio/modules/smrtportal/2.3.0/smrtportal/userdata/jobs/#{job_id[0..2]}/#{job_id}",
-                     "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}","/sc/orga/scratch/attieo02/#{job_id}"]
-  smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
-  
-  found_fofn_dir = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
-  if found_fofn_dir
-    cp "#{found_fofn_dir}/input.fofn", "bash5.fofn"
-    
-    mkdir_p "data"
 
-    if File.exist? "#{found_fofn_dir}/data/polished_assembly.fasta.gz"
-      cp "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
-      cp "#{found_fofn_dir}/data/corrected.fastq", "data/corrected.fastq"
-      cp_r "#{found_fofn_dir}/data/celera-assembler.gkpStore", "data/celera-assembler.gkpStore"
-      cp_r "#{found_fofn_dir}/data/celera-assembler.tigStore", "data/celera-assembler.tigStore"
-      cp "#{found_fofn_dir}/data/4-unitigger/best.edges", "data/best.edges"    
 
-    end
+	if SEQ_PLATFORM=='RS2'
+		job_id = job_id.rjust(6, '0')
+		pacbio_job_dirs = ["/sc/hydra/projects/pacbio/modules/smrtportal/2.3.0/smrtportal/userdata/jobs/#{job_id[0..2]}/#{job_id}",
+		                   "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}","/sc/orga/scratch/attieo02/#{job_id}"]
+		smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
+		
+		found_fofn_dir = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/input.fofn" }
+		if found_fofn_dir
+		  cp "#{found_fofn_dir}/input.fofn", "bash5.fofn"
+		  
+		  mkdir_p "data"
 
-  else
-    url = URI.parse(smrtpipe_log_url)
-    req = Net::HTTP.new(url.host, url.port)
-    res = req.request_head(url.path)
-    unless res.code == "200"
-      abort "FATAL: Task pull_down_raw_reads cannot find a way to fetch reads for that SMRT_JOB_ID"
-    end
-    
-    puts "<< Fetching reads with ccs_get.py >>"
-    system <<-SH
-      module load python/2.7.16
-      python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
-      find #{OUT}/*bax.h5 > bash5.fofn
-    SH
-  end
-  
-  # The optional REPLACE_FASTA parameter allows one to shunt a custom assembly into the rest of the pipeline 
-  #     in place of the polished_assembly.fasta.gz built by SMRTPortal.
-  # Note that the fastq, best edges data, etc., if they do not match the new fasta, may throw off QC analyses.
-  if REPLACE_FASTA
-    cp REPLACE_FASTA, "data/replaced_assembly.fasta"
-    system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
-    if File.exist? "data/polished_assembly.fasta.gz"
-        rm "data/polished_assembly.fasta.gz"
-    end
-  end
+		  if File.exist? "#{found_fofn_dir}/data/polished_assembly.fasta.gz"
+		    cp "#{found_fofn_dir}/data/polished_assembly.fasta.gz", "data/polished_assembly.fasta.gz"
+		    cp "#{found_fofn_dir}/data/corrected.fastq", "data/corrected.fastq"
+		    cp_r "#{found_fofn_dir}/data/celera-assembler.gkpStore", "data/celera-assembler.gkpStore"
+		    cp_r "#{found_fofn_dir}/data/celera-assembler.tigStore", "data/celera-assembler.tigStore"
+		    cp "#{found_fofn_dir}/data/4-unitigger/best.edges", "data/best.edges"    
+
+		  end
+
+		else
+		  url = URI.parse(smrtpipe_log_url)
+		  req = Net::HTTP.new(url.host, url.port)
+		  res = req.request_head(url.path)
+		  unless res.code == "200"
+		    abort "FATAL: Task pull_down_raw_reads cannot find a way to fetch reads for that SMRT_JOB_ID"
+		  end
+		  
+		  puts "<< Fetching reads with ccs_get.py >>"
+		  system <<-SH
+		    module load python/2.7.16
+		    python #{REPO_DIR}/scripts/ccs_get.py --noprefix -e bax.h5 #{job_id} -i &&
+		    find #{OUT}/*bax.h5 > bash5.fofn
+		  SH
+		end
+		
+		# The optional REPLACE_FASTA parameter allows one to shunt a custom assembly into the rest of the pipeline 
+		#     in place of the polished_assembly.fasta.gz built by SMRTPortal.
+		# Note that the fastq, best edges data, etc., if they do not match the new fasta, may throw off QC analyses.
+		if REPLACE_FASTA
+		  cp REPLACE_FASTA, "data/replaced_assembly.fasta"
+		  system "gzip data/replaced_assembly.fasta"  # creates data/replaced_assembly.fasta.gz
+		  if File.exist? "data/polished_assembly.fasta.gz"
+		      rm "data/polished_assembly.fasta.gz"
+		  end
+		end
+	elsif SEQ_PLATFORM=='SEQ'
+		job_id = job_id.rjust(10, '0')
+		pacbio_job_dirs = ["/sc/hydra/projects/pacbio/modules/smrtlink/8.0.0/smrtlink/userdata/jobs_root/#{job_id[0..3]}/#{job_id[0..6]}/#{job_id}"]
+
+		found_assembly_dir = pacbio_job_dirs.find {|dir| File.exist? "#{dir}/outputs/consensus.fasta" }
+		if found_assembly_dir
+			mkdir_p "data"
+			system <<-SH
+				cp #{found_assembly_dir}/entry-points/*.xml subreads.xml
+				cp #{found_assembly_dir}/outputs/consensus.fasta data/polished_assembly.fasta
+				gzip data/polished_assembly.fasta
+		    cp #{found_assembly_dir}/cromwell-job/call-falcon/falcon/*/call-task__2_asm_falcon/execution/preads4falcon.fasta data/corrected.fastq
+			SH
+			
+		else			
+			abort "FATAL: Pacbio SEQ final assembly file not found"
+		end
+	end
 end
 
 # ======================
@@ -247,12 +270,15 @@ end
 
 desc "Uses smrtpipe.py to assemble raw reads from PacBio within OUT directory"
 task :assemble_raw_reads => [:check, "data/polished_assembly.fasta.gz"]
-file "data/polished_assembly.fasta.gz" => "bash5.fofn" do |t|
-  system <<-SH or abort
-    module load smrtanalysis/2.3.0
-    source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
-    fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
-  SH
+file "data/polished_assembly.fasta.gz" => "corrected.fastq" do |t|
+
+	if SEQ_PLATFORM=='RS2'
+		system <<-SH or abort
+		  module load smrtanalysis/2.3.0
+		  source "#{ENV['SMRTANALYSIS']}/etc/setup.sh" &&
+		  fofnToSmrtpipeInput.py bash5.fofn > bash5.xml
+		SH
+	end
   
   if REPLACE_FASTA
     puts "NOTICE: polished_assembly.fasta.gz has been replaced by user input, skipping assemble_raw_reads"
@@ -336,40 +362,71 @@ task :resequence_assembly => [:check, "data/#{STRAIN_NAME}_consensus_circ.fasta"
 file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc.fasta" do |t|
   abort "FATAL: Task resequence_assembly requires specifying STRAIN_NAME" unless STRAIN_NAME 
   abort "FATAL: STRAIN_NAME can only contain letters, numbers, and underscores" unless STRAIN_NAME =~ /^[\w]+$/
-    
-  system <<-SH or abort
-	
-    subreads=$(cat bash5.fofn | tr '\r\n' ' ')
-    module purge all
-    unset PYTHONPATH
-    unset PERL5LIB
-	unset R_LIBS
-	module load anaconda2
-	module load zlib
+  
 
-	source activate pbpolish
+	if SEQ_PLATFORM=='RS2'
+		system <<-SH or abort
+		
+			subreads=$(cat bash5.fofn | tr '\r\n' ' ')
+			module purge all
+			unset PYTHONPATH
+			unset PERL5LIB
+			unset R_LIBS
+			module load anaconda2
+			module load zlib
 
-	bax2bam $subreads -o #{STRAIN_NAME}
-	
-	#Round1 polishing
-	pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_postcirc.fasta #{STRAIN_NAME}.subreads.bam data/#{STRAIN_NAME}_align0.bam 
-	samtools faidx data/#{STRAIN_NAME}_postcirc.fasta
-	pbindex data/#{STRAIN_NAME}_align0.bam
-	variantCaller -j 12 --algorithm arrow -r data/#{STRAIN_NAME}_postcirc.fasta -o data/#{STRAIN_NAME}_polish0.fasta -o data/#{STRAIN_NAME}_polish0.gff -o data/#{STRAIN_NAME}_polish0.vcf data/#{STRAIN_NAME}_align0.bam
+			source activate pbpolish
 
-	#Round2 polishing
-	pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_polish0.fasta #{STRAIN_NAME}.subreads.bam data/#{STRAIN_NAME}_align1.bam
-	pbindex data/#{STRAIN_NAME}_align1.bam
-	samtools faidx data/#{STRAIN_NAME}_polish0.fasta
-	variantCaller -j 12 --algorithm arrow -r data/#{STRAIN_NAME}_polish0.fasta -o data/#{STRAIN_NAME}_polish1.fasta -o data/#{STRAIN_NAME}_polish1.gff -o data/#{STRAIN_NAME}_polish1.vcf data/#{STRAIN_NAME}_align1.bam
+			bax2bam $subreads -o #{STRAIN_NAME}
+			
+			#Round1 polishing
+			pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_postcirc.fasta #{STRAIN_NAME}.subreads.bam data/#{STRAIN_NAME}_align0.bam 
+			samtools faidx data/#{STRAIN_NAME}_postcirc.fasta
+			pbindex data/#{STRAIN_NAME}_align0.bam
+			variantCaller -j 12 --algorithm arrow -r data/#{STRAIN_NAME}_postcirc.fasta -o data/#{STRAIN_NAME}_polish0.fasta -o data/#{STRAIN_NAME}_polish0.gff -o data/#{STRAIN_NAME}_polish0.vcf data/#{STRAIN_NAME}_align0.bam
 
-	conda deactivate
-	
-	# remove unneccessary files
-	rm data/#{STRAIN_NAME}_align*.bam*
-	rm *scraps*bam*
+			#Round2 polishing
+			pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_polish0.fasta #{STRAIN_NAME}.subreads.bam data/#{STRAIN_NAME}_align1.bam
+			pbindex data/#{STRAIN_NAME}_align1.bam
+			samtools faidx data/#{STRAIN_NAME}_polish0.fasta
+			variantCaller -j 12 --algorithm arrow -r data/#{STRAIN_NAME}_polish0.fasta -o data/#{STRAIN_NAME}_polish1.fasta -o data/#{STRAIN_NAME}_polish1.gff -o data/#{STRAIN_NAME}_polish1.vcf data/#{STRAIN_NAME}_align1.bam
 
-  SH
+			conda deactivate
+			
+			# remove unneccessary files
+			rm data/#{STRAIN_NAME}_align*.bam*
+			rm *scraps*bam*
+
+		SH
+	elsif SEQ_PLATFORM=='SEQ'
+		system <<-SH or abort
+
+
+			module purge all
+			unset PYTHONPATH
+			unset PERL5LIB
+			unset R_LIBS
+			module load anaconda2
+			module load zlib
+
+			#Round1 polishing
+			pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_postcirc.fasta subreads.xml data/#{STRAIN_NAME}_align0.bam
+			gcpp -j 12 -r data/#{STRAIN_NAME}_postcirc.fasta -o data/#{STRAIN_NAME}_polish0.fasta data/#{STRAIN_NAME}_align0.bam
+
+			#Round2 polishing
+			pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_polish0.fasta subreads.xml data/#{STRAIN_NAME}_align1.bam
+			gcpp -j 12 -r data/#{STRAIN_NAME}_polish0.fasta -o data/#{STRAIN_NAME}_polish1.fasta data/#{STRAIN_NAME}_align1.bam
+
+			conda deactivate
+			
+			# remove unneccessary files
+			rm data/#{STRAIN_NAME}_align*.bam*
+			rm *scraps*bam*
+
+		SH
+
+
+	end
 
   cp "data/#{STRAIN_NAME}_polish1.fasta", "data/#{STRAIN_NAME}_consensus_circ.fasta"
   
