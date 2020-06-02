@@ -1178,6 +1178,28 @@ def get_page_bookends(options):
 
 
 # Creates a SVG of the assembly graph file
+
+def create_graph_gfa2(options):
+    gfa2 = options.best_edges
+    gfa = options.output_folder + "/contig.gfa"
+    output = options.output_folder + '/qc_website/graph.svg'
+    with open(gfa2) as f, open(gfa, 'w') as o:
+        for line in f:
+            if line.startswith("H"):
+                o.write(line)
+            elif line.startswith("S"):
+                s, name, length, seq = line.rstrip().split("\t")
+                o.write("\t".join([s, name, seq, "LN:  " + length]) + "\n")
+            elif line.startswith("E"):
+                e, name, start, stop = line.split("\t")[:4]
+                startdir = start[-1]
+                stopdir = stop[-1]
+                start = start[:-1]
+                stop = stop[:-1]
+                o.write("\t".join(["L", start, startdir, stop, stopdir, "*"]) + "\n")
+    subprocess.Popen("Bandage image %s %s" % (gfa, output), shell=True).wait()
+
+
 def create_graph(options):
     gkp_store = options.gkp_location
     tig_store = options.tig_location
@@ -1468,9 +1490,10 @@ options.gkp_location = options.graph_dir + '/celera-assembler.gkpStore'
 options.tig_location = options.graph_dir + '/celera-assembler.tigStore'
 if os.path.exists(options.graph_dir + '/best.edges'):
     options.best_edges = options.graph_dir + '/best.edges'
-else:
+elif os.path.exists(options.graph_dir + '/4-unitigger/best.edges'):
     options.best_edges = options.graph_dir + '/4-unitigger/best.edges'
-
+elif os.path.exists(options.graph_dir + '/contig.gfa2'):
+    options.best_edges = options.graph_dir + '/contig.gfa2'
 
 if not os.path.exists(options.assembly_FASTA):
     sys.stderr.write('We expected the assembly FASTA to be here: ' + options.assembly_FASTA + ' but no file was found. \n')
@@ -1509,7 +1532,10 @@ runBWA(options.assembly_FASTA, options.assembly_reads, options.output_folder, '3
 coverage, out_flag = draw_graph(options, header, footer)
 do_blast(options, header, footer, coverage)
 create_dot_plot(options)
-create_graph(options)
+if options.best_edges.endswith(".gfa2"):
+    create_graph_gfa2(options)
+else:
+    create_graph(options)
 write_index(options, header, footer, coverage, out_flag)
 if not options.html_loc is None:
     copy_html(options)
