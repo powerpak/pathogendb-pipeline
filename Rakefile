@@ -191,8 +191,8 @@ end
 # =======================
 
 desc "Copies or downloads raw reads from a PacBio job to the OUT directory"
-task :pull_down_raw_reads => [:check, "corrected.fastq"]  # <-- file(s) created by this task
-file "corrected.fastq" do |t, args|                       # <-- implementation for generating each of these files
+task :pull_down_raw_reads => [:check, "data/corrected.fastq"]  # <-- file(s) created by this task
+file "data/corrected.fastq" do |t, args|                       # <-- implementation for generating each of these files
   job_id = ENV['SMRT_JOB_ID']                        # Example SMRT_JOB_ID's that work are: 019194, 020266
   abort "FATAL: Task pull_down_raw_reads requires specifying SMRT_JOB_ID" unless job_id
 
@@ -256,6 +256,7 @@ file "corrected.fastq" do |t, args|                       # <-- implementation f
 				cp #{found_assembly_dir}/outputs/consensus.fasta data/polished_assembly.fasta
 				gzip data/polished_assembly.fasta
 		    cp #{found_assembly_dir}/cromwell-job/call-falcon/falcon/*/call-task__2_asm_falcon/execution/preads4falcon.fasta data/corrected.fastq
+				cp #{found_assembly_dir}/cromwell-job/call-falcon/falcon/*/call-task__2_asm_falcon/execution/contig.gfa2 data/contig.gfa2
 			SH
 			
 		else			
@@ -270,7 +271,7 @@ end
 
 desc "Uses smrtpipe.py to assemble raw reads from PacBio within OUT directory"
 task :assemble_raw_reads => [:check, "data/polished_assembly.fasta.gz"]
-file "data/polished_assembly.fasta.gz" => "corrected.fastq" do |t|
+file "data/polished_assembly.fasta.gz" => "data/corrected.fastq" do |t|
 
 	if SEQ_PLATFORM=='RS2'
 		system <<-SH or abort
@@ -409,6 +410,8 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
 			module load anaconda2
 			module load zlib
 
+			source activate pbpolish
+
 			#Round1 polishing
 			pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_postcirc.fasta subreads.xml data/#{STRAIN_NAME}_align0.bam
 			gcpp -j 12 -r data/#{STRAIN_NAME}_postcirc.fasta -o data/#{STRAIN_NAME}_polish0.fasta data/#{STRAIN_NAME}_align0.bam
@@ -421,7 +424,7 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
 			
 			# remove unneccessary files
 			rm data/#{STRAIN_NAME}_align*.bam*
-			rm *scraps*bam*
+			
 
 		SH
 
@@ -511,14 +514,21 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   
   system <<-SH
     module purge
+
+		module load anaconda2
+		source activate bandage
     module load blast/2.2.26+
     module load bwa/0.7.12
     module load celera/8.1
     module load python/2.7.16
     module load ucsc-utils/2015-04-07
     module load samtools/1.2
+		
+		
     #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
      -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
+
+		conda deactivate
   SH
 end
 
