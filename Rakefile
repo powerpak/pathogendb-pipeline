@@ -53,8 +53,8 @@ task :env do
   puts "Output directory: #{OUT}"
   mkdir_p File.join(REPO_DIR, "vendor")
   
-  sc_hydra_scratch = "/sc/hydra/scratch/#{ENV['USER']}"
-  #sc_hydra_scratch = "/sc/arion/projects/InfectiousDisease/tmp" #if space runs out in scratch
+  #sc_hydra_scratch = "/sc/hydra/scratch/#{ENV['USER']}"
+  sc_hydra_scratch = "/sc/arion/projects/InfectiousDisease/tmp" #if space runs out in scratch
   ENV['TMP'] ||= Dir.exists?(sc_hydra_scratch) ? sc_hydra_scratch : "/tmp"
   # Always use our locally bundled (patched) perl modules
   ENV['PERL5LIB'] = "#{REPO_DIR}/lib/perl"
@@ -252,11 +252,11 @@ file "data/corrected.fastq" do |t, args|                       # <-- implementat
 		if found_assembly_dir
 			mkdir_p "data"
 			system <<-SH
-				cp #{found_assembly_dir}/entry-points/*.xml subreads.xml
-				cp #{found_assembly_dir}/outputs/consensus.fasta data/polished_assembly.fasta
-				gzip data/polished_assembly.fasta
-		    cp #{found_assembly_dir}/cromwell-job/call-falcon/falcon/*/call-task__2_asm_falcon/execution/preads4falcon.fasta data/corrected.fastq
-				cp #{found_assembly_dir}/cromwell-job/call-falcon/falcon/*/call-task__2_asm_falcon/execution/contig.gfa2 data/contig.gfa2
+			  cp #{found_assembly_dir}/entry-points/*.xml subreads.xml
+			  cp #{found_assembly_dir}/outputs/consensus.fasta data/polished_assembly.fasta
+			  gzip data/polished_assembly.fasta
+ 		          cp #{found_assembly_dir}/cromwell-job/call-falcon/falcon/*/call-task__2_asm_falcon/execution/preads4falcon.fasta data/; mv data/preads4falcon.fasta data/corrected.fastq
+			  cp #{found_assembly_dir}/cromwell-job/call-falcon/falcon/*/call-task__2_asm_falcon/execution/contig.gfa2 data/
 			SH
 			
 		else			
@@ -368,7 +368,6 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
 	if SEQ_PLATFORM=='RS2'
 		system <<-SH or abort
 		
-			subreads=$(cat bash5.fofn | tr '\r\n' ' ')
 			module purge all
 			unset PYTHONPATH
 			unset PERL5LIB
@@ -378,7 +377,7 @@ file "data/#{STRAIN_NAME}_consensus_circ.fasta" => "data/#{STRAIN_NAME}_postcirc
 
 			source activate pbpolish
 
-			bax2bam $subreads -o #{STRAIN_NAME}
+			bax2bam -f bash5.fofn -o #{STRAIN_NAME}
 			
 			#Round1 polishing
 			pbmm2 align --sort -j 12 -J 2 data/#{STRAIN_NAME}_postcirc.fasta #{STRAIN_NAME}.subreads.bam data/#{STRAIN_NAME}_align0.bam 
@@ -515,8 +514,8 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
   system <<-SH
     module purge
 
-		module load anaconda2
-		source activate bandage
+    module load anaconda2
+    source activate bandage
     module load blast/2.2.26+
     module load bwa/0.7.12
     module load celera/8.1
@@ -528,7 +527,7 @@ file "data/www/index.html" => "data/#{STRAIN_NAME}_prokka.fasta" do |t|
     #{REPO_DIR}/scripts/create_QC_webpage.py -o data/qc_wd -w data/www -f data/#{STRAIN_NAME}_prokka.fasta \
      -g data -r data/corrected.fastq -a #{species_clean}_#{STRAIN_NAME}_#{job_id}
 
-		conda deactivate
+    conda deactivate
   SH
 end
 
