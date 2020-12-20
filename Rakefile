@@ -130,7 +130,7 @@ file "#{MEC_TYPER_DIR}/SCCmecFinder_v4.py" do
   Dir.chdir("#{REPO_DIR}/vendor/") do
     system <<-SH
       git clone https://github.com/ajaybabu27/sccmecfinder.git
-      git clone https://ajay_obla@bitbucket.org/genomicepidemiology/sccmecfinder_db.git   
+      git clone git@bitbucket.org:genomicepidemiology/sccmecfinder_db.git
     SH
   end
 end
