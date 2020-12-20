@@ -20,6 +20,8 @@ MUMMER_DIR = "#{REPO_DIR}/vendor/MUMmer3.23"
 ALIEN_DIR = "#{REPO_DIR}/vendor/alien_hunter-1.7"
 BCFTOOLS_DIR = "#{REPO_DIR}/vendor/bcftools"
 HTSLIB_DIR = "#{REPO_DIR}/vendor/htslib"
+SPA_TYPER_DIR = "#{REPO_DIR}/vendor/spa_typing"
+MEC_TYPER_DIR = "#{REPO_DIR}/vendor/sccmecfinder"
 
 IGB_DIR = ENV['IGB_DIR'] || "#{ENV['HOME']}/www/igb"
 
@@ -67,7 +69,7 @@ end
 ENV_ERROR = "Configure this in scripts/env.sh and run `source scripts/env.sh` before running rake."
 
 desc "Checks environment variables and requirements before running tasks"
-task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools, :alien_hunter] do
+task :check => [:env, "#{REPO_DIR}/scripts/env.sh", :mummer, :bcftools, :alien_hunter, :spa_typer, :scc_mec_typer] do
   unless `module avail 2>&1 | grep smrtanalysis/2.3.0` != ''
     abort "FATAL: You must have the smrtanalysis/2.3.0 module in your MODULEPATH."
   end
@@ -105,6 +107,30 @@ file "#{ALIEN_DIR}/alien_hunter" do
     system <<-SH
       curl -L -o alien_hunter.tar.gz 'ftp://ftp.sanger.ac.uk/pub/resources/software/alien_hunter/alien_hunter.tar.gz'
       tar xvzf alien_hunter.tar.gz  # Creates alien_hunter dir
+    SH
+  end
+end
+
+task :spa_typer => [:env, SPA_TYPER_DIR, "#{SPA_TYPER_DIR}/get_spa_type.py"]
+directory SPA_TYPER_DIR
+file "#{SPA_TYPER_DIR}/get_spa_type.py" do
+  Dir.chdir("#{REPO_DIR}/vendor/") do
+    system <<-SH
+      git clone https://github.com/ajaybabu27/spa_typing.git
+      cd spa_typing
+      wget http://spa.ridom.de/dynamic/sparepeats.fasta
+      wget --no-check-certificate http://spaserver2.ridom.de/dynamic/spatypes.txt
+    SH
+  end
+end
+
+task :scc_mec_typer => [:env, MEC_TYPER_DIR, "#{MEC_TYPER_DIR}/SCCmecFinder_v4.py"]
+directory MEC_TYPER_DIR
+file "#{MEC_TYPER_DIR}/SCCmecFinder_v4.py" do
+  Dir.chdir("#{REPO_DIR}/vendor/") do
+    system <<-SH
+      git clone https://github.com/ajaybabu27/sccmecfinder.git
+      git clone https://ajay_obla@bitbucket.org/genomicepidemiology/sccmecfinder_db.git   
     SH
   end
 end
@@ -199,7 +225,7 @@ file "data/corrected.fastq" do |t, args|                       # <-- implementat
 
 	if SEQ_PLATFORM=='RS2'
 		job_id = job_id.rjust(6, '0')
-		pacbio_job_dirs = ["/sc/hydra/projects/pacbio/modules/smrtportal/2.3.0/smrtportal/userdata/jobs/#{job_id[0..2]}/#{job_id}",
+		pacbio_job_dirs = ["/sc/arion/projects/pacbio/modules/smrtportal/smrtportal/userdata/jobs/#{job_id[0..2]}/#{job_id}",
 		                   "/sc/orga/projects/InfectiousDisease/old_smrtportal_jobs/#{job_id}","/sc/orga/scratch/attieo02/#{job_id}"]
 		smrtpipe_log_url = "http://node1.1425mad.mssm.edu/pacbio/secondary/#{job_id[0..2]}/#{job_id}/log/smrtpipe.log"
 		
@@ -564,7 +590,7 @@ task :prokka_to_igb => [:check, :prokka_QC_rpi] do |t|
     module load bioperl
     module load ucsc-utils/2015-04-07
     module load openssl/1.0.2
-    module load CPAN
+    module load CPAN    
     export SAS_DIR=#{SAS_DIR}
     export REPO_DIR=#{REPO_DIR}
     perl #{REPO_DIR}/scripts/rast2igb.pl \
@@ -575,6 +601,18 @@ task :prokka_to_igb => [:check, :prokka_QC_rpi] do |t|
         -b data/qc_wd/alignment.sorted.bam \
         -i #{IGB_DIR} \
         -r #{REPO_DIR}
+
+   module purge
+   module load python/2.7.16
+   module load CPAN
+   module load blast/2.2.26
+
+   python2 #{MEC_TYPER_DIR}/SCCmecFinder_v4.py -iDb #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}/#{species_clean}_#{STRAIN_NAME}_#{job_id}.fasta -iKm #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}/#{species_clean}_#{STRAIN_NAME}_#{job_id}.fasta -k 90 -l 0.6 -o  #{STRAIN_NAME}_mec_results -d #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}/SCCmec_finder  -db_dir #{MEC_TYPER_DIR}_db/  -sc_dir #{MEC_TYPER_DIR}/script_dir/ -db_choice reference
+
+   module purge
+   module load python/3.8.2
+   python #{SPA_TYPER_DIR}/get_spa_type.py -f #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}/#{species_clean}_#{STRAIN_NAME}_#{job_id}.fasta > #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}/#{STRAIN_NAME}_spatype.txt
+
   SH
 end
 
@@ -595,11 +633,16 @@ task :igb_to_pathogendb => [:check, :prokka_to_igb] do |t|
   species_clean = (SPECIES && SPECIES != '${SPECIES}') ? SPECIES.gsub(/[^a-z_]/i, "_") : SPECIES
   
   system <<-SH
+
     module purge
     module load CPAN
+    module load python/2.7.16
     export SAS_DIR=#{SAS_DIR}
     perl #{REPO_DIR}/scripts/igb2pathogendb.pl \
         -i #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}
+
+    python #{REPO_DIR}/scripts/push_spa_mec_annot_pdb.py -m #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}/SCCmec_finder/#{STRAIN_NAME}_mec_results.txt -s #{IGB_DIR}/#{species_clean}_#{STRAIN_NAME}_#{job_id}/#{STRAIN_NAME}_spatype.txt -a #{job_id}
+
   SH
 end
 
